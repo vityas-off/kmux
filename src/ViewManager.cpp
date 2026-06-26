@@ -132,6 +132,13 @@ void ViewManager::setupActions()
 
     // Let's reuse the pointer, no need not to.
     auto *action = new QAction(this);
+    action->setIcon(QIcon::fromTheme(QStringLiteral("folder-new")));
+    action->setText(i18nc("@action:inmenu", "Add Workspace"));
+    connect(action, &QAction::triggered, this, &ViewManager::createProject);
+    collection->addAction(QStringLiteral("add-workspace"), action);
+    _workspaceContainer->addAction(action);
+
+    action = new QAction(this);
     action->setIcon(QIcon::fromTheme(QStringLiteral("view-split-left-right")));
     action->setText(i18nc("@action:inmenu", "Split View Left/Right"));
     connect(action, &QAction::triggered, this, &ViewManager::splitLeftRight);

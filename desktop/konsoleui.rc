@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
 
-<gui name="konsole" version="20">
+<gui name="konsole" version="21">
     <MenuBar>
         <Menu name="file"><text>File</text>
             <Action name="new-window"/>
@@ -60,6 +60,7 @@
     <ToolBar name="mainToolBar">
         <text>Main Toolbar</text>
         <index>0</index>
+        <Action name="add-workspace"/>
         <Action name="new-tab"/>
         <Action name="split-view"/>
     </ToolBar>

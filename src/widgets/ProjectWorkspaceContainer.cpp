@@ -15,7 +15,6 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QStackedWidget>
-#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <KLocalizedString>
@@ -27,15 +26,9 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     , _rail(new QWidget(this))
     , _projectList(new QListWidget(this))
     , _stack(new QStackedWidget(this))
-    , _newProjectButton(new QToolButton(this))
 {
     _rail->setObjectName(QStringLiteral("projectRail"));
     _rail->setFixedWidth(164);
-
-    _newProjectButton->setAutoRaise(true);
-    _newProjectButton->setIcon(QIcon::fromTheme(QStringLiteral("list-add")));
-    _newProjectButton->setToolTip(i18nc("@info:tooltip", "New Project"));
-    connect(_newProjectButton, &QToolButton::clicked, this, &ProjectWorkspaceContainer::newProjectRequested);
 
     _projectList->setObjectName(QStringLiteral("projectList"));
     _projectList->setFrameShape(QFrame::NoFrame);
@@ -50,7 +43,6 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     auto *railLayout = new QVBoxLayout(_rail);
     railLayout->setContentsMargins(6, 6, 6, 6);
     railLayout->setSpacing(6);
-    railLayout->addWidget(_newProjectButton, 0, Qt::AlignLeft);
     railLayout->addWidget(_projectList, 1);
 
     auto *rootLayout = new QHBoxLayout(this);
@@ -153,7 +145,7 @@ int ProjectWorkspaceContainer::projectCount() const
 
 QString ProjectWorkspaceContainer::nextDefaultProjectTitle() const
 {
-    return i18nc("@title", "Project %1", _nextProjectNumber);
+    return i18nc("@title", "Workspace %1", _nextProjectNumber);
 }
 
 void ProjectWorkspaceContainer::setProjectNavigationVisible(bool visible)
@@ -179,16 +171,16 @@ void ProjectWorkspaceContainer::openProjectContextMenu(const QPoint &point)
     }
 
     QMenu menu(this);
-    menu.addAction(QIcon::fromTheme(QStringLiteral("list-add")), i18nc("@action:inmenu", "New Project"), this, [this] {
+    menu.addAction(QIcon::fromTheme(QStringLiteral("folder-new")), i18nc("@action:inmenu", "Add Workspace"), this, [this] {
         Q_EMIT newProjectRequested();
     });
 
-    auto *renameAction = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "Rename Project..."), this, [this] {
+    auto *renameAction = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "Rename Workspace..."), this, [this] {
         renameCurrentProject();
     });
     renameAction->setEnabled(activeContainer() != nullptr);
 
-    auto *closeAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-close")), i18nc("@action:inmenu", "Close Project"), this, [this] {
+    auto *closeAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-close")), i18nc("@action:inmenu", "Close Workspace"), this, [this] {
         if (auto *container = activeContainer()) {
             Q_EMIT closeProjectRequested(container);
         }
@@ -207,8 +199,8 @@ void ProjectWorkspaceContainer::renameCurrentProject()
 
     bool ok = false;
     const QString title = QInputDialog::getText(this,
-                                                i18nc("@title:window", "Rename Project"),
-                                                i18nc("@label:textbox", "Project name:"),
+                                                i18nc("@title:window", "Rename Workspace"),
+                                                i18nc("@label:textbox", "Workspace name:"),
                                                 QLineEdit::Normal,
                                                 _projects.at(row).title,
                                                 &ok);

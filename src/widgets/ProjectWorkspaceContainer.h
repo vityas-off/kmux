@@ -14,7 +14,6 @@ class QListWidget;
 class QListWidgetItem;
 class QPoint;
 class QStackedWidget;
-class QToolButton;
 
 namespace Konsole
 {
@@ -64,7 +63,6 @@ private:
     QWidget *_rail;
     QListWidget *_projectList;
     QStackedWidget *_stack;
-    QToolButton *_newProjectButton;
     int _nextProjectNumber = 1;
 };
 
