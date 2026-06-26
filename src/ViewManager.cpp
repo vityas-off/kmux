@@ -1999,6 +1999,10 @@ TabbedViewContainer *ViewManager::containerForTerminal(TerminalDisplay *terminal
 void ViewManager::registerTerminal(TerminalDisplay *terminal)
 {
     auto *container = activeContainer();
+    if (terminal == nullptr || container == nullptr) {
+        return;
+    }
+
     connect(terminal, &TerminalDisplay::requestToggleExpansion, container, &TabbedViewContainer::toggleMaximizeCurrentTerminal, Qt::UniqueConnection);
     connect(terminal, &TerminalDisplay::requestMoveToNewTab, container, &TabbedViewContainer::moveToNewTab, Qt::UniqueConnection);
 }

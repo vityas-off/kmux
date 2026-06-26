@@ -13,6 +13,7 @@
 class QListWidget;
 class QListWidgetItem;
 class QPoint;
+class QSplitter;
 class QStackedWidget;
 
 namespace Konsole
@@ -48,6 +49,7 @@ private Q_SLOTS:
     void currentRowChanged(int row);
     void openProjectContextMenu(const QPoint &point);
     void renameCurrentProject();
+    void syncProjectsToListOrder();
 
 private:
     struct Project {
@@ -61,6 +63,7 @@ private:
 
     QList<Project> _projects;
     QWidget *_rail;
+    QSplitter *_splitter;
     QListWidget *_projectList;
     QStackedWidget *_stack;
     int _nextProjectNumber = 1;

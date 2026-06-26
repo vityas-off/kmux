@@ -7,6 +7,7 @@
 #include "widgets/ViewContainer.h"
 
 #include <QAbstractItemView>
+#include <QDropEvent>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -14,23 +15,60 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QSplitter>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QVBoxLayout>
+#include <QVariant>
 
 #include <KLocalizedString>
 
+#include <functional>
+
 using namespace Konsole;
+
+namespace
+{
+
+class ProjectListWidget : public QListWidget
+{
+public:
+    explicit ProjectListWidget(QWidget *parent = nullptr)
+        : QListWidget(parent)
+    {
+    }
+
+    std::function<void()> itemsDropped;
+
+protected:
+    void dropEvent(QDropEvent *event) override
+    {
+        QListWidget::dropEvent(event);
+        if (event->isAccepted() && itemsDropped) {
+            itemsDropped();
+        }
+    }
+};
+
+}
 
 ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     : QWidget(parent)
     , _rail(new QWidget(this))
-    , _projectList(new QListWidget(this))
+    , _splitter(new QSplitter(Qt::Horizontal, this))
+    , _projectList(new ProjectListWidget(this))
     , _stack(new QStackedWidget(this))
 {
     _rail->setObjectName(QStringLiteral("projectRail"));
-    _rail->setFixedWidth(164);
+    _rail->setMinimumWidth(120);
+    _rail->setMaximumWidth(320);
 
     _projectList->setObjectName(QStringLiteral("projectList"));
+    _projectList->setDefaultDropAction(Qt::MoveAction);
+    _projectList->setDragDropMode(QAbstractItemView::InternalMove);
+    _projectList->setDragDropOverwriteMode(false);
+    _projectList->setDragEnabled(true);
+    _projectList->setDropIndicatorShown(true);
     _projectList->setFrameShape(QFrame::NoFrame);
     _projectList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _projectList->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -39,6 +77,10 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     connect(_projectList, &QListWidget::currentRowChanged, this, &ProjectWorkspaceContainer::currentRowChanged);
     connect(_projectList, &QListWidget::itemDoubleClicked, this, &ProjectWorkspaceContainer::renameCurrentProject);
     connect(_projectList, &QListWidget::customContextMenuRequested, this, &ProjectWorkspaceContainer::openProjectContextMenu);
+    static_cast<ProjectListWidget *>(_projectList)->itemsDropped = [this] {
+        QTimer::singleShot(0, this, &ProjectWorkspaceContainer::syncProjectsToListOrder);
+    };
+    _projectList->viewport()->setAcceptDrops(true);
 
     auto *railLayout = new QVBoxLayout(_rail);
     railLayout->setContentsMargins(6, 6, 6, 6);
@@ -48,8 +90,14 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     auto *rootLayout = new QHBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
-    rootLayout->addWidget(_rail);
-    rootLayout->addWidget(_stack, 1);
+
+    _splitter->setChildrenCollapsible(false);
+    _splitter->addWidget(_rail);
+    _splitter->addWidget(_stack);
+    _splitter->setStretchFactor(0, 0);
+    _splitter->setStretchFactor(1, 1);
+    _splitter->setSizes({164, 800});
+    rootLayout->addWidget(_splitter);
 
     applyRailStyle();
 }
@@ -66,6 +114,8 @@ int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const 
     const int index = _projects.count() - 1;
     _stack->addWidget(container);
     auto *item = new QListWidgetItem(_projectList);
+    item->setData(Qt::UserRole, QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(container)));
+    item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
     item->setSizeHint(QSize(1, 30));
     updateListItem(index);
 
@@ -81,8 +131,7 @@ void ProjectWorkspaceContainer::removeProject(TabbedViewContainer *container)
         return;
     }
 
-    QWidget *widget = _stack->widget(index);
-    _stack->removeWidget(widget);
+    _stack->removeWidget(container);
 
     delete _projectList->takeItem(index);
     _projects.removeAt(index);
@@ -210,6 +259,37 @@ void ProjectWorkspaceContainer::renameCurrentProject()
 
     _projects[row].title = title.trimmed();
     updateListItem(row);
+}
+
+void ProjectWorkspaceContainer::syncProjectsToListOrder()
+{
+    if (_projectList->count() != _projects.count()) {
+        qWarning("Project workspace list and container list are out of sync after drag/drop");
+        return;
+    }
+
+    QList<Project> reorderedProjects;
+    reorderedProjects.reserve(_projects.count());
+
+    for (int row = 0; row < _projectList->count(); ++row) {
+        auto *item = _projectList->item(row);
+        if (item == nullptr) {
+            qWarning("Project workspace list contains a null item after drag/drop");
+            return;
+        }
+
+        auto *container = reinterpret_cast<TabbedViewContainer *>(item->data(Qt::UserRole).value<quintptr>());
+        const int index = indexOf(container);
+        if (index < 0) {
+            qWarning("Project workspace list contains an unknown container after drag/drop");
+            return;
+        }
+
+        reorderedProjects.append(_projects.at(index));
+    }
+
+    _projects = reorderedProjects;
+    currentRowChanged(_projectList->currentRow());
 }
 
 int ProjectWorkspaceContainer::indexOf(TabbedViewContainer *container) const
