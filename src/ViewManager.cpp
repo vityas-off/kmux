@@ -49,6 +49,7 @@
 #include "session/SessionManager.h"
 
 #include "terminalDisplay/TerminalDisplay.h"
+#include "widgets/ProjectWorkspaceContainer.h"
 #include "widgets/ViewContainer.h"
 #include "widgets/ViewSplitter.h"
 
@@ -61,6 +62,7 @@ Q_DECLARE_METATYPE(QList<double>);
 ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     : QObject(parent)
     , _viewContainer(nullptr)
+    , _workspaceContainer(nullptr)
     , _pluggedController(nullptr)
     , _sessionMap(QHash<TerminalDisplay *, Session *>())
     , _actionCollection(collection)
@@ -74,14 +76,16 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     qDBusRegisterMetaType<QList<double>>();
 #endif
 
+    _workspaceContainer = new ProjectWorkspaceContainer();
     _viewContainer = createContainer();
+    _workspaceContainer->addProject(_viewContainer, _workspaceContainer->nextDefaultProjectTitle());
+
+    connect(_workspaceContainer, &ProjectWorkspaceContainer::newProjectRequested, this, &ViewManager::createProject);
+    connect(_workspaceContainer, &ProjectWorkspaceContainer::closeProjectRequested, this, &ViewManager::closeProject);
+    connect(_workspaceContainer, &ProjectWorkspaceContainer::currentProjectChanged, this, &ViewManager::activeProjectChanged);
+
     // setup actions which are related to the views
     setupActions();
-
-    /* TODO: Reconnect
-    // emit a signal when all of the views held by this view manager are destroyed
-    */
-    connect(_viewContainer.data(), &Konsole::TabbedViewContainer::empty, this, &Konsole::ViewManager::empty);
 
     // listen for profile changes
     connect(ProfileManager::instance(), &Konsole::ProfileManager::profileChanged, this, &Konsole::ViewManager::profileChanged);
@@ -105,12 +109,12 @@ int ViewManager::managerId() const
 
 QWidget *ViewManager::activeView() const
 {
-    return _viewContainer->currentWidget();
+    return activeContainer() != nullptr ? activeContainer()->currentWidget() : nullptr;
 }
 
 QWidget *ViewManager::widget() const
 {
-    return _viewContainer;
+    return _workspaceContainer;
 }
 
 void ViewManager::setupActions()
@@ -262,7 +266,7 @@ void ViewManager::setupActions()
     connect(action, &QAction::triggered, this, &ViewManager::focusUp);
     collection->addAction(QStringLiteral("focus-view-above"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::SHIFT | Qt::Key_Up);
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
     _multiSplitterOnlyActions << action;
 
     action = new QAction(i18nc("@action Shortcut entry", "Focus Below Terminal"), this);
@@ -270,7 +274,7 @@ void ViewManager::setupActions()
     collection->addAction(QStringLiteral("focus-view-below"), action);
     connect(action, &QAction::triggered, this, &ViewManager::focusDown);
     _multiSplitterOnlyActions << action;
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(i18nc("@action Shortcut entry", "Focus Left Terminal"), this);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::SHIFT | Qt::Key_Left);
@@ -321,50 +325,66 @@ void ViewManager::setupActions()
     action->setIcon(QIcon::fromTheme(QStringLiteral("view-fullscreen")));
     collection->addAction(QStringLiteral("toggle-maximize-current-view"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::SHIFT | Qt::Key_E);
-    connect(action, &QAction::triggered, _viewContainer, &TabbedViewContainer::toggleMaximizeCurrentTerminal);
+    connect(action, &QAction::triggered, this, [this] {
+        if (auto *container = activeContainer()) {
+            container->toggleMaximizeCurrentTerminal();
+        }
+    });
     _multiSplitterOnlyActions << action;
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(i18nc("@action Shortcut entry", "Toggle zoom-maximize current view"), this);
     action->setText(i18nc("@action:inmenu", "Toggle zoom-maximize current view"));
     action->setIcon(QIcon::fromTheme(QStringLiteral("view-fullscreen")));
     collection->addAction(QStringLiteral("toggle-zoom-current-view"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::SHIFT | Qt::Key_Z);
-    connect(action, &QAction::triggered, _viewContainer, &TabbedViewContainer::toggleZoomMaximizeCurrentTerminal);
+    connect(action, &QAction::triggered, this, [this] {
+        if (auto *container = activeContainer()) {
+            container->toggleZoomMaximizeCurrentTerminal();
+        }
+    });
     _multiSplitterOnlyActions << action;
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(i18nc("@action Shortcut entry", "Move tab to the right"), this);
     collection->addAction(QStringLiteral("move-tab-to-right"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_Right);
-    connect(action, &QAction::triggered, _viewContainer, &TabbedViewContainer::moveTabRight);
+    connect(action, &QAction::triggered, this, [this] {
+        if (auto *container = activeContainer()) {
+            container->moveTabRight();
+        }
+    });
     _multiTabOnlyActions << action;
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(i18nc("@action Shortcut entry", "Move tab to the left"), this);
     collection->addAction(QStringLiteral("move-tab-to-left"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_Left);
-    connect(action, &QAction::triggered, _viewContainer, &TabbedViewContainer::moveTabLeft);
+    connect(action, &QAction::triggered, this, [this] {
+        if (auto *container = activeContainer()) {
+            container->moveTabLeft();
+        }
+    });
     _multiTabOnlyActions << action;
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(i18nc("@action Shortcut entry", "Setup semantic integration (bash)"), this);
     collection->addAction(QStringLiteral("semantic-setup-bash"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_BracketRight);
     connect(action, &QAction::triggered, this, &ViewManager::semanticSetupBash);
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(i18nc("@action Shortcut entry", "Toggle semantic hints display"), this);
     collection->addAction(QStringLiteral("toggle-semantic-hints"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_BracketLeft);
     connect(action, &QAction::triggered, this, &ViewManager::toggleSemanticHints);
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(i18nc("@action Shortcut entry", "Toggle line numbers display"), this);
     collection->addAction(QStringLiteral("toggle-line-numbers"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_Backslash);
     connect(action, &QAction::triggered, this, &ViewManager::toggleLineNumbers);
-    _viewContainer->addAction(action);
+    _workspaceContainer->addAction(action);
 
     action = new QAction(this);
     action->setText(i18nc("@action:inmenu", "Equal size to all views"));
@@ -393,23 +413,19 @@ void ViewManager::setupActions()
         }
     }
 
-    connect(_viewContainer, &TabbedViewContainer::viewAdded, this, &ViewManager::toggleActionsBasedOnState);
-    connect(_viewContainer, &QTabWidget::currentChanged, this, &ViewManager::toggleActionsBasedOnState);
-    // Let the view container remove the view before counting tabs
-    connect(_viewContainer, &TabbedViewContainer::viewRemoved, this, &ViewManager::toggleActionsBasedOnState);
-
     toggleActionsBasedOnState();
 }
 
 void ViewManager::toggleActionsBasedOnState()
 {
-    const int count = _viewContainer->count();
+    auto *container = activeContainer();
+    const int count = container != nullptr ? container->count() : 0;
     for (QAction *tabOnlyAction : std::as_const(_multiTabOnlyActions)) {
         tabOnlyAction->setEnabled(count > 1);
     }
 
-    if ((_viewContainer != nullptr) && (_viewContainer->activeViewSplitter() != nullptr)) {
-        const int splitCount = _viewContainer->activeViewSplitter()->getToplevelSplitter()->findChildren<TerminalDisplay *>().count();
+    if ((container != nullptr) && (container->activeViewSplitter() != nullptr)) {
+        const int splitCount = container->activeViewSplitter()->getToplevelSplitter()->findChildren<TerminalDisplay *>().count();
 
         for (QAction *action : std::as_const(_multiSplitterOnlyActions)) {
             action->setEnabled(splitCount > 1);
@@ -419,61 +435,72 @@ void ViewManager::toggleActionsBasedOnState()
 
 void ViewManager::switchToView(int index)
 {
-    _viewContainer->setCurrentIndex(index);
+    if (auto *container = activeContainer()) {
+        container->setCurrentIndex(index);
+    }
 }
 
 void ViewManager::switchToTerminalDisplay(Konsole::TerminalDisplay *terminalDisplay)
 {
+    if (auto *container = containerForTerminal(terminalDisplay)) {
+        _workspaceContainer->activateProject(container);
+    }
+
+    auto *container = activeContainer();
+    if (container == nullptr) {
+        return;
+    }
+
     auto splitter = ViewSplitter::parentSplitterForDisplay(terminalDisplay);
     auto toplevelSplitter = splitter->getToplevelSplitter();
 
     // Focus the TermialDisplay
     terminalDisplay->setFocus();
 
-    if (_viewContainer->currentWidget() != toplevelSplitter) {
+    if (container->currentWidget() != toplevelSplitter) {
         // Focus the tab
-        switchToView(_viewContainer->indexOf(toplevelSplitter));
+        switchToView(container->indexOf(toplevelSplitter));
     }
 }
 
 void ViewManager::focusUp()
 {
-    _viewContainer->activeViewSplitter()->focusUp();
+    activeContainer()->activeViewSplitter()->focusUp();
 }
 
 void ViewManager::focusDown()
 {
-    _viewContainer->activeViewSplitter()->focusDown();
+    activeContainer()->activeViewSplitter()->focusDown();
 }
 
 void ViewManager::focusLeft()
 {
-    _viewContainer->activeViewSplitter()->focusLeft();
+    activeContainer()->activeViewSplitter()->focusLeft();
 }
 
 void ViewManager::focusRight()
 {
-    _viewContainer->activeViewSplitter()->focusRight();
+    activeContainer()->activeViewSplitter()->focusRight();
 }
 
 void ViewManager::focusNext()
 {
-    _viewContainer->activeViewSplitter()->focusNext();
+    activeContainer()->activeViewSplitter()->focusNext();
 }
 
 void ViewManager::focusPrev()
 {
-    _viewContainer->activeViewSplitter()->focusPrev();
+    activeContainer()->activeViewSplitter()->focusPrev();
 }
 
 void ViewManager::moveActiveViewLeft()
 {
-    _viewContainer->moveActiveView(TabbedViewContainer::MoveViewLeft);
+    activeContainer()->moveActiveView(TabbedViewContainer::MoveViewLeft);
 }
 
 void ViewManager::moveActiveViewRight()
 {
-    _viewContainer->moveActiveView(TabbedViewContainer::MoveViewRight);
+    activeContainer()->moveActiveView(TabbedViewContainer::MoveViewRight);
 }
 
 void ViewManager::nextContainer()
@@ -483,17 +510,17 @@ void ViewManager::nextContainer()
 
 void ViewManager::nextView()
 {
-    _viewContainer->activateNextView();
+    activeContainer()->activateNextView();
 }
 
 void ViewManager::previousView()
 {
-    _viewContainer->activatePreviousView();
+    activeContainer()->activatePreviousView();
 }
 
 void ViewManager::lastView()
 {
-    _viewContainer->activateLastView();
+    activeContainer()->activateLastView();
 }
 
 void ViewManager::activateLastUsedView(bool reverse)
@@ -543,8 +570,9 @@ void ViewManager::toggleTwoViews()
 void ViewManager::detachActiveView()
 {
     // find the currently active view and remove it from its container
-    if ((_viewContainer->findChildren<TerminalDisplay *>()).count() > 1) {
-        auto activeSplitter = _viewContainer->activeViewSplitter();
+    auto *container = activeContainer();
+    if (container != nullptr && (container->findChildren<TerminalDisplay *>()).count() > 1) {
+        auto activeSplitter = container->activeViewSplitter();
         activeSplitter->clearMaximized();
         auto terminal = activeSplitter->activeTerminalDisplay();
         auto newSplitter = new ViewSplitter();
@@ -558,17 +586,26 @@ void ViewManager::detachActiveView()
 
 void ViewManager::detachActiveTab()
 {
-    if (_viewContainer->count() < 2) {
+    auto *container = activeContainer();
+    if (container == nullptr || container->count() < 2) {
         return;
     }
-    const int currentIdx = _viewContainer->currentIndex();
+    const int currentIdx = container->currentIndex();
     detachTab(currentIdx);
 }
 
 void ViewManager::detachTab(int tabIdx)
 {
-    ViewSplitter *splitter = _viewContainer->viewSplitterAt(tabIdx);
-    QHash<TerminalDisplay *, Session *> detachedSessions = forgetAll(_viewContainer->viewSplitterAt(tabIdx));
+    auto *container = qobject_cast<TabbedViewContainer *>(sender());
+    if (container == nullptr) {
+        container = activeContainer();
+    }
+    if (container == nullptr) {
+        return;
+    }
+
+    ViewSplitter *splitter = container->viewSplitterAt(tabIdx);
+    QHash<TerminalDisplay *, Session *> detachedSessions = forgetAll(container->viewSplitterAt(tabIdx));
     Q_EMIT terminalsDetached(splitter, detachedSessions);
 }
 
@@ -598,7 +635,7 @@ void ViewManager::toggleSemanticHints()
 
     profile->setProperty(Profile::SemanticHints, (profile->semanticHints() + 1) % 3);
 
-    auto activeTerminalDisplay = _viewContainer->activeViewSplitter()->activeTerminalDisplay();
+    auto activeTerminalDisplay = activeContainer()->activeViewSplitter()->activeTerminalDisplay();
     const char *names[3] = {"Never", "Sometimes", "Always"};
     activeTerminalDisplay->showNotification(i18n("Semantic hints ") + i18n(names[profile->semanticHints()]));
     activeTerminalDisplay->update();
@@ -614,7 +651,7 @@ void ViewManager::toggleLineNumbers()
 
     profile->setProperty(Profile::LineNumbers, (profile->lineNumbers() + 1) % 3);
 
-    auto activeTerminalDisplay = _viewContainer->activeViewSplitter()->activeTerminalDisplay();
+    auto activeTerminalDisplay = activeContainer()->activeViewSplitter()->activeTerminalDisplay();
     const char *names[3] = {"Never", "Sometimes", "Always"};
     activeTerminalDisplay->showNotification(i18n("Line numbers ") + i18n(names[profile->lineNumbers()]));
     activeTerminalDisplay->update();
@@ -641,7 +678,11 @@ Session *ViewManager::forgetTerminal(TerminalDisplay *terminal)
     if (session != nullptr) {
         disconnect(session, &Konsole::Session::finished, this, &Konsole::ViewManager::sessionFinished);
     }
-    _viewContainer->disconnectTerminalDisplay(terminal);
+    if (auto *container = containerForTerminal(terminal)) {
+        container->disconnectTerminalDisplay(terminal);
+    } else if (auto *container = activeContainer()) {
+        container->disconnectTerminalDisplay(terminal);
+    }
     updateTerminalDisplayHistory(terminal, true);
     return session;
 }
@@ -679,14 +720,14 @@ void ViewManager::sessionFinished(Session *session)
 {
     // if this slot is called after the view manager's main widget
     // has been destroyed, do nothing
-    if (_viewContainer.isNull()) {
+    if (_workspaceContainer.isNull()) {
         return;
     }
 
     if (_navigationMethod == TabbedNavigation) {
-        // The last session/tab, and only one view (no splits), emit empty()
+        // The last session/view in the whole window, emit empty()
         // so that close() is called in MainWindow, fixes #432077
-        if (_viewContainer->count() == 1 && _viewContainer->currentTabViewCount() == 1) {
+        if (_sessionMap.size() == 1) {
             Q_EMIT empty();
             return;
         }
@@ -722,7 +763,7 @@ void ViewManager::sessionFinished(Session *session)
         Q_EMIT unplugController(_pluggedController);
     }
 
-    if (!_sessionMap.empty()) {
+    if (!_sessionMap.empty() && containerForTerminal(view) == activeContainer()) {
         updateTerminalDisplayHistory(view, true);
         focusAnotherTerminal(splitter->getToplevelSplitter());
     }
@@ -776,7 +817,7 @@ void ViewManager::splitTopBottom()
 void ViewManager::splitAuto(bool fromNextTab)
 {
     Qt::Orientation orientation;
-    auto activeTerminalDisplay = _viewContainer->activeViewSplitter()->activeTerminalDisplay();
+    auto activeTerminalDisplay = activeContainer()->activeViewSplitter()->activeTerminalDisplay();
     if (activeTerminalDisplay->width() > activeTerminalDisplay->height()) {
         orientation = Qt::Horizontal;
     } else {
@@ -804,15 +845,20 @@ void ViewManager::splitView(Qt::Orientation orientation, bool fromNextTab)
 {
     TerminalDisplay *terminalDisplay;
     TerminalDisplay *focused;
+    auto *container = activeContainer();
+    if (container == nullptr) {
+        return;
+    }
+
     if (fromNextTab) {
-        int tabId = _viewContainer->indexOf(_viewContainer->activeViewSplitter());
-        auto nextTab = _viewContainer->viewSplitterAt(tabId + 1);
+        int tabId = container->indexOf(container->activeViewSplitter());
+        auto nextTab = container->viewSplitterAt(tabId + 1);
 
         if (!nextTab) {
             return;
         }
         terminalDisplay = nextTab->activeTerminalDisplay();
-        focused = _viewContainer->activeViewSplitter()->activeTerminalDisplay();
+        focused = container->activeViewSplitter()->activeTerminalDisplay();
     } else {
         int currentSessionId = currentSession();
         // At least one display/session exists if we are splitting
@@ -830,7 +876,7 @@ void ViewManager::splitView(Qt::Orientation orientation, bool fromNextTab)
         Q_EMIT activeViewChanged(activeViewController());
     }
 
-    _viewContainer->splitView(terminalDisplay, orientation);
+    container->splitView(terminalDisplay, orientation);
 
     toggleActionsBasedOnState();
 
@@ -840,12 +886,12 @@ void ViewManager::splitView(Qt::Orientation orientation, bool fromNextTab)
 
 void ViewManager::expandActiveContainer()
 {
-    _viewContainer->activeViewSplitter()->adjustActiveTerminalDisplaySize(10);
+    activeContainer()->activeViewSplitter()->adjustActiveTerminalDisplaySize(10);
 }
 
 void ViewManager::shrinkActiveContainer()
 {
-    _viewContainer->activeViewSplitter()->adjustActiveTerminalDisplaySize(-10);
+    activeContainer()->activeViewSplitter()->adjustActiveTerminalDisplaySize(-10);
 }
 
 void ViewManager::equalSizeAllContainers()
@@ -875,7 +921,7 @@ void ViewManager::equalSizeAllContainers()
             }
         }
     };
-    processChildren(_viewContainer->activeViewSplitter()->getToplevelSplitter());
+    processChildren(activeContainer()->activeViewSplitter()->getToplevelSplitter());
 }
 
 SessionController *ViewManager::createController(Session *session, TerminalDisplay *view)
@@ -980,7 +1026,10 @@ void ViewManager::controllerChanged(SessionController *controller)
         return;
     }
 
-    _viewContainer->setFocusProxy(controller->view());
+    if (auto *container = containerForTerminal(controller->view())) {
+        _workspaceContainer->activateProject(container);
+        container->setFocusProxy(controller->view());
+    }
     updateTerminalDisplayHistory(controller->view());
 
     _pluggedController = controller;
@@ -1021,8 +1070,17 @@ TerminalDisplay *ViewManager::findTerminalDisplay(int viewId)
 
 void ViewManager::setCurrentView(TerminalDisplay *view)
 {
+    auto *container = containerForTerminal(view);
+    if (container == nullptr) {
+        container = activeContainer();
+    }
+    if (container == nullptr) {
+        return;
+    }
+
+    _workspaceContainer->activateProject(container);
     auto parentSplitter = ViewSplitter::parentSplitterForDisplay(view);
-    _viewContainer->setCurrentWidget(parentSplitter->getToplevelSplitter());
+    container->setCurrentWidget(parentSplitter->getToplevelSplitter());
     view->setFocus();
     setCurrentSession(_sessionMap[view]->sessionId());
 }
@@ -1063,6 +1121,7 @@ TabbedViewContainer *ViewManager::createContainer()
     auto *container = new TabbedViewContainer(this, nullptr);
     container->setNavigationVisibility(_navigationVisibility);
     connect(container, &TabbedViewContainer::detachTab, this, &ViewManager::detachTab);
+    connect(container, &TabbedViewContainer::empty, this, &ViewManager::containerEmptied);
 
     // connect signals and slots
     connect(container, &Konsole::TabbedViewContainer::viewAdded, this, [this, container]() {
@@ -1076,8 +1135,78 @@ TabbedViewContainer *ViewManager::createContainer()
     connect(container, &Konsole::TabbedViewContainer::newViewWithProfileRequest, this, &Konsole::ViewManager::newViewWithProfileRequest);
     connect(container, &Konsole::TabbedViewContainer::newViewInContainerRequest, this, &Konsole::ViewManager::newViewInContainerRequest);
     connect(container, &Konsole::TabbedViewContainer::activeViewChanged, this, &Konsole::ViewManager::activateView);
+    connect(container, &TabbedViewContainer::viewAdded, this, &ViewManager::toggleActionsBasedOnState);
+    connect(container, &QTabWidget::currentChanged, this, &ViewManager::toggleActionsBasedOnState);
+    connect(container, &TabbedViewContainer::viewRemoved, this, &ViewManager::toggleActionsBasedOnState);
 
     return container;
+}
+
+void ViewManager::createProject()
+{
+    auto *container = createContainer();
+    _workspaceContainer->addProject(container, _workspaceContainer->nextDefaultProjectTitle());
+    Q_EMIT newViewRequest();
+}
+
+void ViewManager::closeProject(TabbedViewContainer *container)
+{
+    if (container == nullptr || _workspaceContainer->projectCount() <= 1) {
+        return;
+    }
+
+    const int tabCount = container->count();
+    if (tabCount == 0) {
+        containerEmptied(container);
+        return;
+    }
+
+    for (int i = tabCount - 1; i >= 0; --i) {
+        auto *splitter = container->viewSplitterAt(i);
+        if (splitter == nullptr) {
+            continue;
+        }
+
+        const auto terminals = splitter->findChildren<TerminalDisplay *>();
+        for (TerminalDisplay *terminal : terminals) {
+            terminal->sessionController()->closeSession();
+        }
+    }
+}
+
+void ViewManager::activeProjectChanged(TabbedViewContainer *container)
+{
+    if (container == nullptr || container == _viewContainer) {
+        return;
+    }
+
+    _viewContainer = container;
+
+    if (auto *splitter = container->activeViewSplitter()) {
+        if (auto *terminal = splitter->activeTerminalDisplay()) {
+            terminal->setFocus(Qt::OtherFocusReason);
+        }
+    }
+
+    toggleActionsBasedOnState();
+    Q_EMIT viewPropertiesChanged(viewProperties());
+}
+
+void ViewManager::containerEmptied(TabbedViewContainer *container)
+{
+    if (container == nullptr || _workspaceContainer.isNull()) {
+        return;
+    }
+
+    if (_workspaceContainer->projectCount() <= 1) {
+        Q_EMIT empty();
+        return;
+    }
+
+    _workspaceContainer->removeProject(container);
+    if (container == _viewContainer) {
+        _viewContainer = _workspaceContainer->activeContainer();
+    }
 }
 
 void ViewManager::setNavigationMethod(NavigationMethod method)
@@ -1100,6 +1229,9 @@ void ViewManager::setNavigationMethod(NavigationMethod method)
     // by using a separate action collection.
 
     const bool enable = (method != NoNavigation);
+    if (!_workspaceContainer.isNull()) {
+        _workspaceContainer->setProjectNavigationVisible(enable);
+    }
 
     auto enableAction = [&enable, &collection](const QString &actionName) {
         auto *action = collection->action(actionName);
@@ -1220,12 +1352,12 @@ QList<ViewProperties *> ViewManager::viewProperties() const
 {
     QList<ViewProperties *> list;
 
-    TabbedViewContainer *container = _viewContainer;
+    TabbedViewContainer *container = _workspaceContainer != nullptr ? _workspaceContainer->activeContainer() : nullptr;
     if (container == nullptr) {
         return {};
     }
 
-    const auto terminalContainers = _viewContainer->findChildren<TerminalDisplay *>();
+    const auto terminalContainers = container->findChildren<TerminalDisplay *>();
     list.reserve(terminalContainers.size());
 
     for (auto terminalDisplay : terminalContainers) {
@@ -1297,7 +1429,7 @@ void ViewManager::saveLayout(QString fileName)
         KMessageBox::error(this->widget(), i18nc("@label:textbox", "A problem occurred when saving the Layout.\n%1", file.fileName()));
     }
 
-    QJsonObject jsonSplit = saveSessionsRecurse(_viewContainer->activeViewSplitter());
+    QJsonObject jsonSplit = saveSessionsRecurse(activeContainer()->activeViewSplitter());
 
     if (!jsonSplit.isEmpty()) {
         file.write(QJsonDocument(jsonSplit).toJson());
@@ -1308,13 +1440,14 @@ void ViewManager::saveLayout(QString fileName)
 void ViewManager::saveSessions(KConfigGroup &group)
 {
     QJsonArray rootArray;
-    for (int i = 0; i < _viewContainer->count(); i++) {
-        auto *splitter = qobject_cast<QSplitter *>(_viewContainer->widget(i));
+    auto *container = activeContainer();
+    for (int i = 0; container != nullptr && i < container->count(); i++) {
+        auto *splitter = qobject_cast<QSplitter *>(container->widget(i));
         rootArray.append(saveSessionsRecurse(splitter));
     }
 
     group.writeEntry("Tabs", QJsonDocument(rootArray).toJson(QJsonDocument::Compact));
-    group.writeEntry("Active", _viewContainer->currentIndex());
+    group.writeEntry("Active", container != nullptr ? container->currentIndex() : 0);
 }
 
 namespace
@@ -1391,7 +1524,7 @@ void ViewManager::loadLayout(QString file)
     auto json = QJsonDocument::fromJson(jsonFile.readAll());
     if (!json.isEmpty()) {
         auto splitter = restoreSessionsSplitterRecurse(json.object(), this, false);
-        _viewContainer->addSplitter(splitter, _viewContainer->count());
+        activeContainer()->addSplitter(splitter, activeContainer()->count());
     }
 }
 void ViewManager::loadLayoutFile()
@@ -1408,7 +1541,7 @@ void ViewManager::restoreSessions(const KConfigGroup &group)
     const auto jsonTabs = QJsonDocument::fromJson(tabList).array();
     for (const auto &jsonSplitter : jsonTabs) {
         auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), this, true);
-        _viewContainer->addSplitter(topLevelSplitter, _viewContainer->count());
+        activeContainer()->addSplitter(topLevelSplitter, activeContainer()->count());
     }
 
     if (!jsonTabs.isEmpty())
@@ -1457,9 +1590,9 @@ void ViewManager::restoreSessions(const KConfigGroup &group)
     }
 }
 
-TabbedViewContainer *ViewManager::activeContainer()
+TabbedViewContainer *ViewManager::activeContainer() const
 {
-    return _viewContainer;
+    return _workspaceContainer != nullptr ? _workspaceContainer->activeContainer() : nullptr;
 }
 
 int ViewManager::sessionCount()
@@ -1471,8 +1604,9 @@ QStringList ViewManager::sessionList()
 {
     QStringList ids;
 
-    for (int i = 0; i < _viewContainer->count(); i++) {
-        const auto terminaldisplayList = _viewContainer->widget(i)->findChildren<TerminalDisplay *>();
+    auto *container = activeContainer();
+    for (int i = 0; container != nullptr && i < container->count(); i++) {
+        const auto terminaldisplayList = container->widget(i)->findChildren<TerminalDisplay *>();
         for (auto *terminaldisplay : terminaldisplayList) {
             ids.append(QString::number(terminaldisplay->sessionController()->session()->sessionId()));
         }
@@ -1503,7 +1637,10 @@ void ViewManager::setCurrentSession(int sessionId)
 
         auto *splitter = ViewSplitter::parentSplitterForDisplay(display);
         if (splitter != nullptr) {
-            _viewContainer->setCurrentWidget(splitter->getToplevelSplitter());
+            if (auto *container = containerForTerminal(display)) {
+                _workspaceContainer->activateProject(container);
+                container->setCurrentWidget(splitter->getToplevelSplitter());
+            }
         }
     }
 }
@@ -1583,16 +1720,17 @@ void ViewManager::moveSessionRight()
 
 void ViewManager::setTabWidthToText(bool setTabWidthToText)
 {
-    _viewContainer->tabBar()->setExpanding(!setTabWidthToText);
-    _viewContainer->tabBar()->update();
+    activeContainer()->tabBar()->setExpanding(!setTabWidthToText);
+    activeContainer()->tabBar()->update();
 }
 
 QStringList ViewManager::viewHierarchy()
 {
     QStringList list;
 
-    for (int i = 0; i < _viewContainer->count(); ++i) {
-        list.append(_viewContainer->viewSplitterAt(i)->getChildWidgetsLayout());
+    auto *container = activeContainer();
+    for (int i = 0; container != nullptr && i < container->count(); ++i) {
+        list.append(container->viewSplitterAt(i)->getChildWidgetsLayout());
     }
 
     return list;
@@ -1600,7 +1738,7 @@ QStringList ViewManager::viewHierarchy()
 
 QList<double> ViewManager::getSplitProportions(int splitterId)
 {
-    const auto *splitter = _viewContainer->findSplitter(splitterId);
+    const auto *splitter = activeContainer()->findSplitter(splitterId);
     if (splitter == nullptr)
         return QList<double>();
 
@@ -1635,7 +1773,8 @@ bool ViewManager::createSplit(int viewId, bool horizontalSplit)
 
 bool ViewManager::createSplitWithExisting(int targetSplitterId, QStringList widgetInfos, int idx, bool horizontalSplit)
 {
-    auto targetSplitter = _viewContainer->findSplitter(targetSplitterId);
+    auto *container = activeContainer();
+    auto targetSplitter = container->findSplitter(targetSplitterId);
     if (targetSplitter == nullptr || idx < 0)
         return false;
 
@@ -1643,8 +1782,8 @@ bool ViewManager::createSplitWithExisting(int targetSplitterId, QStringList widg
     QList<int> forbiddenSplitters, forbiddenViews;
 
     // specify that top level splitters should not be used as children for created splittter
-    for (int i = 0; i < _viewContainer->count(); ++i) {
-        forbiddenSplitters.append(_viewContainer->viewSplitterAt(i)->id());
+    for (int i = 0; i < container->count(); ++i) {
+        forbiddenSplitters.append(container->viewSplitterAt(i)->id());
     }
 
     // specify that parent splitters of the splitter with targetSplitterId id should not be used
@@ -1676,7 +1815,7 @@ bool ViewManager::createSplitWithExisting(int targetSplitterId, QStringList widg
         QChar type = typeAndId[0][0];
 
         if (type == QLatin1Char('s') && !forbiddenSplitters.removeOne(id)) {
-            if (auto s = _viewContainer->findSplitter(id)) {
+            if (auto s = container->findSplitter(id)) {
                 linearLayout.append(s);
                 continue;
             }
@@ -1727,7 +1866,7 @@ bool ViewManager::setCurrentView(int viewId)
 
 bool ViewManager::resizeSplits(int splitterId, QList<double> percentages)
 {
-    auto splitter = _viewContainer->findSplitter(splitterId);
+    auto splitter = activeContainer()->findSplitter(splitterId);
     int totalP = 0;
 
     for (auto p : percentages) {
@@ -1762,8 +1901,9 @@ bool ViewManager::resizeSplits(int splitterId, QList<double> percentages)
 
 bool ViewManager::moveSplitter(int splitterId, int targetSplitterId, int idx)
 {
-    auto splitter = _viewContainer->findSplitter(splitterId);
-    auto targetSplitter = _viewContainer->findSplitter(targetSplitterId);
+    auto *container = activeContainer();
+    auto splitter = container->findSplitter(splitterId);
+    auto targetSplitter = container->findSplitter(targetSplitterId);
 
     if (splitter == nullptr || targetSplitter == nullptr || idx < 0)
         return false;
@@ -1773,8 +1913,8 @@ bool ViewManager::moveSplitter(int splitterId, int targetSplitterId, int idx)
             return false;
     }
 
-    for (int i = 0; i < _viewContainer->count(); ++i) {
-        if (splitter == _viewContainer->viewSplitterAt(i))
+    for (int i = 0; i < container->count(); ++i) {
+        if (splitter == container->viewSplitterAt(i))
             return false;
     }
 
@@ -1786,7 +1926,7 @@ bool ViewManager::moveSplitter(int splitterId, int targetSplitterId, int idx)
 bool ViewManager::moveView(int viewId, int targetSplitterId, int idx)
 {
     auto view = findTerminalDisplay(viewId);
-    auto targetSplitter = _viewContainer->findSplitter(targetSplitterId);
+    auto targetSplitter = activeContainer()->findSplitter(targetSplitterId);
 
     if (view == nullptr || targetSplitter == nullptr || idx < 0)
         return false;
@@ -1800,7 +1940,9 @@ void ViewManager::setNavigationVisibility(NavigationVisibility navigationVisibil
 {
     if (_navigationVisibility != navigationVisibility) {
         _navigationVisibility = navigationVisibility;
-        _viewContainer->setNavigationVisibility(navigationVisibility);
+        for (auto *container : _workspaceContainer->containers()) {
+            container->setNavigationVisibility(navigationVisibility);
+        }
     }
 }
 
@@ -1833,10 +1975,25 @@ void ViewManager::updateTerminalDisplayHistory(TerminalDisplay *terminalDisplay,
     }
 }
 
+TabbedViewContainer *ViewManager::containerForTerminal(TerminalDisplay *terminal) const
+{
+    if (terminal == nullptr || _workspaceContainer.isNull()) {
+        return nullptr;
+    }
+
+    auto *splitter = ViewSplitter::parentSplitterForDisplay(terminal);
+    if (splitter == nullptr) {
+        return nullptr;
+    }
+
+    return _workspaceContainer->containerForWidget(splitter->getToplevelSplitter());
+}
+
 void ViewManager::registerTerminal(TerminalDisplay *terminal)
 {
-    connect(terminal, &TerminalDisplay::requestToggleExpansion, _viewContainer, &TabbedViewContainer::toggleMaximizeCurrentTerminal, Qt::UniqueConnection);
-    connect(terminal, &TerminalDisplay::requestMoveToNewTab, _viewContainer, &TabbedViewContainer::moveToNewTab, Qt::UniqueConnection);
+    auto *container = activeContainer();
+    connect(terminal, &TerminalDisplay::requestToggleExpansion, container, &TabbedViewContainer::toggleMaximizeCurrentTerminal, Qt::UniqueConnection);
+    connect(terminal, &TerminalDisplay::requestMoveToNewTab, container, &TabbedViewContainer::moveToNewTab, Qt::UniqueConnection);
 }
 
 void ViewManager::unregisterTerminal(TerminalDisplay *terminal)

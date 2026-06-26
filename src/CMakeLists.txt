@@ -217,6 +217,7 @@ set(konsoleprivate_SRCS ${windowadaptors_SRCS}
                         widgets/HistorySizeWidget.cpp
                         widgets/IncrementalSearchBar.cpp
                         widgets/IncrementalSearchBarSizeGrip.cpp
+                        widgets/ProjectWorkspaceContainer.cpp
                         widgets/RenameTabWidget.cpp
                         widgets/TabTitleFormatButton.cpp
 

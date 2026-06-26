@@ -32,6 +32,7 @@ class TabbedViewContainer;
 class TerminalDisplay;
 class ViewProperties;
 class ViewSplitter;
+class ProjectWorkspaceContainer;
 
 /**
  * Manages the terminal display widgets in a Konsole window or part.
@@ -177,7 +178,7 @@ public:
 
     /** returns the active tab from the view
      */
-    TabbedViewContainer *activeContainer();
+    TabbedViewContainer *activeContainer() const;
     TerminalDisplay *createView(Session *session);
     void attachView(TerminalDisplay *terminal, Session *session);
 
@@ -452,6 +453,10 @@ private Q_SLOTS:
 
     void updateViewsForSession(Session *session);
     void handleSessionContainerContextChanged(const ContainerInfo &container);
+    void createProject();
+    void closeProject(TabbedViewContainer *container);
+    void activeProjectChanged(TabbedViewContainer *container);
+    void containerEmptied(TabbedViewContainer *container);
 
     // moves active view to the left
     void moveActiveViewLeft();
@@ -500,6 +505,7 @@ private:
 
     // creates a new container which can hold terminal displays
     TabbedViewContainer *createContainer();
+    TabbedViewContainer *containerForTerminal(TerminalDisplay *terminal) const;
 
     // creates a new terminal display
     TerminalDisplay *createTerminalDisplay();
@@ -525,6 +531,7 @@ private:
 
 private:
     QPointer<TabbedViewContainer> _viewContainer;
+    QPointer<ProjectWorkspaceContainer> _workspaceContainer;
     QPointer<SessionController> _pluggedController;
 
     QHash<TerminalDisplay *, Session *> _sessionMap;
