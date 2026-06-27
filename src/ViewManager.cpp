@@ -1410,6 +1410,19 @@ QJsonObject saveSessionsRecurse(QSplitter *splitter)
     return thisSplitter;
 }
 
+QJsonArray saveContainerSessions(TabbedViewContainer *container)
+{
+    QJsonArray rootArray;
+    for (int i = 0; container != nullptr && i < container->count(); i++) {
+        auto *splitter = qobject_cast<QSplitter *>(container->widget(i));
+        if (splitter != nullptr) {
+            rootArray.append(saveSessionsRecurse(splitter));
+        }
+    }
+
+    return rootArray;
+}
+
 } // namespace
 
 void ViewManager::saveLayoutFile()
@@ -1446,15 +1459,32 @@ void ViewManager::saveLayout(QString fileName)
 
 void ViewManager::saveSessions(KConfigGroup &group)
 {
-    QJsonArray rootArray;
     auto *container = activeContainer();
-    for (int i = 0; container != nullptr && i < container->count(); i++) {
-        auto *splitter = qobject_cast<QSplitter *>(container->widget(i));
-        rootArray.append(saveSessionsRecurse(splitter));
-    }
+    QJsonArray rootArray = saveContainerSessions(container);
 
     group.writeEntry("Tabs", QJsonDocument(rootArray).toJson(QJsonDocument::Compact));
     group.writeEntry("Active", container != nullptr ? container->currentIndex() : 0);
+
+    QJsonArray projectArray;
+    int activeProjectIndex = 0;
+    if (!_workspaceContainer.isNull()) {
+        const QList<TabbedViewContainer *> containers = _workspaceContainer->containers();
+        for (int i = 0; i < containers.count(); ++i) {
+            auto *projectContainer = containers.at(i);
+            if (projectContainer == container) {
+                activeProjectIndex = i;
+            }
+
+            QJsonObject project;
+            project.insert(QStringLiteral("Title"), _workspaceContainer->projectTitle(projectContainer));
+            project.insert(QStringLiteral("Tabs"), saveContainerSessions(projectContainer));
+            project.insert(QStringLiteral("Active"), projectContainer != nullptr ? projectContainer->currentIndex() : 0);
+            projectArray.append(project);
+        }
+    }
+
+    group.writeEntry("Projects", QJsonDocument(projectArray).toJson(QJsonDocument::Compact));
+    group.writeEntry("ActiveProject", activeProjectIndex);
 }
 
 namespace
@@ -1516,6 +1546,32 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
 }
 
 } // namespace
+
+namespace
+{
+void restoreTabsIntoContainer(ViewManager *manager, TabbedViewContainer *container, const QJsonArray &jsonTabs, int activeTab)
+{
+    for (const auto &jsonSplitter : jsonTabs) {
+        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, true);
+        container->addSplitter(topLevelSplitter, container->count());
+    }
+
+    if (jsonTabs.isEmpty()) {
+        Profile::Ptr profile = ProfileManager::instance()->defaultProfile();
+        Session *session = SessionManager::instance()->createSession(profile);
+        container->addView(manager->createView(session));
+        if (!session->isRunning()) {
+            session->run();
+        }
+    }
+
+    if (container->count() > 0) {
+        container->setCurrentIndex(qBound(0, activeTab, container->count() - 1));
+    }
+}
+
+}
+
 void ViewManager::loadLayout(QString file)
 {
     // User pressed cancel in dialog
@@ -1544,6 +1600,38 @@ void ViewManager::loadLayoutFile()
 
 void ViewManager::restoreSessions(const KConfigGroup &group)
 {
+    const auto projectList = group.readEntry("Projects", QByteArray("[]"));
+    const auto jsonProjects = QJsonDocument::fromJson(projectList).array();
+    if (!_workspaceContainer.isNull() && !jsonProjects.isEmpty()) {
+        QList<TabbedViewContainer *> restoredContainers;
+        restoredContainers.reserve(jsonProjects.count());
+
+        bool reusedInitialProject = false;
+        for (const auto &projectValue : jsonProjects) {
+            const auto projectObject = projectValue.toObject();
+            const QString title = projectObject[QStringLiteral("Title")].toString(_workspaceContainer->nextDefaultProjectTitle());
+
+            TabbedViewContainer *container = nullptr;
+            if (!reusedInitialProject && _workspaceContainer->projectCount() == 1 && activeContainer() != nullptr && activeContainer()->count() == 0) {
+                container = activeContainer();
+                _workspaceContainer->setProjectTitle(container, title);
+                reusedInitialProject = true;
+            } else {
+                container = createContainer();
+                _workspaceContainer->addProject(container, title);
+            }
+
+            const auto tabs = projectObject[QStringLiteral("Tabs")].toArray();
+            const int activeTab = projectObject[QStringLiteral("Active")].toInt(0);
+            restoreTabsIntoContainer(this, container, tabs, activeTab);
+            restoredContainers.append(container);
+        }
+
+        const int activeProject = qBound(0, group.readEntry("ActiveProject", 0), restoredContainers.count() - 1);
+        _workspaceContainer->activateProject(restoredContainers.at(activeProject));
+        return;
+    }
+
     const auto tabList = group.readEntry("Tabs", QByteArray("[]"));
     const auto jsonTabs = QJsonDocument::fromJson(tabList).array();
     for (const auto &jsonSplitter : jsonTabs) {

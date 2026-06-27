@@ -23,6 +23,7 @@ private Q_SLOTS:
     void testProjectWorkspacesKeepIndependentTabs();
     void testSplitsStayInActiveProjectWorkspace();
     void testSessionCountUsesActiveProjectWorkspace();
+    void testSaveSessionsStoresProjectWorkspaces();
     void testContainerMenuLaunchKeepsPendingColor();
 
 private:

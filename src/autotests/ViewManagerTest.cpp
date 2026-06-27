@@ -6,7 +6,13 @@
 
 #include "ViewManagerTest.h"
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTest>
+
+#include <KConfig>
+#include <KConfigGroup>
 
 #include "../MainWindow.h"
 #include "../ViewManager.h"
@@ -206,6 +212,51 @@ void ViewManagerTest::testSessionCountUsesActiveProjectWorkspace()
     QCOMPARE(viewManager->activeContainer(), firstProject);
     QCOMPARE(viewManager->sessionList().count(), 2);
     QCOMPARE(viewManager->sessionCount(), 2);
+}
+
+void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    mw.newTab();
+    firstProject->setCurrentIndex(1);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+    mw.newTab();
+    mw.newTab();
+    secondProject->setCurrentIndex(2);
+
+    KConfig config(m_testDir->filePath(QStringLiteral("workspaces-state-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+    viewManager->saveSessions(group);
+
+    const auto projectsDocument = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]")));
+    const auto projects = projectsDocument.array();
+    QCOMPARE(projects.count(), 2);
+    QCOMPARE(group.readEntry("ActiveProject", -1), 1);
+
+    const auto firstProjectObject = projects.at(0).toObject();
+    QCOMPARE(firstProjectObject[QStringLiteral("Title")].toString(), QStringLiteral("Workspace 1"));
+    QCOMPARE(firstProjectObject[QStringLiteral("Tabs")].toArray().count(), 2);
+    QCOMPARE(firstProjectObject[QStringLiteral("Active")].toInt(), 1);
+
+    const auto secondProjectObject = projects.at(1).toObject();
+    QCOMPARE(secondProjectObject[QStringLiteral("Title")].toString(), QStringLiteral("Workspace 2"));
+    QCOMPARE(secondProjectObject[QStringLiteral("Tabs")].toArray().count(), 3);
+    QCOMPARE(secondProjectObject[QStringLiteral("Active")].toInt(), 2);
+
+    const auto legacyTabs = QJsonDocument::fromJson(group.readEntry("Tabs", QByteArray("[]"))).array();
+    QCOMPARE(legacyTabs.count(), 3);
+    QCOMPARE(group.readEntry("Active", -1), 2);
 }
 
 void ViewManagerTest::testContainerMenuLaunchKeepsPendingColor()

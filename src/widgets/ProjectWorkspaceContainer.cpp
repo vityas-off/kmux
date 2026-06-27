@@ -187,6 +187,27 @@ TabbedViewContainer *ProjectWorkspaceContainer::containerForWidget(QWidget *widg
     return nullptr;
 }
 
+QString ProjectWorkspaceContainer::projectTitle(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return {};
+    }
+
+    return _projects.at(index).title;
+}
+
+void ProjectWorkspaceContainer::setProjectTitle(TabbedViewContainer *container, const QString &title)
+{
+    const int index = indexOf(container);
+    if (index < 0 || title.trimmed().isEmpty()) {
+        return;
+    }
+
+    _projects[index].title = title.trimmed();
+    updateListItem(index);
+}
+
 int ProjectWorkspaceContainer::projectCount() const
 {
     return _projects.count();

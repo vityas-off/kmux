@@ -35,6 +35,8 @@ public:
     TabbedViewContainer *activeContainer() const;
     QList<TabbedViewContainer *> containers() const;
     TabbedViewContainer *containerForWidget(QWidget *widget) const;
+    QString projectTitle(TabbedViewContainer *container) const;
+    void setProjectTitle(TabbedViewContainer *container, const QString &title);
 
     int projectCount() const;
     QString nextDefaultProjectTitle() const;
