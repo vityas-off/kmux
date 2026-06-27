@@ -20,6 +20,9 @@ private Q_SLOTS:
     void initTestCase();
     void testSaveLayout();
     void testLoadLayout();
+    void testProjectWorkspacesKeepIndependentTabs();
+    void testSplitsStayInActiveProjectWorkspace();
+    void testSessionCountUsesActiveProjectWorkspace();
     void testContainerMenuLaunchKeepsPendingColor();
 
 private:

@@ -1604,7 +1604,7 @@ TabbedViewContainer *ViewManager::activeContainer() const
 
 int ViewManager::sessionCount()
 {
-    return _sessionMap.size();
+    return sessionList().count();
 }
 
 QStringList ViewManager::sessionList()
