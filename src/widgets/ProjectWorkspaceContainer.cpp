@@ -7,6 +7,7 @@
 #include "widgets/ViewContainer.h"
 
 #include <QAbstractItemView>
+#include <QApplication>
 #include <QDropEvent>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -15,8 +16,12 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QPainter>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QStyle>
+#include <QStyleOptionViewItem>
+#include <QStyledItemDelegate>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QVariant>
@@ -29,6 +34,134 @@ using namespace Konsole;
 
 namespace
 {
+enum ProjectRoles {
+    ContainerRole = Qt::UserRole,
+    SubtitleRole,
+    TabCountRole,
+    ActiveProcessCountRole,
+    HasActivityRole,
+};
+
+QString badgeText(int count)
+{
+    return count > 99 ? QStringLiteral("99+") : QString::number(count);
+}
+
+class ProjectItemDelegate : public QStyledItemDelegate
+{
+public:
+    explicit ProjectItemDelegate(QObject *parent = nullptr)
+        : QStyledItemDelegate(parent)
+    {
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        const QSize base = QStyledItemDelegate::sizeHint(option, index);
+        return {base.width(), qMax(base.height(), 56)};
+    }
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        painter->save();
+
+        QStyleOptionViewItem itemOption(option);
+        initStyleOption(&itemOption, index);
+        const QIcon icon = itemOption.icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : itemOption.icon;
+        itemOption.text.clear();
+        itemOption.icon = {};
+
+        auto *style = itemOption.widget != nullptr ? itemOption.widget->style() : QApplication::style();
+        style->drawPrimitive(QStyle::PE_PanelItemViewItem, &itemOption, painter, itemOption.widget);
+
+        const QRect rect = itemOption.rect.adjusted(8, 7, -12, -7);
+        const bool selected = itemOption.state.testFlag(QStyle::State_Selected);
+        const QPalette::ColorRole textRole = selected ? QPalette::HighlightedText : QPalette::Text;
+        const QPalette::ColorRole subtleRole = selected ? QPalette::HighlightedText : QPalette::PlaceholderText;
+        const QColor textColor = itemOption.palette.color(textRole);
+        QColor subtleColor = itemOption.palette.color(subtleRole);
+        if (selected) {
+            subtleColor.setAlpha(245);
+        }
+
+        const QSize iconSize(18, 18);
+        const QRect iconRect(rect.left(), rect.top() + (rect.height() - iconSize.height()) / 2, iconSize.width(), iconSize.height());
+        icon.paint(painter, iconRect, Qt::AlignCenter, selected ? QIcon::Selected : QIcon::Normal);
+
+        const int tabCount = index.data(TabCountRole).toInt();
+        const int processCount = index.data(ActiveProcessCountRole).toInt();
+        const bool hasActivity = index.data(HasActivityRole).toBool();
+
+        QRect contentRect = rect.adjusted(iconSize.width() + 8, 0, 0, 0);
+        const QFontMetrics titleMetrics(itemOption.font);
+        const QString tabsBadge = tabCount > 0 ? badgeText(tabCount) : QString();
+        QRect tabsBadgeRect;
+        if (!tabsBadge.isEmpty()) {
+            const int badgeWidth = qMax(22, titleMetrics.horizontalAdvance(tabsBadge) + 12);
+            tabsBadgeRect = QRect(rect.right() - badgeWidth, rect.top() + 2, badgeWidth, 18);
+            contentRect.setRight(tabsBadgeRect.left() - 8);
+        }
+
+        QRect processBadgeRect;
+        const QString processBadge = processCount > 0 ? badgeText(processCount) : QString();
+        if (!processBadge.isEmpty()) {
+            const int badgeWidth = qMax(22, titleMetrics.horizontalAdvance(processBadge) + 12);
+            processBadgeRect = QRect(rect.right() - badgeWidth, rect.bottom() - 19, badgeWidth, 18);
+            contentRect.setRight(qMin(contentRect.right(), processBadgeRect.left() - 8));
+        } else if (hasActivity) {
+            processBadgeRect = QRect(rect.right() - 13, rect.bottom() - 15, 10, 10);
+            contentRect.setRight(qMin(contentRect.right(), processBadgeRect.left() - 8));
+        }
+
+        QFont titleFont = itemOption.font;
+        titleFont.setBold(true);
+        painter->setFont(titleFont);
+        painter->setPen(textColor);
+        const QString title = titleMetrics.elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight, contentRect.width());
+        painter->drawText(contentRect.left(), contentRect.top(), contentRect.width(), contentRect.height() / 2, Qt::AlignLeft | Qt::AlignVCenter, title);
+
+        QFont subtitleFont = itemOption.font;
+        if (!selected) {
+            subtitleFont.setPointSize(qMax(1, subtitleFont.pointSize() - 1));
+        }
+        painter->setFont(subtitleFont);
+        painter->setPen(subtleColor);
+        const QFontMetrics subtitleMetrics(subtitleFont);
+        const QString subtitle = subtitleMetrics.elidedText(index.data(SubtitleRole).toString(), Qt::ElideRight, contentRect.width());
+        painter->drawText(contentRect.left(), rect.center().y(), contentRect.width(), rect.height() / 2, Qt::AlignLeft | Qt::AlignVCenter, subtitle);
+
+        if (!tabsBadgeRect.isNull()) {
+            QColor badgeBg = selected ? itemOption.palette.color(QPalette::HighlightedText) : itemOption.palette.color(QPalette::Mid);
+            QColor badgeFg = selected ? itemOption.palette.color(QPalette::Highlight) : itemOption.palette.color(QPalette::Text);
+            badgeBg.setAlpha(selected ? 230 : 90);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(badgeBg);
+            painter->drawRoundedRect(tabsBadgeRect.adjusted(0, 0, -1, -1), 8, 8);
+            painter->setPen(badgeFg);
+            painter->setFont(itemOption.font);
+            painter->drawText(tabsBadgeRect, Qt::AlignCenter, tabsBadge);
+        }
+
+        if (!processBadgeRect.isNull()) {
+            QColor indicator = itemOption.palette.color(QPalette::Highlight);
+            if (processCount > 0) {
+                indicator = QColor::fromRgb(47, 160, 96);
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(indicator);
+                painter->drawRoundedRect(processBadgeRect.adjusted(0, 0, -1, -1), 8, 8);
+                painter->setPen(Qt::white);
+                painter->setFont(itemOption.font);
+                painter->drawText(processBadgeRect, Qt::AlignCenter, processBadge);
+            } else {
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(indicator);
+                painter->drawEllipse(processBadgeRect);
+            }
+        }
+
+        painter->restore();
+    }
+};
 
 class ProjectListWidget : public QListWidget
 {
@@ -73,6 +206,7 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     _projectList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _projectList->setSelectionMode(QAbstractItemView::SingleSelection);
     _projectList->setContextMenuPolicy(Qt::CustomContextMenu);
+    _projectList->setItemDelegate(new ProjectItemDelegate(_projectList));
     _projectList->setSpacing(2);
     connect(_projectList, &QListWidget::currentRowChanged, this, &ProjectWorkspaceContainer::currentRowChanged);
     connect(_projectList, &QListWidget::itemDoubleClicked, this, &ProjectWorkspaceContainer::renameCurrentProject);
@@ -114,9 +248,9 @@ int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const 
     const int index = _projects.count() - 1;
     _stack->addWidget(container);
     auto *item = new QListWidgetItem(_projectList);
-    item->setData(Qt::UserRole, QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(container)));
+    item->setData(ContainerRole, QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(container)));
     item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
-    item->setSizeHint(QSize(1, 30));
+    item->setSizeHint(QSize(1, 56));
     updateListItem(index);
 
     _nextProjectNumber = qMax(_nextProjectNumber, index + 2);
@@ -205,6 +339,57 @@ void ProjectWorkspaceContainer::setProjectTitle(TabbedViewContainer *container, 
     }
 
     _projects[index].title = title.trimmed();
+    updateListItem(index);
+}
+
+QString ProjectWorkspaceContainer::projectSubtitle(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return {};
+    }
+
+    return _projects.at(index).subtitle;
+}
+
+int ProjectWorkspaceContainer::projectTabCount(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return 0;
+    }
+
+    return _projects.at(index).tabCount;
+}
+
+int ProjectWorkspaceContainer::projectActiveProcessCount(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return 0;
+    }
+
+    return _projects.at(index).activeProcessCount;
+}
+
+void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container,
+                                                  const QString &subtitle,
+                                                  int tabCount,
+                                                  int activeProcessCount,
+                                                  bool hasActivity,
+                                                  const QIcon &icon)
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return;
+    }
+
+    auto &project = _projects[index];
+    project.subtitle = subtitle;
+    project.tabCount = tabCount;
+    project.activeProcessCount = activeProcessCount;
+    project.hasActivity = hasActivity;
+    project.icon = icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : icon;
     updateListItem(index);
 }
 
@@ -299,7 +484,7 @@ void ProjectWorkspaceContainer::syncProjectsToListOrder()
             return;
         }
 
-        auto *container = reinterpret_cast<TabbedViewContainer *>(item->data(Qt::UserRole).value<quintptr>());
+        auto *container = reinterpret_cast<TabbedViewContainer *>(item->data(ContainerRole).value<quintptr>());
         const int index = indexOf(container);
         if (index < 0) {
             qWarning("Project workspace list contains an unknown container after drag/drop");
@@ -335,8 +520,13 @@ void ProjectWorkspaceContainer::updateListItem(int index)
     }
 
     item->setText(_projects.at(index).title);
-    item->setToolTip(_projects.at(index).title);
-    item->setIcon(QIcon::fromTheme(QStringLiteral("folder")));
+    item->setData(SubtitleRole, _projects.at(index).subtitle);
+    item->setData(TabCountRole, _projects.at(index).tabCount);
+    item->setData(ActiveProcessCountRole, _projects.at(index).activeProcessCount);
+    item->setData(HasActivityRole, _projects.at(index).hasActivity);
+    item->setToolTip(_projects.at(index).subtitle.isEmpty() ? _projects.at(index).title
+                                                            : QStringLiteral("%1\n%2").arg(_projects.at(index).title, _projects.at(index).subtitle));
+    item->setIcon(_projects.at(index).icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : _projects.at(index).icon);
 }
 
 void ProjectWorkspaceContainer::applyRailStyle()
@@ -351,7 +541,7 @@ void ProjectWorkspaceContainer::applyRailStyle()
             outline: 0;
         }
         QListWidget#projectList::item {
-            padding: 5px 7px;
+            padding: 3px 5px;
             border-radius: 4px;
         }
         QListWidget#projectList::item:selected {

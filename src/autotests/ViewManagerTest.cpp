@@ -21,8 +21,10 @@
 #include "../containers/IContainerDetector.h"
 #include "../session/Session.h"
 #include "../session/SessionController.h"
+#include "../terminalDisplay/TerminalDisplay.h"
 #include "../widgets/ProjectWorkspaceContainer.h"
 #include "../widgets/ViewContainer.h"
+#include "../widgets/ViewSplitter.h"
 #include <QStandardPaths>
 
 using namespace Konsole;
@@ -242,6 +244,45 @@ void ViewManagerTest::testSessionsIncludesAllProjectWorkspaces()
     QCOMPARE(viewManager->viewProperties().count(), 2);
     sessions = viewManager->sessions();
     QCOMPARE(QSet<Session *>(sessions.begin(), sessions.end()).count(), 3);
+}
+
+void ViewManagerTest::testProjectWorkspaceSummaryTracksActiveTab()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    QVERIFY(firstProject->activeViewSplitter() != nullptr);
+    QVERIFY(firstProject->activeViewSplitter()->activeTerminalDisplay() != nullptr);
+    firstProject->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session()->setTitle(Session::DisplayedTitleRole,
+                                                                                                          QStringLiteral("first-tab"));
+    viewManager->refreshProjectSummary(firstProject);
+
+    QCOMPARE(workspaces->projectTabCount(firstProject), 1);
+    QVERIFY(workspaces->projectSubtitle(firstProject).contains(QStringLiteral("first-tab")));
+
+    mw.newTab();
+    firstProject->setCurrentIndex(1);
+    QVERIFY(firstProject->activeViewSplitter() != nullptr);
+    QVERIFY(firstProject->activeViewSplitter()->activeTerminalDisplay() != nullptr);
+    firstProject->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session()->setTitle(Session::DisplayedTitleRole,
+                                                                                                          QStringLiteral("second-tab"));
+    viewManager->refreshProjectSummary(firstProject);
+
+    QCOMPARE(workspaces->projectTabCount(firstProject), 2);
+    QVERIFY(workspaces->projectSubtitle(firstProject).contains(QStringLiteral("second-tab")));
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+
+    QCOMPARE(workspaces->projectTabCount(firstProject), 2);
+    QCOMPARE(workspaces->projectTabCount(secondProject), 1);
 }
 
 void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()

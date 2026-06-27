@@ -24,6 +24,7 @@ private Q_SLOTS:
     void testSplitsStayInActiveProjectWorkspace();
     void testSessionCountUsesActiveProjectWorkspace();
     void testSessionsIncludesAllProjectWorkspaces();
+    void testProjectWorkspaceSummaryTracksActiveTab();
     void testSaveSessionsStoresProjectWorkspaces();
     void testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds();
     void testContainerMenuLaunchKeepsPendingColor();

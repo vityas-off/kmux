@@ -527,6 +527,7 @@ private:
 
     void registerTerminal(TerminalDisplay *terminal);
     void unregisterTerminal(TerminalDisplay *terminal);
+    void refreshProjectSummary(TabbedViewContainer *container);
     void updateAutoContainerTabColor(Session *session);
     static QColor colorForContainerKey(const QString &containerKey);
 

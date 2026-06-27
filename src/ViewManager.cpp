@@ -11,8 +11,11 @@
 #include "konsoledebug.h"
 
 // Qt
+#include <QDir>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QSet>
 #include <QStringList>
 #include <QTabBar>
 
@@ -946,6 +949,27 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(controller, &Konsole::SessionController::requestSplitViewLeftRight, this, &Konsole::ViewManager::splitLeftRight);
     connect(controller, &Konsole::SessionController::requestSplitViewTopBottom, this, &Konsole::ViewManager::splitTopBottom);
     connect(this, &Konsole::ViewManager::contextMenuAdditionalActionsChanged, controller, &Konsole::SessionController::setContextMenuAdditionalActions);
+    connect(controller, &Konsole::SessionController::titleChanged, this, [this, view](ViewProperties *) {
+        refreshProjectSummary(containerForTerminal(view));
+    });
+    connect(controller, &Konsole::SessionController::iconChanged, this, [this, view](ViewProperties *) {
+        refreshProjectSummary(containerForTerminal(view));
+    });
+    connect(controller, &Konsole::SessionController::activity, this, [this, view](ViewProperties *) {
+        refreshProjectSummary(containerForTerminal(view));
+    });
+    connect(controller, &Konsole::SessionController::notificationChanged, this, [this, view](ViewProperties *, Session::Notification, bool) {
+        refreshProjectSummary(containerForTerminal(view));
+    });
+    connect(controller, &Konsole::SessionController::currentDirectoryChanged, this, [this, view](const QString &) {
+        refreshProjectSummary(containerForTerminal(view));
+    });
+    connect(session, &Konsole::Session::started, this, [this, view] {
+        refreshProjectSummary(containerForTerminal(view));
+    });
+    connect(session, &Konsole::Session::notificationsChanged, this, [this, view](Session::Notification, bool) {
+        refreshProjectSummary(containerForTerminal(view));
+    });
 
     // if this is the first controller created then set it as the active controller
     if (_pluggedController.isNull()) {
@@ -956,6 +980,7 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
         controller->setContextMenuAdditionalActions(contextMenuAdditionalActions);
     }
 
+    refreshProjectSummary(containerForTerminal(view));
     return controller;
 }
 
@@ -1144,6 +1169,12 @@ TabbedViewContainer *ViewManager::createContainer()
     connect(container, &Konsole::TabbedViewContainer::activeViewChanged, this, &Konsole::ViewManager::activateView);
     connect(container, &TabbedViewContainer::viewAdded, this, &ViewManager::toggleActionsBasedOnState);
     connect(container, &QTabWidget::currentChanged, this, &ViewManager::toggleActionsBasedOnState);
+    connect(container, &QTabWidget::currentChanged, this, [this, container]() {
+        refreshProjectSummary(container);
+    });
+    connect(container, &Konsole::TabbedViewContainer::activeViewChanged, this, [this, container](TerminalDisplay *) {
+        refreshProjectSummary(container);
+    });
     connect(container, &TabbedViewContainer::viewRemoved, this, &ViewManager::toggleActionsBasedOnState);
 
     return container;
@@ -1196,6 +1227,7 @@ void ViewManager::activeProjectChanged(TabbedViewContainer *container)
     }
 
     toggleActionsBasedOnState();
+    refreshProjectSummary(container);
     Q_EMIT viewPropertiesChanged(viewProperties());
 }
 
@@ -1268,7 +1300,7 @@ ViewManager::NavigationMethod ViewManager::navigationMethod() const
 
 void ViewManager::containerViewsChanged(TabbedViewContainer *container)
 {
-    Q_UNUSED(container)
+    refreshProjectSummary(container);
     // TODO: Verify that this is right.
     Q_EMIT viewPropertiesChanged(viewProperties());
 }
@@ -2108,6 +2140,72 @@ void ViewManager::unregisterTerminal(TerminalDisplay *terminal)
 {
     disconnect(terminal, &TerminalDisplay::requestToggleExpansion, nullptr, nullptr);
     disconnect(terminal, &TerminalDisplay::requestMoveToNewTab, nullptr, nullptr);
+}
+
+void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
+{
+    if (container == nullptr || _workspaceContainer.isNull()) {
+        return;
+    }
+
+    QString activeTitle;
+    QString activeDirectory;
+    QIcon activeIcon = QIcon::fromTheme(QStringLiteral("folder"));
+
+    if (auto *splitter = container->activeViewSplitter()) {
+        if (auto *terminal = splitter->activeTerminalDisplay()) {
+            if (auto *controller = terminal->sessionController()) {
+                activeTitle = controller->title();
+                activeDirectory = controller->currentDir();
+                if (!controller->icon().isNull()) {
+                    activeIcon = controller->icon();
+                }
+            }
+        }
+    }
+
+    if (!activeDirectory.isEmpty()) {
+        const QString homePath = QDir::homePath();
+        if (activeDirectory == homePath) {
+            activeDirectory = QStringLiteral("~");
+        } else if (activeDirectory.startsWith(homePath + QLatin1Char('/'))) {
+            activeDirectory = QStringLiteral("~/") + activeDirectory.mid(homePath.length() + 1);
+        }
+    }
+
+    QString subtitle;
+    if (!activeTitle.isEmpty() && !activeDirectory.isEmpty()) {
+        subtitle = i18nc("@info:project active tab and path", "%1 - %2", activeTitle, activeDirectory);
+    } else if (!activeTitle.isEmpty()) {
+        subtitle = activeTitle;
+    } else {
+        subtitle = activeDirectory;
+    }
+
+    int activeProcessCount = 0;
+    bool hasActivity = false;
+    QSet<Session *> seenSessions;
+    const auto terminals = container->findChildren<TerminalDisplay *>();
+    for (TerminalDisplay *terminal : terminals) {
+        Session *session = _sessionMap.value(terminal);
+        if (session == nullptr || seenSessions.contains(session)) {
+            continue;
+        }
+
+        seenSessions.insert(session);
+        hasActivity = hasActivity || session->activeNotifications() != Session::NoNotification;
+        if (!session->isRunning() || !session->isForegroundProcessActive()) {
+            continue;
+        }
+
+        const QString defaultProcess = QFileInfo(session->program()).fileName();
+        const QString currentProcess = QFileInfo(session->foregroundProcessName()).fileName();
+        if (!currentProcess.isEmpty() && currentProcess != defaultProcess) {
+            ++activeProcessCount;
+        }
+    }
+
+    _workspaceContainer->setProjectSummary(container, subtitle, container->count(), activeProcessCount, hasActivity, activeIcon);
 }
 
 #include "moc_ViewManager.cpp"

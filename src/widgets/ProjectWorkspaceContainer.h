@@ -5,6 +5,7 @@
 #ifndef PROJECTWORKSPACECONTAINER_H
 #define PROJECTWORKSPACECONTAINER_H
 
+#include <QIcon>
 #include <QList>
 #include <QWidget>
 
@@ -37,6 +38,11 @@ public:
     TabbedViewContainer *containerForWidget(QWidget *widget) const;
     QString projectTitle(TabbedViewContainer *container) const;
     void setProjectTitle(TabbedViewContainer *container, const QString &title);
+    QString projectSubtitle(TabbedViewContainer *container) const;
+    int projectTabCount(TabbedViewContainer *container) const;
+    int projectActiveProcessCount(TabbedViewContainer *container) const;
+    void
+    setProjectSummary(TabbedViewContainer *container, const QString &subtitle, int tabCount, int activeProcessCount, bool hasActivity, const QIcon &icon = {});
 
     int projectCount() const;
     QString nextDefaultProjectTitle() const;
@@ -56,7 +62,12 @@ private Q_SLOTS:
 private:
     struct Project {
         QString title;
+        QString subtitle;
+        QIcon icon;
         TabbedViewContainer *container = nullptr;
+        int tabCount = 0;
+        int activeProcessCount = 0;
+        bool hasActivity = false;
     };
 
     int indexOf(TabbedViewContainer *container) const;
