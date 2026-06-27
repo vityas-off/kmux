@@ -451,9 +451,11 @@ void restoreSession(Application &app)
 
         // TODO: HACK without the code below the sessions would be `uninitialized`
         // and the tabs wouldn't display the correct information.
-        auto tabbedContainer = qobject_cast<Konsole::TabbedViewContainer *>(mainWindow->centralWidget());
-        for (int i = 0; i < tabbedContainer->count(); i++) {
-            tabbedContainer->setCurrentIndex(i);
+        const auto tabbedContainers = mainWindow->viewManager()->widget()->findChildren<Konsole::TabbedViewContainer *>();
+        for (auto *tabbedContainer : tabbedContainers) {
+            for (int i = 0; i < tabbedContainer->count(); i++) {
+                tabbedContainer->setCurrentIndex(i);
+            }
         }
     }
 }

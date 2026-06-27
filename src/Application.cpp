@@ -204,11 +204,13 @@ int Application::newInstance()
     // selected profile to be changed
     Profile::Ptr newProfile = processProfileChangeArgs(baseProfile);
 
+    const bool restoredLastWorkspaceState = shouldRestoreLastWorkspaceState(createdNewMainWindow) && window->restoreLastWorkspaceState();
+
     // if layout file is enable load it and create session from definitions,
     // else create new session
     if (m_parser->isSet(QStringLiteral("layout"))) {
         window->viewManager()->loadLayout(m_parser->value(QStringLiteral("layout")));
-    } else {
+    } else if (!restoredLastWorkspaceState && !m_parser->isSet(QStringLiteral("tabs-from-file"))) {
         Session *session = window->createSession(newProfile, QString());
 
         const QString workingDir = m_parser->value(QStringLiteral("workdir"));
@@ -312,6 +314,34 @@ bool Application::processTabsFromFileArgs(MainWindow *window)
     }
 
     return true;
+}
+
+bool Application::shouldRestoreLastWorkspaceState(bool createdNewMainWindow) const
+{
+    if (!createdNewMainWindow) {
+        return false;
+    }
+
+    const QStringList explicitSessionOptions = {
+        QStringLiteral("layout"),
+        QStringLiteral("tabs-from-file"),
+        QStringLiteral("profile"),
+        QStringLiteral("builtin-profile"),
+        QStringLiteral("workdir"),
+        QStringLiteral("hold"),
+        QStringLiteral("noclose"),
+        QStringLiteral("new-tab"),
+        QStringLiteral("background-mode"),
+        QStringLiteral("e"),
+    };
+
+    for (const QString &option : explicitSessionOptions) {
+        if (m_parser->isSet(option)) {
+            return false;
+        }
+    }
+
+    return m_customCommand.isEmpty() && m_parser->positionalArguments().isEmpty();
 }
 
 void Application::createTabFromArgs(MainWindow *window, const QHash<QString, QString> &tokens)

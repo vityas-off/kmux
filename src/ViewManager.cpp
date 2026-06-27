@@ -1529,6 +1529,10 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
                 }
             }
 
+            if (!newView->session()->isRunning()) {
+                newView->session()->run();
+            }
+
             if (commandIterator != widgetJsonObject.constEnd()) {
                 auto command = commandIterator->toString();
                 // Don't open a program that is already running, such as bash
@@ -1549,10 +1553,10 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
 
 namespace
 {
-void restoreTabsIntoContainer(ViewManager *manager, TabbedViewContainer *container, const QJsonArray &jsonTabs, int activeTab)
+void restoreTabsIntoContainer(ViewManager *manager, TabbedViewContainer *container, const QJsonArray &jsonTabs, int activeTab, bool useSessionIds)
 {
     for (const auto &jsonSplitter : jsonTabs) {
-        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, true);
+        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, useSessionIds);
         container->addSplitter(topLevelSplitter, container->count());
     }
 
@@ -1600,6 +1604,11 @@ void ViewManager::loadLayoutFile()
 
 void ViewManager::restoreSessions(const KConfigGroup &group)
 {
+    restoreSessions(group, true);
+}
+
+void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
+{
     const auto projectList = group.readEntry("Projects", QByteArray("[]"));
     const auto jsonProjects = QJsonDocument::fromJson(projectList).array();
     if (!_workspaceContainer.isNull() && !jsonProjects.isEmpty()) {
@@ -1623,7 +1632,7 @@ void ViewManager::restoreSessions(const KConfigGroup &group)
 
             const auto tabs = projectObject[QStringLiteral("Tabs")].toArray();
             const int activeTab = projectObject[QStringLiteral("Active")].toInt(0);
-            restoreTabsIntoContainer(this, container, tabs, activeTab);
+            restoreTabsIntoContainer(this, container, tabs, activeTab, useSessionIds);
             restoredContainers.append(container);
         }
 
@@ -1635,11 +1644,11 @@ void ViewManager::restoreSessions(const KConfigGroup &group)
     const auto tabList = group.readEntry("Tabs", QByteArray("[]"));
     const auto jsonTabs = QJsonDocument::fromJson(tabList).array();
     for (const auto &jsonSplitter : jsonTabs) {
-        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), this, true);
+        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), this, useSessionIds);
         activeContainer()->addSplitter(topLevelSplitter, activeContainer()->count());
     }
 
-    if (!jsonTabs.isEmpty())
+    if (!jsonTabs.isEmpty() || !useSessionIds)
         return;
 
     // Session file is unusable, try older format

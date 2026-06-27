@@ -9,6 +9,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSet>
 #include <QTest>
 
 #include <KConfig>
@@ -214,6 +215,35 @@ void ViewManagerTest::testSessionCountUsesActiveProjectWorkspace()
     QCOMPARE(viewManager->sessionCount(), 2);
 }
 
+void ViewManagerTest::testSessionsIncludesAllProjectWorkspaces()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    mw.newTab();
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+
+    QCOMPARE(viewManager->sessionList().count(), 1);
+    QCOMPARE(viewManager->viewProperties().count(), 1);
+    QList<Session *> sessions = viewManager->sessions();
+    QCOMPARE(QSet<Session *>(sessions.begin(), sessions.end()).count(), 3);
+
+    workspaces->activateProject(firstProject);
+    QCOMPARE(viewManager->sessionList().count(), 2);
+    QCOMPARE(viewManager->viewProperties().count(), 2);
+    sessions = viewManager->sessions();
+    QCOMPARE(QSet<Session *>(sessions.begin(), sessions.end()).count(), 3);
+}
+
 void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()
 {
     auto mw = MainWindow();
@@ -257,6 +287,49 @@ void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()
     const auto legacyTabs = QJsonDocument::fromJson(group.readEntry("Tabs", QByteArray("[]"))).array();
     QCOMPARE(legacyTabs.count(), 3);
     QCOMPARE(group.readEntry("Active", -1), 2);
+}
+
+void ViewManagerTest::testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds()
+{
+    KConfig config(m_testDir->filePath(QStringLiteral("workspaces-restore-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+
+    {
+        auto sourceWindow = MainWindow();
+        auto *sourceManager = sourceWindow.viewManager();
+
+        sourceWindow.newTab();
+        auto *firstProject = sourceManager->activeContainer();
+        QVERIFY(firstProject != nullptr);
+        sourceWindow.newTab();
+        firstProject->setCurrentIndex(1);
+
+        sourceManager->createProject();
+        auto *secondProject = sourceManager->activeContainer();
+        QVERIFY(secondProject != nullptr);
+        QVERIFY(secondProject != firstProject);
+        sourceWindow.newTab();
+        secondProject->setCurrentIndex(1);
+
+        sourceManager->saveSessions(group);
+    }
+
+    auto restoredWindow = MainWindow();
+    auto *restoredManager = restoredWindow.viewManager();
+    auto *restoredWorkspaces = restoredManager->_workspaceContainer.data();
+    QVERIFY(restoredWorkspaces != nullptr);
+
+    restoredManager->restoreSessions(group, false);
+
+    QCOMPARE(restoredWorkspaces->projectCount(), 2);
+    const auto restoredProjects = restoredWorkspaces->containers();
+    QCOMPARE(restoredProjects.count(), 2);
+    QCOMPARE(restoredProjects.at(0)->count(), 2);
+    QCOMPARE(restoredProjects.at(0)->currentIndex(), 1);
+    QCOMPARE(restoredProjects.at(1)->count(), 2);
+    QCOMPARE(restoredProjects.at(1)->currentIndex(), 1);
+    QCOMPARE(restoredManager->activeContainer(), restoredProjects.at(1));
+    QCOMPARE(restoredManager->sessionList().count(), 2);
 }
 
 void ViewManagerTest::testContainerMenuLaunchKeepsPendingColor()

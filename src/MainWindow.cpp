@@ -84,6 +84,8 @@ using namespace Konsole;
 
 namespace
 {
+constexpr auto LastProjectWorkspaceStateGroup = "LastProjectWorkspaceState";
+
 QString containerSuffixForSession(const QPointer<Session> &session)
 {
     if (session.isNull()) {
@@ -710,6 +712,24 @@ void MainWindow::newTab()
     createSession(defaultProfile, activeSessionDir());
 }
 
+bool MainWindow::restoreLastWorkspaceState()
+{
+    KConfigGroup group(KSharedConfig::openStateConfig(), QString::fromLatin1(LastProjectWorkspaceStateGroup));
+    if (!group.hasKey(QStringLiteral("Projects")) && !group.hasKey(QStringLiteral("Tabs"))) {
+        return false;
+    }
+
+    _viewManager->restoreSessions(group, false);
+    return _viewManager->activeContainer() != nullptr && _viewManager->activeContainer()->count() > 0;
+}
+
+void MainWindow::saveLastWorkspaceState()
+{
+    KConfigGroup group(KSharedConfig::openStateConfig(), QString::fromLatin1(LastProjectWorkspaceStateGroup));
+    _viewManager->saveSessions(group);
+    group.sync();
+}
+
 void MainWindow::setPluginsActions(const QList<QAction *> &actions)
 {
     _pluginsActions = actions;
@@ -848,11 +868,12 @@ bool MainWindow::queryClose()
         }
     }
 
-    // Get number of open tabs
-    const int openTabs = _viewManager->viewProperties().count();
+    // Count terminals across all project workspaces, not only the active one.
+    const int openTabs = uniqueSessions.count();
 
     // If no processes running (except the shell) and no extra tabs, just close
     if (processesRunning.count() == 0 && openTabs < 2) {
+        saveLastWorkspaceState();
         return true;
     }
 
@@ -919,6 +940,7 @@ bool MainWindow::queryClose()
 
     switch (result) {
     case KMessageBox::PrimaryAction:
+        saveLastWorkspaceState();
         return true;
     case KMessageBox::SecondaryAction:
         if ((!_pluggedController.isNull()) && (!_pluggedController->session().isNull())) {
@@ -933,6 +955,7 @@ bool MainWindow::queryClose()
         return false;
     }
 
+    saveLastWorkspaceState();
     return true;
 }
 

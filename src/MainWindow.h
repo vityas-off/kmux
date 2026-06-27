@@ -115,6 +115,8 @@ public:
      */
     void addPlugin(IKonsolePlugin *plugin);
 
+    bool restoreLastWorkspaceState();
+
     /**
      * creates a new tab for the main window
      */
@@ -207,6 +209,7 @@ public Q_SLOTS:
 
 private:
     void applyMainWindowSettings(const KConfigGroup &config) override;
+    void saveLastWorkspaceState();
 
     /**
      * Returns true if the window geometry was previously saved to the
