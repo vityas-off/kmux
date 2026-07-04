@@ -31,8 +31,10 @@
 #include <KActionCollection>
 #include <KActionMenu>
 #include <KConfigGroup>
+#include <KGuiItem>
 #include <KLocalizedString>
 #include <KMessageBox>
+#include <KStandardGuiItem>
 
 // Konsole
 #if HAVE_DBUS
@@ -1199,7 +1201,30 @@ void ViewManager::closeProject(TabbedViewContainer *container)
         return;
     }
 
-    for (int i = tabCount - 1; i >= 0; --i) {
+    if (!confirmCloseProject(container)) {
+        return;
+    }
+
+    const auto controllers = sessionControllersForContainer(container);
+    for (SessionController *controller : controllers) {
+        if (controller == nullptr || controller->session() == nullptr) {
+            continue;
+        }
+
+        if (!controller->session()->closeInNormalWay()) {
+            if (controller->confirmForceClose()) {
+                controller->session()->closeInForceWay();
+            }
+        }
+    }
+}
+
+QList<SessionController *> ViewManager::sessionControllersForContainer(TabbedViewContainer *container) const
+{
+    QList<SessionController *> controllers;
+    QSet<Session *> sessions;
+
+    for (int i = 0; container != nullptr && i < container->count(); ++i) {
         auto *splitter = container->viewSplitterAt(i);
         if (splitter == nullptr) {
             continue;
@@ -1207,9 +1232,76 @@ void ViewManager::closeProject(TabbedViewContainer *container)
 
         const auto terminals = splitter->findChildren<TerminalDisplay *>();
         for (TerminalDisplay *terminal : terminals) {
-            terminal->sessionController()->closeSession();
+            auto *controller = terminal->sessionController();
+            if (controller == nullptr || controller->session() == nullptr || sessions.contains(controller->session())) {
+                continue;
+            }
+
+            sessions.insert(controller->session());
+            controllers.append(controller);
         }
     }
+
+    return controllers;
+}
+
+bool ViewManager::confirmCloseProject(TabbedViewContainer *container) const
+{
+    QStringList processesRunning;
+    const auto controllers = sessionControllersForContainer(container);
+
+    for (SessionController *controller : controllers) {
+        Session *session = controller->session();
+        if ((session == nullptr) || !session->isForegroundProcessActive()) {
+            continue;
+        }
+
+        const QString defaultProc = session->program().split(QLatin1Char('/')).last();
+        const QString currentProc = session->foregroundProcessName().split(QLatin1Char('/')).last();
+
+        if (currentProc.isEmpty()) {
+            continue;
+        }
+
+        if (defaultProc != currentProc) {
+            processesRunning.append(currentProc);
+        }
+    }
+
+    const int openTerminals = controllers.count();
+    if (processesRunning.isEmpty() && openTerminals < 2) {
+        return true;
+    }
+
+    int result = KMessageBox::Cancel;
+    if (!processesRunning.isEmpty()) {
+        result = KMessageBox::warningTwoActionsList(_workspaceContainer,
+                                                    i18ncp("@info",
+                                                           "There is a process running in this workspace. "
+                                                           "Do you still want to close it?",
+                                                           "There are %1 processes running in this workspace. "
+                                                           "Do you still want to close it?",
+                                                           processesRunning.count()),
+                                                    processesRunning,
+                                                    i18nc("@title", "Confirm Close"),
+                                                    KGuiItem(i18nc("@action:button", "Close &Workspace"), QStringLiteral("window-close")),
+                                                    KStandardGuiItem::cancel(),
+                                                    QStringLiteral("CloseProjectWorkspaceWithProcesses"));
+    } else {
+        result = KMessageBox::warningTwoActions(_workspaceContainer,
+                                                i18ncp("@info",
+                                                       "There is %1 open terminal in this workspace. "
+                                                       "Do you still want to close it?",
+                                                       "There are %1 open terminals in this workspace. "
+                                                       "Do you still want to close it?",
+                                                       openTerminals),
+                                                i18nc("@title", "Confirm Close"),
+                                                KGuiItem(i18nc("@action:button", "Close &Workspace"), QStringLiteral("window-close")),
+                                                KStandardGuiItem::cancel(),
+                                                QStringLiteral("CloseProjectWorkspaceWithTabs"));
+    }
+
+    return result == KMessageBox::PrimaryAction;
 }
 
 void ViewManager::activeProjectChanged(TabbedViewContainer *container)
