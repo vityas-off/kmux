@@ -392,6 +392,37 @@ void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()
     QCOMPARE(group.readEntry("Active", -1), 2);
 }
 
+void ViewManagerTest::testProjectWorkspaceRailWidthPersists()
+{
+    KConfig config(m_testDir->filePath(QStringLiteral("workspaces-width-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+
+    {
+        auto sourceWindow = MainWindow();
+        auto *sourceManager = sourceWindow.viewManager();
+        auto *sourceWorkspaces = sourceManager->_workspaceContainer.data();
+        QVERIFY(sourceWorkspaces != nullptr);
+
+        sourceWorkspaces->setProjectRailWidth(248);
+        QCOMPARE(sourceWorkspaces->projectRailWidth(), 248);
+        sourceWindow.newTab();
+        sourceManager->saveSessions(group);
+    }
+
+    auto restoredWindow = MainWindow();
+    auto *restoredManager = restoredWindow.viewManager();
+    auto *restoredWorkspaces = restoredManager->_workspaceContainer.data();
+    QVERIFY(restoredWorkspaces != nullptr);
+
+    restoredManager->restoreSessions(group, false);
+    QCOMPARE(restoredWorkspaces->projectRailWidth(), 248);
+
+    group.writeEntry("ProjectRailWidth", 999);
+    restoredWorkspaces->setProjectRailWidth(164);
+    restoredManager->restoreSessions(group, false);
+    QCOMPARE(restoredWorkspaces->projectRailWidth(), 320);
+}
+
 void ViewManagerTest::testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds()
 {
     KConfig config(m_testDir->filePath(QStringLiteral("workspaces-restore-testrc")), KConfig::SimpleConfig);

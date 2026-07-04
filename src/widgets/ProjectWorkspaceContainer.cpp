@@ -35,6 +35,9 @@ using namespace Konsole;
 namespace
 {
 constexpr int ProjectItemHeight = 56;
+constexpr int ProjectRailDefaultWidth = 164;
+constexpr int ProjectRailMinimumWidth = 120;
+constexpr int ProjectRailMaximumWidth = 320;
 
 enum ProjectRoles {
     ContainerRole = Qt::UserRole,
@@ -276,10 +279,11 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     , _splitter(new QSplitter(Qt::Horizontal, this))
     , _projectList(new ProjectListWidget(this))
     , _stack(new QStackedWidget(this))
+    , _projectRailWidth(ProjectRailDefaultWidth)
 {
     _rail->setObjectName(QStringLiteral("projectRail"));
-    _rail->setMinimumWidth(120);
-    _rail->setMaximumWidth(320);
+    _rail->setMinimumWidth(ProjectRailMinimumWidth);
+    _rail->setMaximumWidth(ProjectRailMaximumWidth);
 
     _projectList->setObjectName(QStringLiteral("projectList"));
     _projectList->setDefaultDropAction(Qt::MoveAction);
@@ -315,7 +319,10 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     _splitter->addWidget(_stack);
     _splitter->setStretchFactor(0, 0);
     _splitter->setStretchFactor(1, 1);
-    _splitter->setSizes({164, 800});
+    _splitter->setSizes({ProjectRailDefaultWidth, 800});
+    connect(_splitter, &QSplitter::splitterMoved, this, [this](int position) {
+        _projectRailWidth = qBound(ProjectRailMinimumWidth, position, ProjectRailMaximumWidth);
+    });
     rootLayout->addWidget(_splitter);
 
     applyRailStyle();
@@ -491,6 +498,20 @@ QString ProjectWorkspaceContainer::nextDefaultProjectTitle() const
 void ProjectWorkspaceContainer::setProjectNavigationVisible(bool visible)
 {
     _rail->setVisible(visible);
+}
+
+int ProjectWorkspaceContainer::projectRailWidth() const
+{
+    return qBound(ProjectRailMinimumWidth, _projectRailWidth, ProjectRailMaximumWidth);
+}
+
+void ProjectWorkspaceContainer::setProjectRailWidth(int requestedWidth)
+{
+    const int railWidth = qBound(ProjectRailMinimumWidth, requestedWidth, ProjectRailMaximumWidth);
+    _projectRailWidth = railWidth;
+    const QList<int> sizes = _splitter->sizes();
+    const int contentWidth = sizes.count() > 1 ? qMax(1, sizes.at(1)) : qMax(1, width() - railWidth);
+    _splitter->setSizes({railWidth, contentWidth});
 }
 
 void ProjectWorkspaceContainer::currentRowChanged(int row)

@@ -47,6 +47,8 @@ public:
     int projectCount() const;
     QString nextDefaultProjectTitle() const;
     void setProjectNavigationVisible(bool visible);
+    int projectRailWidth() const;
+    void setProjectRailWidth(int requestedWidth);
 
 Q_SIGNALS:
     void newProjectRequested();
@@ -80,6 +82,7 @@ private:
     QListWidget *_projectList;
     QStackedWidget *_stack;
     int _nextProjectNumber = 1;
+    int _projectRailWidth;
 };
 
 }

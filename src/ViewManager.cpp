@@ -1660,6 +1660,9 @@ void ViewManager::saveSessions(KConfigGroup &group)
 
     group.writeEntry("Tabs", QJsonDocument(rootArray).toJson(QJsonDocument::Compact));
     group.writeEntry("Active", container != nullptr ? container->currentIndex() : 0);
+    if (!_workspaceContainer.isNull()) {
+        group.writeEntry("ProjectRailWidth", _workspaceContainer->projectRailWidth());
+    }
 
     QJsonArray projectArray;
     int activeProjectIndex = 0;
@@ -1805,6 +1808,10 @@ void ViewManager::restoreSessions(const KConfigGroup &group)
 
 void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
 {
+    if (!_workspaceContainer.isNull() && group.hasKey(QStringLiteral("ProjectRailWidth"))) {
+        _workspaceContainer->setProjectRailWidth(group.readEntry("ProjectRailWidth", 0));
+    }
+
     const auto projectList = group.readEntry("Projects", QByteArray("[]"));
     const auto jsonProjects = QJsonDocument::fromJson(projectList).array();
     if (!_workspaceContainer.isNull() && !jsonProjects.isEmpty()) {
