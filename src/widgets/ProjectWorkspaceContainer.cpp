@@ -34,6 +34,8 @@ using namespace Konsole;
 
 namespace
 {
+constexpr int ProjectItemHeight = 56;
+
 enum ProjectRoles {
     ContainerRole = Qt::UserRole,
     SubtitleRole,
@@ -47,6 +49,80 @@ QString badgeText(int count)
     return count > 99 ? QStringLiteral("99+") : QString::number(count);
 }
 
+QColor blendedColor(const QColor &background, const QColor &foreground, qreal foregroundOpacity)
+{
+    const qreal backgroundOpacity = 1.0 - foregroundOpacity;
+    return QColor::fromRgbF((background.redF() * backgroundOpacity) + (foreground.redF() * foregroundOpacity),
+                            (background.greenF() * backgroundOpacity) + (foreground.greenF() * foregroundOpacity),
+                            (background.blueF() * backgroundOpacity) + (foreground.blueF() * foregroundOpacity),
+                            1.0);
+}
+
+int indicatorWidth(const QFontMetrics &metrics, const QString &text)
+{
+    if (text.isEmpty()) {
+        return 0;
+    }
+
+    return 13 + 4 + metrics.horizontalAdvance(text);
+}
+
+void drawTabIndicatorIcon(QPainter *painter, const QRect &rect, const QColor &color)
+{
+    painter->save();
+    QPen pen(color, 1.4);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+
+    const QRectF front(rect.left() + 3.5, rect.top() + 4.5, 7.0, 6.0);
+    const QRectF back(rect.left() + 1.5, rect.top() + 2.5, 7.0, 6.0);
+    painter->drawRoundedRect(back, 1.0, 1.0);
+    painter->drawRoundedRect(front, 1.0, 1.0);
+
+    painter->restore();
+}
+
+void drawProcessIndicatorIcon(QPainter *painter, const QRect &rect, const QColor &color)
+{
+    painter->save();
+    QPen pen(color, 1.4);
+    pen.setCapStyle(Qt::RoundCap);
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+
+    const QPoint center = rect.center();
+    painter->drawEllipse(center, 3, 3);
+    painter->drawLine(center.x(), rect.top() + 1, center.x(), rect.top() + 3);
+    painter->drawLine(center.x(), rect.bottom() - 3, center.x(), rect.bottom() - 1);
+    painter->drawLine(rect.left() + 1, center.y(), rect.left() + 3, center.y());
+    painter->drawLine(rect.right() - 3, center.y(), rect.right() - 1, center.y());
+
+    painter->restore();
+}
+
+void drawInlineIndicator(QPainter *painter,
+                         const QRect &rect,
+                         const QString &text,
+                         const QColor &color,
+                         const QFont &font,
+                         void (*drawIcon)(QPainter *, const QRect &, const QColor &))
+{
+    if (text.isEmpty()) {
+        return;
+    }
+
+    painter->save();
+    painter->setPen(color);
+    painter->setFont(font);
+
+    const QRect iconRect(rect.left(), rect.top() + ((rect.height() - 13) / 2), 13, 13);
+    drawIcon(painter, iconRect, color);
+    painter->drawText(rect.adjusted(17, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, text);
+
+    painter->restore();
+}
+
 class ProjectItemDelegate : public QStyledItemDelegate
 {
 public:
@@ -58,7 +134,7 @@ public:
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
         const QSize base = QStyledItemDelegate::sizeHint(option, index);
-        return {base.width(), qMax(base.height(), 56)};
+        return {base.width(), qMax(base.height(), ProjectItemHeight)};
     }
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
@@ -67,58 +143,84 @@ public:
 
         QStyleOptionViewItem itemOption(option);
         initStyleOption(&itemOption, index);
-        const QIcon icon = itemOption.icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : itemOption.icon;
         itemOption.text.clear();
         itemOption.icon = {};
 
         auto *style = itemOption.widget != nullptr ? itemOption.widget->style() : QApplication::style();
-        style->drawPrimitive(QStyle::PE_PanelItemViewItem, &itemOption, painter, itemOption.widget);
+        QStyleOptionViewItem backgroundOption(itemOption);
+        const bool selected = itemOption.state.testFlag(QStyle::State_Selected);
+        backgroundOption.state.setFlag(QStyle::State_Selected, false);
+        style->drawPrimitive(QStyle::PE_PanelItemViewItem, &backgroundOption, painter, itemOption.widget);
 
         const QRect rect = itemOption.rect.adjusted(8, 7, -12, -7);
-        const bool selected = itemOption.state.testFlag(QStyle::State_Selected);
-        const QPalette::ColorRole textRole = selected ? QPalette::HighlightedText : QPalette::Text;
-        const QPalette::ColorRole subtleRole = selected ? QPalette::HighlightedText : QPalette::PlaceholderText;
-        const QColor textColor = itemOption.palette.color(textRole);
-        QColor subtleColor = itemOption.palette.color(subtleRole);
+        const QColor highlightColor = itemOption.palette.color(QPalette::Highlight);
         if (selected) {
-            subtleColor.setAlpha(245);
+            const QColor base = itemOption.palette.color(QPalette::Base);
+            const QColor mid = itemOption.palette.color(QPalette::Mid);
+            QRect backgroundRect = itemOption.rect;
+            if (itemOption.widget != nullptr) {
+                backgroundRect.setLeft(itemOption.widget->rect().left());
+                backgroundRect.setRight(itemOption.widget->rect().right());
+            }
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(blendedColor(base, mid, 0.28));
+            painter->drawRect(backgroundRect);
+
+            painter->setBrush(highlightColor);
+            painter->drawRect(QRect(backgroundRect.left(), backgroundRect.top(), 3, backgroundRect.height()));
         }
 
-        const QSize iconSize(18, 18);
-        const QRect iconRect(rect.left(), rect.top() + (rect.height() - iconSize.height()) / 2, iconSize.width(), iconSize.height());
-        icon.paint(painter, iconRect, Qt::AlignCenter, selected ? QIcon::Selected : QIcon::Normal);
+        const QColor textColor = itemOption.palette.color(QPalette::Text);
+        QColor subtleColor = itemOption.palette.color(QPalette::PlaceholderText);
+        if (!subtleColor.isValid()) {
+            subtleColor = textColor;
+        }
+        subtleColor = blendedColor(subtleColor, textColor, selected ? 0.62 : 0.42);
 
         const int tabCount = index.data(TabCountRole).toInt();
         const int processCount = index.data(ActiveProcessCountRole).toInt();
         const bool hasActivity = index.data(HasActivityRole).toBool();
 
-        QRect contentRect = rect.adjusted(iconSize.width() + 8, 0, 0, 0);
-        const QFontMetrics titleMetrics(itemOption.font);
+        const QRect contentRect = rect;
+        QRect titleRect = contentRect;
+        QFont indicatorFont = itemOption.font;
+        indicatorFont.setPointSize(qMax(1, indicatorFont.pointSize() - 1));
+        const QFontMetrics indicatorMetrics(indicatorFont);
         const QString tabsBadge = tabCount > 0 ? badgeText(tabCount) : QString();
-        QRect tabsBadgeRect;
-        if (!tabsBadge.isEmpty()) {
-            const int badgeWidth = qMax(22, titleMetrics.horizontalAdvance(tabsBadge) + 12);
-            tabsBadgeRect = QRect(rect.right() - badgeWidth, rect.top() + 2, badgeWidth, 18);
-            contentRect.setRight(tabsBadgeRect.left() - 8);
+        const QString processBadge = processCount > 0 ? badgeText(processCount) : QString();
+        const int tabsIndicatorWidth = indicatorWidth(indicatorMetrics, tabsBadge);
+        const int processIndicatorWidth = indicatorWidth(indicatorMetrics, processBadge);
+        const int indicatorGap = (!tabsBadge.isEmpty() && !processBadge.isEmpty()) ? 10 : 0;
+        const int activityWidth = processBadge.isEmpty() && hasActivity ? 8 : 0;
+        const int indicatorsWidth = tabsIndicatorWidth + processIndicatorWidth + indicatorGap + activityWidth;
+        QRect indicatorsRect;
+        if (indicatorsWidth > 0) {
+            indicatorsRect = QRect(rect.right() - indicatorsWidth, rect.top() + 1, indicatorsWidth, 18);
+            titleRect.setRight(indicatorsRect.left() - 8);
         }
 
-        QRect processBadgeRect;
-        const QString processBadge = processCount > 0 ? badgeText(processCount) : QString();
+        const QFontMetrics titleMetrics(itemOption.font);
+        const QString title = titleMetrics.elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight, qMax(0, titleRect.width()));
+
+        QRect tabsIndicatorRect;
+        QRect processIndicatorRect;
+        QRect activityRect;
+        int indicatorLeft = indicatorsRect.left();
+        if (!tabsBadge.isEmpty()) {
+            tabsIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), tabsIndicatorWidth, indicatorsRect.height());
+            indicatorLeft = tabsIndicatorRect.right() + 1 + indicatorGap;
+        }
         if (!processBadge.isEmpty()) {
-            const int badgeWidth = qMax(22, titleMetrics.horizontalAdvance(processBadge) + 12);
-            processBadgeRect = QRect(rect.right() - badgeWidth, rect.bottom() - 19, badgeWidth, 18);
-            contentRect.setRight(qMin(contentRect.right(), processBadgeRect.left() - 8));
+            processIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), processIndicatorWidth, indicatorsRect.height());
         } else if (hasActivity) {
-            processBadgeRect = QRect(rect.right() - 13, rect.bottom() - 15, 10, 10);
-            contentRect.setRight(qMin(contentRect.right(), processBadgeRect.left() - 8));
+            activityRect = QRect(indicatorLeft, indicatorsRect.center().y() - 3, 7, 7);
         }
 
         QFont titleFont = itemOption.font;
         titleFont.setBold(true);
         painter->setFont(titleFont);
         painter->setPen(textColor);
-        const QString title = titleMetrics.elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight, contentRect.width());
-        painter->drawText(contentRect.left(), contentRect.top(), contentRect.width(), contentRect.height() / 2, Qt::AlignLeft | Qt::AlignVCenter, title);
+        painter->drawText(titleRect.left(), titleRect.top(), titleRect.width(), titleRect.height() / 2, Qt::AlignLeft | Qt::AlignVCenter, title);
 
         QFont subtitleFont = itemOption.font;
         if (!selected) {
@@ -127,36 +229,19 @@ public:
         painter->setFont(subtitleFont);
         painter->setPen(subtleColor);
         const QFontMetrics subtitleMetrics(subtitleFont);
-        const QString subtitle = subtitleMetrics.elidedText(index.data(SubtitleRole).toString(), Qt::ElideRight, contentRect.width());
+        const QString subtitle = subtitleMetrics.elidedText(index.data(SubtitleRole).toString(), Qt::ElideRight, qMax(0, contentRect.width()));
         painter->drawText(contentRect.left(), rect.center().y(), contentRect.width(), rect.height() / 2, Qt::AlignLeft | Qt::AlignVCenter, subtitle);
 
-        if (!tabsBadgeRect.isNull()) {
-            QColor badgeBg = selected ? itemOption.palette.color(QPalette::HighlightedText) : itemOption.palette.color(QPalette::Mid);
-            QColor badgeFg = selected ? itemOption.palette.color(QPalette::Highlight) : itemOption.palette.color(QPalette::Text);
-            badgeBg.setAlpha(selected ? 230 : 90);
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(badgeBg);
-            painter->drawRoundedRect(tabsBadgeRect.adjusted(0, 0, -1, -1), 8, 8);
-            painter->setPen(badgeFg);
-            painter->setFont(itemOption.font);
-            painter->drawText(tabsBadgeRect, Qt::AlignCenter, tabsBadge);
+        QColor indicatorColor = blendedColor(itemOption.palette.color(QPalette::PlaceholderText), textColor, selected ? 0.75 : 0.48);
+        if (!tabsIndicatorRect.isNull()) {
+            drawInlineIndicator(painter, tabsIndicatorRect, tabsBadge, indicatorColor, indicatorFont, drawTabIndicatorIcon);
         }
-
-        if (!processBadgeRect.isNull()) {
-            QColor indicator = itemOption.palette.color(QPalette::Highlight);
-            if (processCount > 0) {
-                indicator = QColor::fromRgb(47, 160, 96);
-                painter->setPen(Qt::NoPen);
-                painter->setBrush(indicator);
-                painter->drawRoundedRect(processBadgeRect.adjusted(0, 0, -1, -1), 8, 8);
-                painter->setPen(Qt::white);
-                painter->setFont(itemOption.font);
-                painter->drawText(processBadgeRect, Qt::AlignCenter, processBadge);
-            } else {
-                painter->setPen(Qt::NoPen);
-                painter->setBrush(indicator);
-                painter->drawEllipse(processBadgeRect);
-            }
+        if (!processIndicatorRect.isNull()) {
+            drawInlineIndicator(painter, processIndicatorRect, processBadge, indicatorColor, indicatorFont, drawProcessIndicatorIcon);
+        } else if (!activityRect.isNull()) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(highlightColor);
+            painter->drawEllipse(activityRect);
         }
 
         painter->restore();
@@ -207,7 +292,7 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     _projectList->setSelectionMode(QAbstractItemView::SingleSelection);
     _projectList->setContextMenuPolicy(Qt::CustomContextMenu);
     _projectList->setItemDelegate(new ProjectItemDelegate(_projectList));
-    _projectList->setSpacing(2);
+    _projectList->setSpacing(0);
     connect(_projectList, &QListWidget::currentRowChanged, this, &ProjectWorkspaceContainer::currentRowChanged);
     connect(_projectList, &QListWidget::itemDoubleClicked, this, &ProjectWorkspaceContainer::renameCurrentProject);
     connect(_projectList, &QListWidget::customContextMenuRequested, this, &ProjectWorkspaceContainer::openProjectContextMenu);
@@ -217,8 +302,8 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     _projectList->viewport()->setAcceptDrops(true);
 
     auto *railLayout = new QVBoxLayout(_rail);
-    railLayout->setContentsMargins(6, 6, 6, 6);
-    railLayout->setSpacing(6);
+    railLayout->setContentsMargins(0, 0, 0, 0);
+    railLayout->setSpacing(0);
     railLayout->addWidget(_projectList, 1);
 
     auto *rootLayout = new QHBoxLayout(this);
@@ -250,7 +335,7 @@ int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const 
     auto *item = new QListWidgetItem(_projectList);
     item->setData(ContainerRole, QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(container)));
     item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
-    item->setSizeHint(QSize(1, 56));
+    item->setSizeHint(QSize(1, ProjectItemHeight));
     updateListItem(index);
 
     _nextProjectNumber = qMax(_nextProjectNumber, index + 2);
@@ -541,7 +626,7 @@ void ProjectWorkspaceContainer::applyRailStyle()
             outline: 0;
         }
         QListWidget#projectList::item {
-            padding: 3px 5px;
+            padding: 0;
             border-radius: 4px;
         }
         QListWidget#projectList::item:selected {

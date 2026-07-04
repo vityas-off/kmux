@@ -192,6 +192,19 @@ void DetachableTabBar::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setPen(Qt::NoPen);
 
+    const int activeTabIndex = currentIndex();
+    if (activeTabIndex >= 0) {
+        QRect activeTabRect = tabRect(activeTabIndex);
+        activeTabRect.setLeft(activeTabRect.left() + 1);
+        activeTabRect.setRight(activeTabRect.right() - 1);
+        activeTabRect.setHeight(2);
+
+        QColor activeAccent = palette().highlight().color();
+        activeAccent.setAlpha(230);
+        painter.setBrush(activeAccent);
+        painter.drawRect(activeTabRect);
+    }
+
     for (int tabIndex = 0; tabIndex < count(); tabIndex++) {
         const QVariant data = tabData(tabIndex);
         if (!data.isValid() || data.isNull()) {
