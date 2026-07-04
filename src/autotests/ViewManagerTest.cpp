@@ -5,6 +5,7 @@
 */
 
 #include "ViewManagerTest.h"
+#include <QAction>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -12,6 +13,7 @@
 #include <QSet>
 #include <QTest>
 
+#include <KActionCollection>
 #include <KConfig>
 #include <KConfigGroup>
 
@@ -283,6 +285,66 @@ void ViewManagerTest::testProjectWorkspaceSummaryTracksActiveTab()
 
     QCOMPARE(workspaces->projectTabCount(firstProject), 2);
     QCOMPARE(workspaces->projectTabCount(secondProject), 1);
+}
+
+void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    QWidget *firstProjectInitialTab = firstProject->currentWidget();
+    QVERIFY(firstProjectInitialTab != nullptr);
+    mw.newTab();
+    firstProject->setCurrentIndex(0);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+
+    viewManager->createProject();
+    auto *thirdProject = viewManager->activeContainer();
+    QVERIFY(thirdProject != nullptr);
+    QVERIFY(thirdProject != firstProject);
+    QVERIFY(thirdProject != secondProject);
+
+    auto *previousWorkspace = mw.actionCollection()->action(QStringLiteral("previous-workspace"));
+    QVERIFY(previousWorkspace != nullptr);
+    QCOMPARE(previousWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_PageUp));
+
+    auto *addWorkspace = mw.actionCollection()->action(QStringLiteral("add-workspace"));
+    QVERIFY(addWorkspace != nullptr);
+    QCOMPARE(addWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W));
+
+    auto *nextWorkspace = mw.actionCollection()->action(QStringLiteral("next-workspace"));
+    QVERIFY(nextWorkspace != nullptr);
+    QCOMPARE(nextWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_PageDown));
+
+    auto *switchToFirstWorkspace = mw.actionCollection()->action(QStringLiteral("switch-to-workspace-0"));
+    QVERIFY(switchToFirstWorkspace != nullptr);
+    QCOMPARE(switchToFirstWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_1));
+
+    nextWorkspace->trigger();
+    QCOMPARE(viewManager->activeContainer(), firstProject);
+    QCOMPARE(firstProject->currentWidget(), firstProjectInitialTab);
+
+    nextWorkspace->trigger();
+    QCOMPARE(viewManager->activeContainer(), secondProject);
+
+    previousWorkspace->trigger();
+    QCOMPARE(viewManager->activeContainer(), firstProject);
+
+    previousWorkspace->trigger();
+    QCOMPARE(viewManager->activeContainer(), thirdProject);
+
+    switchToFirstWorkspace->trigger();
+    QCOMPARE(viewManager->activeContainer(), firstProject);
+    QCOMPARE(firstProject->currentWidget(), firstProjectInitialTab);
 }
 
 void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()

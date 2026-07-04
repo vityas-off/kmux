@@ -442,6 +442,10 @@ private Q_SLOTS:
     // called when "Next View Container" shortcut is activated
     void nextContainer();
 
+    // called when workspace navigation shortcut is activated
+    void nextProject();
+    void previousProject();
+
     // called when "Toggle Two tabs" shortcut is activated
     void toggleTwoViews();
 
@@ -466,6 +470,8 @@ private Q_SLOTS:
     // switches to the view at visual position 'index'
     // in the current container
     void switchToView(int index);
+    // switches to the project at visual position 'index'
+    void switchToProject(int index);
     // gives focus and switches the terminal display, changing tab if needed
     void switchToTerminalDisplay(TerminalDisplay *terminalDisplay);
 
@@ -553,6 +559,7 @@ private:
     // containers open
     QList<QAction *> _multiTabOnlyActions;
     QList<QAction *> _multiSplitterOnlyActions;
+    QList<QAction *> _multiProjectOnlyActions;
 
     QList<QAction *> contextMenuAdditionalActions;
 

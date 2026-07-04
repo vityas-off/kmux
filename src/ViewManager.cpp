@@ -141,6 +141,7 @@ void ViewManager::setupActions()
     action->setText(i18nc("@action:inmenu", "Add Workspace"));
     connect(action, &QAction::triggered, this, &ViewManager::createProject);
     collection->addAction(QStringLiteral("add-workspace"), action);
+    collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_W);
     _workspaceContainer->addAction(action);
 
     action = new QAction(this);
@@ -273,6 +274,18 @@ void ViewManager::setupActions()
     connect(action, &QAction::triggered, this, &ViewManager::previousView);
     _multiTabOnlyActions << action;
     // _viewSplitter->addAction(previousViewAction);
+
+    action = new QAction(i18nc("@action Shortcut entry", "Next Workspace"), this);
+    collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_PageDown);
+    collection->addAction(QStringLiteral("next-workspace"), action);
+    connect(action, &QAction::triggered, this, &ViewManager::nextProject);
+    _multiProjectOnlyActions << action;
+
+    action = new QAction(i18nc("@action Shortcut entry", "Previous Workspace"), this);
+    collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_PageUp);
+    collection->addAction(QStringLiteral("previous-workspace"), action);
+    connect(action, &QAction::triggered, this, &ViewManager::previousProject);
+    _multiProjectOnlyActions << action;
 
     action = new QAction(i18nc("@action Shortcut entry", "Focus Above Terminal"), this);
     connect(action, &QAction::triggered, this, &ViewManager::focusUp);
@@ -425,6 +438,16 @@ void ViewManager::setupActions()
         }
     }
 
+    const int SWITCH_TO_PROJECT_COUNT = 9;
+    for (int i = 0; i < SWITCH_TO_PROJECT_COUNT; ++i) {
+        action = new QAction(i18nc("@action Shortcut entry", "Switch to Workspace %1", i + 1), this);
+        connect(action, &QAction::triggered, this, [this, i]() {
+            switchToProject(i);
+        });
+        collection->addAction(QStringLiteral("switch-to-workspace-%1").arg(i), action);
+        collection->setDefaultShortcut(action, QKeySequence(Qt::CTRL | Qt::ALT | (Qt::Key_1 + i)));
+    }
+
     toggleActionsBasedOnState();
 }
 
@@ -434,6 +457,11 @@ void ViewManager::toggleActionsBasedOnState()
     const int count = container != nullptr ? container->count() : 0;
     for (QAction *tabOnlyAction : std::as_const(_multiTabOnlyActions)) {
         tabOnlyAction->setEnabled(count > 1);
+    }
+
+    const int projectCount = _workspaceContainer != nullptr ? _workspaceContainer->projectCount() : 0;
+    for (QAction *projectOnlyAction : std::as_const(_multiProjectOnlyActions)) {
+        projectOnlyAction->setEnabled(projectCount > 1);
     }
 
     if ((container != nullptr) && (container->activeViewSplitter() != nullptr)) {
@@ -450,6 +478,20 @@ void ViewManager::switchToView(int index)
     if (auto *container = activeContainer()) {
         container->setCurrentIndex(index);
     }
+}
+
+void ViewManager::switchToProject(int index)
+{
+    if (_workspaceContainer == nullptr || index < 0) {
+        return;
+    }
+
+    const auto containers = _workspaceContainer->containers();
+    if (index >= containers.count()) {
+        return;
+    }
+
+    _workspaceContainer->activateProject(containers.at(index));
 }
 
 void ViewManager::switchToTerminalDisplay(Konsole::TerminalDisplay *terminalDisplay)
@@ -518,6 +560,36 @@ void ViewManager::moveActiveViewRight()
 void ViewManager::nextContainer()
 {
     //    _viewSplitter->activateNextContainer();
+}
+
+void ViewManager::nextProject()
+{
+    if (_workspaceContainer == nullptr || _workspaceContainer->projectCount() <= 1) {
+        return;
+    }
+
+    const auto containers = _workspaceContainer->containers();
+    const int currentIndex = containers.indexOf(activeContainer());
+    if (currentIndex < 0) {
+        return;
+    }
+
+    switchToProject((currentIndex + 1) % containers.count());
+}
+
+void ViewManager::previousProject()
+{
+    if (_workspaceContainer == nullptr || _workspaceContainer->projectCount() <= 1) {
+        return;
+    }
+
+    const auto containers = _workspaceContainer->containers();
+    const int currentIndex = containers.indexOf(activeContainer());
+    if (currentIndex < 0) {
+        return;
+    }
+
+    switchToProject((currentIndex + containers.count() - 1) % containers.count());
 }
 
 void ViewManager::nextView()
