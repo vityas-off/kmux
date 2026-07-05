@@ -438,6 +438,40 @@ void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
     QCOMPARE(viewManager->activeContainer(), firstProject);
 }
 
+void ViewManagerTest::testMoveTabBetweenProjectWorkspaces()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    mw.newTab();
+    QCOMPARE(firstProject->count(), 2);
+
+    auto *movedSplitter = firstProject->viewSplitterAt(0);
+    QVERIFY(movedSplitter != nullptr);
+    auto *movedTerminal = movedSplitter->activeTerminalDisplay();
+    QVERIFY(movedTerminal != nullptr);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+    QCOMPARE(secondProject->count(), 1);
+
+    viewManager->moveTabToProject(firstProject, 0, secondProject);
+
+    QCOMPARE(workspaces->projectCount(), 2);
+    QCOMPARE(firstProject->count(), 1);
+    QCOMPARE(secondProject->count(), 2);
+    QCOMPARE(viewManager->activeContainer(), secondProject);
+    QCOMPARE(secondProject->currentWidget(), movedSplitter);
+    QCOMPARE(viewManager->containerForTerminal(movedTerminal), secondProject);
+}
+
 void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()
 {
     auto mw = MainWindow();

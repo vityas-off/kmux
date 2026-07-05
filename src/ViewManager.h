@@ -22,6 +22,7 @@
 
 class KActionCollection;
 class KConfigGroup;
+class QMenu;
 
 namespace Konsole
 {
@@ -539,6 +540,8 @@ private:
     void clearProjectAttention(TabbedViewContainer *container);
     void setSessionProjectStatus(Session *session, TabbedViewContainer *container, const QString &status);
     QList<SessionController *> sessionControllersForContainer(TabbedViewContainer *container) const;
+    void addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex);
+    void moveTabToProject(TabbedViewContainer *sourceContainer, int tabIndex, TabbedViewContainer *targetContainer);
     bool confirmCloseProject(TabbedViewContainer *container) const;
     void refreshProjectSummary(TabbedViewContainer *container);
     void updateAutoContainerTabColor(Session *session);

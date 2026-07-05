@@ -15,6 +15,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QMenu>
 #include <QSet>
 #include <QStringList>
 #include <QTabBar>
@@ -1328,6 +1329,9 @@ TabbedViewContainer *ViewManager::createContainer()
     container->setNavigationVisibility(_navigationVisibility);
     connect(container, &TabbedViewContainer::detachTab, this, &ViewManager::detachTab);
     connect(container, &TabbedViewContainer::empty, this, &ViewManager::containerEmptied);
+    connect(container, &TabbedViewContainer::tabContextMenuAboutToShow, this, [this, container](QMenu *menu, int tabIndex) {
+        addMoveTabToProjectMenu(menu, container, tabIndex);
+    });
 
     // connect signals and slots
     connect(container, &Konsole::TabbedViewContainer::viewAdded, this, [this, container]() {
@@ -2452,6 +2456,47 @@ void ViewManager::setSessionProjectStatus(Session *session, TabbedViewContainer 
     } else {
         _sessionsNeedingAttention.remove(session);
     }
+}
+
+void ViewManager::addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex)
+{
+    if (menu == nullptr || sourceContainer == nullptr || _workspaceContainer.isNull()) {
+        return;
+    }
+
+    auto *projectMenu = menu->addMenu(QIcon::fromTheme(QStringLiteral("go-jump")), i18nc("@action:inmenu", "Move Tab to Workspace"));
+    projectMenu->menuAction()->setObjectName(QStringLiteral("move-tab-to-project"));
+    projectMenu->setEnabled(tabIndex >= 0 && tabIndex < sourceContainer->count() && _workspaceContainer->projectCount() > 1);
+
+    const auto containers = _workspaceContainer->containers();
+    for (TabbedViewContainer *targetContainer : containers) {
+        if (targetContainer == nullptr || targetContainer == sourceContainer) {
+            continue;
+        }
+
+        const QString title = _workspaceContainer->projectTitle(targetContainer);
+        auto *action = projectMenu->addAction(title.isEmpty() ? i18nc("@title", "Workspace") : title, this, [this, sourceContainer, targetContainer, tabIndex] {
+            moveTabToProject(sourceContainer, tabIndex, targetContainer);
+        });
+        action->setEnabled(tabIndex >= 0 && tabIndex < sourceContainer->count());
+    }
+}
+
+void ViewManager::moveTabToProject(TabbedViewContainer *sourceContainer, int tabIndex, TabbedViewContainer *targetContainer)
+{
+    if (sourceContainer == nullptr || targetContainer == nullptr || sourceContainer == targetContainer || tabIndex < 0
+        || tabIndex >= sourceContainer->count()) {
+        return;
+    }
+
+    sourceContainer->moveTabToContainer(tabIndex, targetContainer);
+    if (!_workspaceContainer.isNull()) {
+        _workspaceContainer->activateProject(targetContainer);
+    }
+    refreshProjectSummary(sourceContainer);
+    refreshProjectSummary(targetContainer);
+    toggleActionsBasedOnState();
+    Q_EMIT viewPropertiesChanged(viewProperties());
 }
 
 void ViewManager::refreshProjectSummary(TabbedViewContainer *container)

@@ -131,6 +131,7 @@ public:
     void openTabContextMenu(const QPoint &point);
     void setNavigationVisibility(ViewManager::NavigationVisibility navigationVisibility);
     void moveTabToWindow(int index, QWidget *window);
+    void moveTabToContainer(int index, TabbedViewContainer *targetContainer);
 
     void toggleMaximizeCurrentTerminal();
     void toggleZoomMaximizeCurrentTerminal();
@@ -209,6 +210,8 @@ Q_SIGNALS:
 
     /** detach the specific tab */
     void detachTab(int tabIdx);
+
+    void tabContextMenuAboutToShow(QMenu *menu, int tabIdx);
 
     /** set the color tab */
     void setColor(int index, const QColor &color);

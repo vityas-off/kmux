@@ -119,10 +119,18 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
     _contextPopupMenu = new QMenu(tabBar());
     connect(_contextPopupMenu, &QMenu::aboutToHide, this, [this]() {
         // Remove the read-only action when the popup closes
-        for (auto &action : _contextPopupMenu->actions()) {
-            if (action->objectName() == QStringLiteral("view-readonly")) {
+        const auto actions = _contextPopupMenu->actions();
+        for (auto *action : actions) {
+            const QString actionName = action->objectName();
+            if (actionName == QStringLiteral("view-readonly")) {
                 _contextPopupMenu->removeAction(action);
-                break;
+            } else if (actionName == QStringLiteral("move-tab-to-project")) {
+                _contextPopupMenu->removeAction(action);
+                if (auto *submenu = action->menu()) {
+                    submenu->deleteLater();
+                } else {
+                    action->deleteLater();
+                }
             }
         }
     });
@@ -245,6 +253,44 @@ void TabbedViewContainer::moveTabToWindow(int index, QWidget *window)
     container->currentSessionControllerChanged(controller);
 
     forgetView();
+}
+
+void TabbedViewContainer::moveTabToContainer(int index, TabbedViewContainer *targetContainer)
+{
+    if (targetContainer == nullptr || targetContainer == this || index < 0 || index >= count()) {
+        return;
+    }
+
+    auto *splitter = viewSplitterAt(index);
+    if (splitter == nullptr) {
+        return;
+    }
+
+    disconnect(splitter, &ViewSplitter::destroyed, this, &TabbedViewContainer::viewDestroyed);
+    disconnect(splitter, &ViewSplitter::terminalDisplayDropped, this, &TabbedViewContainer::terminalDisplayDropped);
+
+    const auto terminals = splitter->findChildren<TerminalDisplay *>();
+    for (TerminalDisplay *terminal : terminals) {
+        disconnect(terminal, &TerminalDisplay::activationRequest, this, &Konsole::TabbedViewContainer::activateView);
+        disconnectTerminalDisplay(terminal);
+    }
+
+    removeTab(index);
+    if (count() > 0) {
+        setCurrentIndex(qBound(0, index, count() - 1));
+    }
+    Q_EMIT viewRemoved();
+    forgetView();
+
+    targetContainer->addSplitter(splitter);
+    for (TerminalDisplay *terminal : terminals) {
+        connect(terminal, &TerminalDisplay::activationRequest, targetContainer, &Konsole::TabbedViewContainer::activateView, Qt::UniqueConnection);
+    }
+    if (auto *terminal = splitter->activeTerminalDisplay()) {
+        if (auto *controller = terminal->sessionController()) {
+            targetContainer->currentSessionControllerChanged(controller);
+        }
+    }
 }
 
 void TabbedViewContainer::konsoleConfigChanged()
@@ -600,6 +646,7 @@ void TabbedViewContainer::openTabContextMenu(const QPoint &point)
         }
     }
 
+    Q_EMIT tabContextMenuAboutToShow(_contextPopupMenu, _contextMenuTabIndex);
     _contextPopupMenu->exec(tabBar()->mapToGlobal(point));
 }
 

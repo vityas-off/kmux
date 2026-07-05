@@ -28,6 +28,7 @@ private Q_SLOTS:
     void testProjectWorkspaceTerminalNotificationMarksInactiveProject();
     void testProjectWorkspaceStatusTracksSessionHooks();
     void testProjectWorkspaceNavigationShortcuts();
+    void testMoveTabBetweenProjectWorkspaces();
     void testSaveSessionsStoresProjectWorkspaces();
     void testProjectWorkspaceRailWidthPersists();
     void testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds();
