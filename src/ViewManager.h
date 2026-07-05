@@ -446,6 +446,7 @@ private Q_SLOTS:
     // called when workspace navigation shortcut is activated
     void nextProject();
     void previousProject();
+    void nextProjectNeedingAttention();
 
     // called when "Toggle Two tabs" shortcut is activated
     void toggleTwoViews();

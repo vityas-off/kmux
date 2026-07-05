@@ -396,6 +396,10 @@ void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
     QVERIFY(switchToFirstWorkspace != nullptr);
     QCOMPARE(switchToFirstWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_1));
 
+    auto *nextAttentionWorkspace = mw.actionCollection()->action(QStringLiteral("next-attention-workspace"));
+    QVERIFY(nextAttentionWorkspace != nullptr);
+    QCOMPARE(nextAttentionWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A));
+
     nextWorkspace->trigger();
     QCOMPARE(viewManager->activeContainer(), firstProject);
     QCOMPARE(firstProject->currentWidget(), firstProjectInitialTab);
@@ -412,6 +416,24 @@ void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
     switchToFirstWorkspace->trigger();
     QCOMPARE(viewManager->activeContainer(), firstProject);
     QCOMPARE(firstProject->currentWidget(), firstProjectInitialTab);
+
+    auto *thirdTerminal = thirdProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(thirdTerminal != nullptr);
+    Session *thirdSession = thirdTerminal->sessionController()->session();
+    QVERIFY(thirdSession != nullptr);
+    thirdSession->setProjectStatus(QStringLiteral("needsInput"));
+
+    nextAttentionWorkspace->trigger();
+    QCOMPARE(viewManager->activeContainer(), thirdProject);
+
+    auto *firstTerminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    Session *firstSession = firstTerminal->sessionController()->session();
+    QVERIFY(firstSession != nullptr);
+    Q_EMIT firstSession->terminalNotificationReceived(QStringLiteral("Codex"), QStringLiteral("Turn complete"));
+
+    nextAttentionWorkspace->trigger();
+    QCOMPARE(viewManager->activeContainer(), firstProject);
 }
 
 void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()

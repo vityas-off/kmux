@@ -333,6 +333,12 @@ void ViewManager::setupActions()
     connect(action, &QAction::triggered, this, &ViewManager::previousProject);
     _multiProjectOnlyActions << action;
 
+    action = new QAction(i18nc("@action Shortcut entry", "Next Workspace Needing Attention"), this);
+    collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_A);
+    collection->addAction(QStringLiteral("next-attention-workspace"), action);
+    connect(action, &QAction::triggered, this, &ViewManager::nextProjectNeedingAttention);
+    _multiProjectOnlyActions << action;
+
     action = new QAction(i18nc("@action Shortcut entry", "Focus Above Terminal"), this);
     connect(action, &QAction::triggered, this, &ViewManager::focusUp);
     collection->addAction(QStringLiteral("focus-view-above"), action);
@@ -636,6 +642,29 @@ void ViewManager::previousProject()
     }
 
     switchToProject((currentIndex + containers.count() - 1) % containers.count());
+}
+
+void ViewManager::nextProjectNeedingAttention()
+{
+    if (_workspaceContainer == nullptr || _workspaceContainer->projectCount() <= 1) {
+        return;
+    }
+
+    const auto containers = _workspaceContainer->containers();
+    const int currentIndex = containers.indexOf(activeContainer());
+    if (currentIndex < 0) {
+        return;
+    }
+
+    for (int offset = 1; offset < containers.count(); ++offset) {
+        const int projectIndex = (currentIndex + offset) % containers.count();
+        auto *container = containers.at(projectIndex);
+        if (_workspaceContainer->projectHasActivity(container)
+            || _workspaceContainer->projectStatus(container) == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+            switchToProject(projectIndex);
+            return;
+        }
+    }
 }
 
 void ViewManager::nextView()
