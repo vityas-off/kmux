@@ -59,7 +59,9 @@ void DBusTest::initTestCase()
     profile->setProperty(Profile::LocalTabTitleFormat, QStringLiteral("%D"));
     profileWriter.writeProfile(_testProfilePath, profile);
 
-    // Create a new Konsole with a separate process id
+    // Launch Konsole for DBus testing. --separate is accepted for
+    // compatibility, but this fork does not use it to bypass single-window
+    // behavior.
     _process = new QProcess;
     _process->setProcessChannelMode(QProcess::ForwardedChannels);
     _process->start(QStringLiteral("konsole"), QStringList(QStringLiteral("--separate")));

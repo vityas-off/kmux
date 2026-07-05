@@ -11,7 +11,6 @@
 #include <QCommandLineParser>
 
 // Konsole
-#include "containers/ContainerInfo.h"
 #include "konsoleapp_export.h"
 #include "pluginsystem/PluginManager.h"
 #include "profile/Profile.h"
@@ -53,14 +52,11 @@ public:
     int newInstance();
 
     /**
-     * Creates a new, empty main window and connects to its newSessionRequest()
-     * and newWindowRequest() signals to trigger creation of new sessions or
-     * windows when then they are emitted.
+     * Creates a new, empty main window and connects its terminal detach signal.
      */
     MainWindow *newMainWindow();
 
 private Q_SLOTS:
-    void createWindow(const QExplicitlySharedDataPointer<Profile> &profile, const QString &directory, const ContainerInfo &container);
     void detachTerminals(MainWindow *currentWindow, ViewSplitter *splitter, const QHash<TerminalDisplay *, Session *> &sessionsMap);
 
     void toggleBackgroundInstance();
@@ -81,6 +77,7 @@ private:
     bool processTabsFromFileArgs(MainWindow *window);
     void createTabFromArgs(MainWindow *window, const QHash<QString, QString> &);
     bool shouldRestoreLastWorkspaceState(bool createdNewMainWindow) const;
+    bool hasExplicitSessionRequest() const;
 
     MainWindow *_backgroundInstance;
     QSharedPointer<QCommandLineParser> m_parser;

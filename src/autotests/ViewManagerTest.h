@@ -29,6 +29,7 @@ private Q_SLOTS:
     void testProjectWorkspaceStatusTracksSessionHooks();
     void testProjectWorkspaceNavigationShortcuts();
     void testProjectWorkspaceDetachActionsDisabled();
+    void testProjectWorkspaceNewWindowActionDisabled();
     void testMoveTabBetweenProjectWorkspaces();
     void testSaveSessionsStoresProjectWorkspaces();
     void testProjectWorkspaceRailWidthPersists();

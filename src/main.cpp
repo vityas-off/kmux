@@ -10,7 +10,6 @@
 
 // Own
 #include "Application.h"
-#include "KonsoleSettings.h"
 #include "MainWindow.h"
 #include "ViewManager.h"
 #include "config-konsole.h"
@@ -19,16 +18,15 @@
 // OS specific
 #include <QApplication>
 #include <QCommandLineParser>
-#include <QDir>
 #include <QProxyStyle>
-#include <QStandardPaths>
-#include <qplatformdefs.h>
 
 // KDE
 #include <KAboutData>
+#include <KConfigGroup>
 #include <KCrash>
 #include <KIconTheme>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <KWindowSystem>
 
 #if HAVE_DBUS
@@ -52,10 +50,6 @@ using Konsole::Application;
 
 // fill the KAboutData structure with information about contributors to Konsole.
 void fillAboutData(KAboutData &aboutData);
-
-// check and report whether this konsole instance should use a new konsole
-// process, or reuse an existing konsole process.
-bool shouldUseNewProcess(int argc, char *argv[]);
 
 // restore sessions saved by KDE.
 void restoreSession(Application &app);
@@ -149,16 +143,6 @@ int main(int argc, char *argv[])
     KIconTheme::initTheme();
 #endif
 
-#if HAVE_DBUS
-    // Check if any of the arguments makes it impossible to reuse an existing process.
-    // We need to do this manually and before creating a QApplication, because
-    // QApplication takes/removes the Qt specific arguments that are incompatible.
-    const bool needNewProcess = shouldUseNewProcess(argc, argv);
-    if (!needNewProcess) { // We need to avoid crashing
-        needToDeleteQApplication = true;
-    }
-#endif
-
     auto app = new QApplication(argc, argv);
 
 #if HAVE_STYLE_MANAGER
@@ -237,18 +221,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    /// ! DON'T TOUCH THIS ! ///
-    const KDBusService::StartupOption startupOption =
-        Konsole::KonsoleSettings::useSingleInstance() && !needNewProcess ? KDBusService::Unique : KDBusService::Multiple;
-    /// ! DON'T TOUCH THIS ! ///
-    // If you need to change something here, add your logic _at the bottom_ of
-    // shouldUseNewProcess(), after reading the explanations there for why you
-    // probably shouldn't.
-
+    needToDeleteQApplication = true;
     atexit(deleteQApplication);
-    // Ensure that we only launch a new instance if we need to
-    // If there is already an instance running, we will quit here
-    KDBusService dbusService(startupOption | KDBusService::NoExitOnFailure);
+    // Project workspaces are persisted as one global workspace tree. Always
+    // route subsequent launches into the existing process so a second window
+    // cannot overwrite the saved project state on exit.
+    KDBusService dbusService(KDBusService::Unique | KDBusService::NoExitOnFailure);
 
     needToDeleteQApplication = false;
 #endif
@@ -288,78 +266,6 @@ int main(int argc, char *argv[])
     int ret = app->exec();
     delete app;
     return ret;
-}
-
-bool shouldUseNewProcess(int argc, char *argv[])
-{
-    // The "unique process" model of konsole is incompatible with some or all
-    // Qt/KDE options. When those incompatible options are given, konsole must
-    // use new process
-    //
-    // TODO: make sure the existing list is OK and add more incompatible options.
-
-    // We need to manually parse the arguments because QApplication removes the
-    // Qt specific arguments (like --reverse)
-    QStringList arguments;
-    arguments.reserve(argc);
-    for (int i = 0; i < argc; i++) {
-        arguments.append(QString::fromLocal8Bit(argv[i]));
-    }
-
-    if (arguments.contains(QLatin1String("--force-reuse"))) {
-        return false;
-    }
-
-    // take Qt options into consideration
-    QStringList qtProblematicOptions;
-    qtProblematicOptions << QStringLiteral("--session") << QStringLiteral("--name") << QStringLiteral("--reverse") << QStringLiteral("--stylesheet")
-                         << QStringLiteral("--graphicssystem");
-#if WITH_X11
-    qtProblematicOptions << QStringLiteral("--display") << QStringLiteral("--visual");
-#endif
-    for (const QString &option : std::as_const(qtProblematicOptions)) {
-        if (arguments.contains(option)) {
-            return true;
-        }
-    }
-
-    // take KDE options into consideration
-    QStringList kdeProblematicOptions;
-    kdeProblematicOptions << QStringLiteral("--config") << QStringLiteral("--style");
-#if WITH_X11
-    kdeProblematicOptions << QStringLiteral("--waitforwm");
-#endif
-
-    for (const QString &option : std::as_const(kdeProblematicOptions)) {
-        if (arguments.contains(option)) {
-            return true;
-        }
-    }
-
-    // if users have explicitly requested starting a new process
-    // Support --nofork to retain argument compatibility with older
-    // versions.
-    if (arguments.contains(QStringLiteral("--separate")) || arguments.contains(QStringLiteral("--nofork"))) {
-        return true;
-    }
-
-    // the only way to create new tab is to reuse existing Konsole process.
-    if (Konsole::KonsoleSettings::forceNewTabs() || arguments.contains(QStringLiteral("--new-tab"))) {
-        return false;
-    }
-
-    // when starting Konsole from a terminal, a new process must be used
-    // so that the current environment is propagated into the shells of the new
-    // Konsole and any debug output or warnings from Konsole are written to
-    // the current terminal
-    bool hasControllingTTY = false;
-    const int fd = QT_OPEN("/dev/tty", O_RDONLY);
-    if (fd != -1) {
-        hasControllingTTY = true;
-        close(fd);
-    }
-
-    return hasControllingTTY;
 }
 
 void fillAboutData(KAboutData &aboutData)
@@ -443,19 +349,21 @@ void restoreSession(Application &app)
 {
     int n = 1;
 
-    while (KMainWindow::canBeRestored(n)) {
-        auto mainWindow = app.newMainWindow();
-        mainWindow->restore(n++);
-        mainWindow->viewManager()->toggleActionsBasedOnState();
-        mainWindow->show();
+    if (!KMainWindow::canBeRestored(n)) {
+        return;
+    }
 
-        // TODO: HACK without the code below the sessions would be `uninitialized`
-        // and the tabs wouldn't display the correct information.
-        const auto tabbedContainers = mainWindow->viewManager()->widget()->findChildren<Konsole::TabbedViewContainer *>();
-        for (auto *tabbedContainer : tabbedContainers) {
-            for (int i = 0; i < tabbedContainer->count(); i++) {
-                tabbedContainer->setCurrentIndex(i);
-            }
+    auto mainWindow = app.newMainWindow();
+    mainWindow->restore(n);
+    mainWindow->viewManager()->toggleActionsBasedOnState();
+    mainWindow->show();
+
+    // TODO: HACK without the code below the sessions would be `uninitialized`
+    // and the tabs wouldn't display the correct information.
+    const auto tabbedContainers = mainWindow->viewManager()->widget()->findChildren<Konsole::TabbedViewContainer *>();
+    for (auto *tabbedContainer : tabbedContainers) {
+        for (int i = 0; i < tabbedContainer->count(); i++) {
+            tabbedContainer->setCurrentIndex(i);
         }
     }
 }

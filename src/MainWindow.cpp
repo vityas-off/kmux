@@ -450,9 +450,10 @@ void MainWindow::setupActions()
     menuAction = collection->addAction(QStringLiteral("new-window"));
     menuAction->setIcon(QIcon::fromTheme(QStringLiteral("window-new")));
     menuAction->setText(i18nc("@action:inmenu", "New &Window"));
-    collection->setDefaultShortcut(menuAction, static_cast<Qt::Modifiers>(Konsole::ACCEL) | Qt::Key_N);
+    collection->setDefaultShortcut(menuAction, QKeySequence());
+    menuAction->setEnabled(false);
+    menuAction->setVisible(false);
     menuAction->setAutoRepeat(false);
-    connect(menuAction, &QAction::triggered, this, &Konsole::MainWindow::newWindow);
 
     menuAction = collection->addAction(QStringLiteral("close-window"));
     menuAction->setIcon(QIcon::fromTheme(QStringLiteral("window-close")));
@@ -542,7 +543,6 @@ void MainWindow::updateHamburgerMenu()
         menu->clear();
     }
 
-    menu->addAction(collection->action(QStringLiteral("new-window")));
     menu->addAction(collection->action(QStringLiteral("new-tab")));
     menu->addAction(controllerCollection->action(QStringLiteral("file_save_as")));
 
@@ -810,30 +810,6 @@ Session *MainWindow::createSSHSession(Profile::Ptr profile, const QUrl &url)
 void MainWindow::setFocus()
 {
     _viewManager->activeView()->setFocus();
-}
-
-void MainWindow::newWindow()
-{
-    // Use the active session's profile for container inheritance check,
-    // since the user might have a different profile with inheritance enabled
-    Profile::Ptr profile = ProfileManager::instance()->defaultProfile();
-    if (_pluggedController && _pluggedController->session()) {
-        profile = SessionManager::instance()->sessionProfile(_pluggedController->session());
-    }
-
-    // Pass inherited container context for the new window.
-    // The profile's ContainerName setting is handled automatically by
-    // ViewManager::createSession(), but inheritance needs explicit passing
-    // since the new window won't have a _pluggedController yet.
-    ContainerInfo container;
-    if (profile->inheritContainerContext() && _pluggedController) {
-        Session *activeSession = _pluggedController->session();
-        if (activeSession && activeSession->isInContainer()) {
-            container = activeSession->containerContext();
-        }
-    }
-
-    Q_EMIT newWindowRequest(profile, activeSessionDir(), container);
 }
 
 bool MainWindow::queryClose()

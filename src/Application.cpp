@@ -24,7 +24,6 @@
 #include <KLocalizedString>
 
 // Konsole
-#include "KonsoleSettings.h"
 #include "MainWindow.h"
 #include "ShellCommand.h"
 #include "ViewManager.h"
@@ -38,6 +37,31 @@
 #include "pluginsystem/IKonsolePlugin.h"
 
 using namespace Konsole;
+
+namespace
+{
+MainWindow *existingMainWindow()
+{
+    const QList<QWidget *> list = QApplication::topLevelWidgets();
+    for (auto it = list.crbegin(), endIt = list.crend(); it != endIt; ++it) {
+        if (auto *window = qobject_cast<MainWindow *>(*it)) {
+            return window;
+        }
+    }
+    return nullptr;
+}
+
+void showAndActivateWindow(MainWindow *window)
+{
+    if (window == nullptr) {
+        return;
+    }
+
+    window->setWindowState(window->windowState() & (~Qt::WindowMinimized | Qt::WindowActive));
+    window->show();
+    window->activateWindow();
+}
+}
 
 Application::Application(QSharedPointer<QCommandLineParser> parser, const QStringList &customCommand)
     : _backgroundInstance(nullptr)
@@ -62,7 +86,7 @@ void Application::populateCommandLineParser(QCommandLineParser *parser)
         {{QStringLiteral("tabs-from-file")}, i18nc("@info:shell", "Create tabs as specified in given tabs configuration file"), QStringLiteral("file")},
         {{QStringLiteral("background-mode")},
          i18nc("@info:shell", "Start Konsole in the background and bring to the front when Ctrl+Shift+F12 (by default) is pressed")},
-        {{QStringLiteral("separate"), QStringLiteral("nofork")}, i18nc("@info:shell", "Run in a separate process")},
+        {{QStringLiteral("separate"), QStringLiteral("nofork")}, i18nc("@info:shell", "Compatibility option; this fork always reuses the existing window")},
         {{QStringLiteral("show-menubar")}, i18nc("@info:shell", "Show the menubar, overriding the default setting")},
         {{QStringLiteral("hide-menubar")}, i18nc("@info:shell", "Hide the menubar, overriding the default setting")},
         {{QStringLiteral("show-toolbars")}, i18nc("@info:shell", "Show all the toolbars, overriding the default setting")},
@@ -128,8 +152,6 @@ MainWindow *Application::newMainWindow()
 
     auto window = new MainWindow();
 
-    connect(window, &Konsole::MainWindow::newWindowRequest, this, &Konsole::Application::createWindow);
-
     connect(window,
             &Konsole::MainWindow::terminalsDetached,
             this,
@@ -142,25 +164,13 @@ MainWindow *Application::newMainWindow()
     return window;
 }
 
-void Application::createWindow(const Profile::Ptr &profile, const QString &directory, const ContainerInfo &container)
-{
-    MainWindow *window = newMainWindow();
-    Session *session = window->createSession(profile, directory);
-
-    // Apply inherited container context for the new window.
-    // Inheritance takes priority over the profile's ContainerName setting.
-    // ViewManager::createSession already handles in-process inheritance,
-    // but for new windows _pluggedController is null, so we apply it here.
-    if (container.isValid()) {
-        session->setContainerContext(container);
-    }
-
-    window->show();
-}
-
 void Application::detachTerminals(MainWindow *currentWindow, ViewSplitter *splitter, const QHash<TerminalDisplay *, Session *> &sessionsMap)
 {
-    MainWindow *window = newMainWindow();
+    MainWindow *window = currentWindow != nullptr ? currentWindow : existingMainWindow();
+    if (window == nullptr) {
+        window = newMainWindow();
+    }
+
     ViewManager *manager = window->viewManager();
 
     const QList<TerminalDisplay *> displays = splitter->findChildren<TerminalDisplay *>();
@@ -170,8 +180,7 @@ void Application::detachTerminals(MainWindow *currentWindow, ViewSplitter *split
     manager->activeContainer()->addSplitter(splitter);
 
     window->show();
-    window->resize(currentWindow->width(), currentWindow->height());
-    window->move(QCursor::pos());
+    window->activateWindow();
 }
 
 int Application::newInstance()
@@ -344,6 +353,30 @@ bool Application::shouldRestoreLastWorkspaceState(bool createdNewMainWindow) con
     return m_customCommand.isEmpty() && m_parser->positionalArguments().isEmpty();
 }
 
+bool Application::hasExplicitSessionRequest() const
+{
+    const QStringList explicitSessionOptions = {
+        QStringLiteral("layout"),
+        QStringLiteral("tabs-from-file"),
+        QStringLiteral("profile"),
+        QStringLiteral("builtin-profile"),
+        QStringLiteral("workdir"),
+        QStringLiteral("hold"),
+        QStringLiteral("noclose"),
+        QStringLiteral("new-tab"),
+        QStringLiteral("background-mode"),
+        QStringLiteral("e"),
+    };
+
+    for (const QString &option : explicitSessionOptions) {
+        if (m_parser->isSet(option)) {
+            return true;
+        }
+    }
+
+    return !m_customCommand.isEmpty() || !m_parser->positionalArguments().isEmpty();
+}
+
 void Application::createTabFromArgs(MainWindow *window, const QHash<QString, QString> &tokens)
 {
     const QString &title = tokens[QStringLiteral("title")];
@@ -421,21 +454,12 @@ void Application::createTabFromArgs(MainWindow *window, const QHash<QString, QSt
     window->hide();
 }
 
-// Creates a new Konsole window.
-// If --new-tab is given, use existing window.
+// Creates the first Konsole window or reuses the existing one. Project
+// workspaces are a single global tree, so this fork never creates a second
+// main window.
 MainWindow *Application::processWindowArgs(bool &createdNewMainWindow)
 {
-    MainWindow *window = nullptr;
-
-    if (Konsole::KonsoleSettings::forceNewTabs() || m_parser->isSet(QStringLiteral("new-tab"))) {
-        const QList<QWidget *> list = QApplication::topLevelWidgets();
-        for (auto it = list.crbegin(), endIt = list.crend(); it != endIt; ++it) {
-            window = qobject_cast<MainWindow *>(*it);
-            if (window) {
-                break;
-            }
-        }
-    }
+    MainWindow *window = existingMainWindow();
 
     if (window == nullptr) {
         createdNewMainWindow = true;
@@ -609,6 +633,11 @@ void Application::slotActivateRequested(QStringList args, const QString & /*work
     populateCommandLineParser(parser);
     parser->parse(args);
     m_parser.reset(parser);
+
+    if (!hasExplicitSessionRequest()) {
+        showAndActivateWindow(existingMainWindow());
+        return;
+    }
 
     newInstance();
 }

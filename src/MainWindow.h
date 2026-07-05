@@ -128,20 +128,6 @@ public:
     void setPluginsActions(const QList<QAction *> &actions);
 
 Q_SIGNALS:
-
-    /**
-     * Emitted by the main window to request the creation of a
-     * new session in a new window.
-     *
-     * @param profile The profile to use to create the
-     * first session in the new window.
-     * @param directory Initial working directory for the new window or empty
-     * if the default working directory associated with the profile should
-     * be used.
-     * @param container Container context to inherit, or invalid ContainerInfo if none.
-     */
-    void newWindowRequest(const QExplicitlySharedDataPointer<Profile> &profile, const QString &directory, const ContainerInfo &container);
-
     /**
      * Emitted when a view for one session is detached from this window
      */
@@ -170,7 +156,6 @@ protected Q_SLOTS:
 
 private Q_SLOTS:
     void cloneTab();
-    void newWindow();
     void showManageProfilesDialog();
     void activateMenuBar();
     void showSettingsDialog(bool showProfilePage = false);

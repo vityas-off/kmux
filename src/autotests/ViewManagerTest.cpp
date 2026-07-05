@@ -455,6 +455,17 @@ void ViewManagerTest::testProjectWorkspaceDetachActionsDisabled()
     QVERIFY(detachView->shortcut().isEmpty());
 }
 
+void ViewManagerTest::testProjectWorkspaceNewWindowActionDisabled()
+{
+    auto mw = MainWindow();
+
+    auto *newWindow = mw.actionCollection()->action(QStringLiteral("new-window"));
+    QVERIFY(newWindow != nullptr);
+    QVERIFY(!newWindow->isEnabled());
+    QVERIFY(!newWindow->isVisible());
+    QVERIFY(newWindow->shortcut().isEmpty());
+}
+
 void ViewManagerTest::testMoveTabBetweenProjectWorkspaces()
 {
     auto mw = MainWindow();
