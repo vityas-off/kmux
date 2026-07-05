@@ -1119,8 +1119,19 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(session, &Konsole::Session::notificationsChanged, this, [this, view](Session::Notification, bool) {
         refreshProjectSummary(containerForTerminal(view));
     });
-    connect(session, &Konsole::Session::terminalNotificationReceived, this, [this, session, view](const QString &, const QString &) {
+    connect(session, &Konsole::Session::terminalNotificationReceived, this, [this, session, view](const QString &title, const QString &body) {
         auto *container = containerForTerminal(view);
+        if (container != nullptr && !_workspaceContainer.isNull()) {
+            QString notification = body.simplified();
+            if (!title.simplified().isEmpty() && !body.simplified().isEmpty()) {
+                notification = i18nc("@info:project notification title and body", "%1: %2", title.simplified(), body.simplified());
+            } else if (!title.simplified().isEmpty()) {
+                notification = title.simplified();
+            }
+            if (!notification.isEmpty()) {
+                _workspaceContainer->setProjectNotification(container, notification);
+            }
+        }
         markSessionAttention(session, container);
         refreshProjectSummary(container);
     });

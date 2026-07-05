@@ -546,6 +546,27 @@ ProjectWorkspaceContainer::ProjectStatus ProjectWorkspaceContainer::projectStatu
     return _projects.at(index).status;
 }
 
+QString ProjectWorkspaceContainer::projectNotification(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return {};
+    }
+
+    return _projects.at(index).notification;
+}
+
+void ProjectWorkspaceContainer::setProjectNotification(TabbedViewContainer *container, const QString &notification)
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return;
+    }
+
+    _projects[index].notification = notification.simplified();
+    updateListItem(index);
+}
+
 void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container,
                                                   const QString &subtitle,
                                                   int tabCount,
@@ -721,6 +742,9 @@ void ProjectWorkspaceContainer::updateListItem(int index)
     const QString statusText = projectStatusText(_projects.at(index).status);
     if (!statusText.isEmpty()) {
         tooltip += QStringLiteral("\n%1").arg(statusText);
+    }
+    if (!_projects.at(index).notification.isEmpty()) {
+        tooltip += QStringLiteral("\n%1").arg(i18nc("@info:tooltip", "Last notification: %1", _projects.at(index).notification));
     }
     item->setToolTip(tooltip);
     item->setIcon(_projects.at(index).icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : _projects.at(index).icon);

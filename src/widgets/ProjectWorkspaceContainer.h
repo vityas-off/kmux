@@ -52,6 +52,8 @@ public:
     int projectActiveProcessCount(TabbedViewContainer *container) const;
     bool projectHasActivity(TabbedViewContainer *container) const;
     ProjectStatus projectStatus(TabbedViewContainer *container) const;
+    QString projectNotification(TabbedViewContainer *container) const;
+    void setProjectNotification(TabbedViewContainer *container, const QString &notification);
     void setProjectSummary(TabbedViewContainer *container,
                            const QString &subtitle,
                            int tabCount,
@@ -87,6 +89,7 @@ private:
         int activeProcessCount = 0;
         bool hasActivity = false;
         ProjectStatus status = ProjectStatus::None;
+        QString notification;
     };
 
     int indexOf(TabbedViewContainer *container) const;

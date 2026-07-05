@@ -310,9 +310,11 @@ void ViewManagerTest::testProjectWorkspaceTerminalNotificationMarksInactiveProje
 
     Q_EMIT firstSession->terminalNotificationReceived(QStringLiteral("Codex"), QStringLiteral("Turn complete"));
     QVERIFY(workspaces->projectHasActivity(firstProject));
+    QCOMPARE(workspaces->projectNotification(firstProject), QStringLiteral("Codex: Turn complete"));
 
     workspaces->activateProject(firstProject);
     QVERIFY(!workspaces->projectHasActivity(firstProject));
+    QCOMPARE(workspaces->projectNotification(firstProject), QStringLiteral("Codex: Turn complete"));
 }
 
 void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
