@@ -79,7 +79,6 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
     setTabBar(tabBarWidget);
     setDocumentMode(true);
     setMovable(true);
-    connect(tabBarWidget, &DetachableTabBar::moveTabToWindow, this, &TabbedViewContainer::moveTabToWindow);
     tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
     _newTabButton->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
     _newTabButton->setAutoRaise(true);
@@ -100,9 +99,6 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
 
     connect(tabBar(), &QTabBar::tabBarDoubleClicked, this, &Konsole::TabbedViewContainer::tabDoubleClicked);
     connect(tabBar(), &QTabBar::customContextMenuRequested, this, &Konsole::TabbedViewContainer::openTabContextMenu);
-    connect(tabBarWidget, &DetachableTabBar::detachTab, this, [this](int idx) {
-        Q_EMIT detachTab(idx);
-    });
     connect(tabBarWidget, &DetachableTabBar::closeTab, this, &TabbedViewContainer::closeTerminalTab);
     connect(tabBarWidget, &DetachableTabBar::newTabRequest, this, [this] {
         Q_EMIT newViewRequest();
@@ -136,11 +132,6 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
     });
 
     connect(tabBar(), &QTabBar::tabCloseRequested, this, &TabbedViewContainer::closeTerminalTab);
-
-    auto detachAction = _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("tab-detach")), i18nc("@action:inmenu", "&Detach Tab"), this, [this] {
-        Q_EMIT detachTab(_contextMenuTabIndex);
-    });
-    detachAction->setObjectName(QStringLiteral("tab-detach"));
 
     auto editAction =
         _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "&Configure or Rename Tab..."), this, [this] {
@@ -635,15 +626,6 @@ void TabbedViewContainer::openTabContextMenu(const QPoint &point)
     _contextMenuTabIndex = tabBar()->tabAt(point);
     if (_contextMenuTabIndex < 0) {
         return;
-    }
-
-    // TODO: add a countChanged signal so we can remove this for.
-    // Detaching in mac causes crashes.
-    const auto actions = _contextPopupMenu->actions();
-    for (auto action : actions) {
-        if (action->objectName() == QStringLiteral("tab-detach")) {
-            action->setEnabled(count() > 1);
-        }
     }
 
     Q_EMIT tabContextMenuAboutToShow(_contextPopupMenu, _contextMenuTabIndex);

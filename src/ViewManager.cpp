@@ -287,23 +287,16 @@ void ViewManager::setupActions()
     _multiSplitterOnlyActions << action;
 
     action = collection->addAction(QStringLiteral("detach-view"));
-    action->setEnabled(true);
+    action->setEnabled(false);
+    action->setVisible(false);
     action->setIcon(QIcon::fromTheme(QStringLiteral("tab-detach")));
     action->setText(i18nc("@action:inmenu", "Detach Current &View"));
 
-    connect(action, &QAction::triggered, this, &ViewManager::detachActiveView);
-    _multiSplitterOnlyActions << action;
-
-    // Ctrl+Shift+D is not used as a shortcut by default because it is too close
-    // to Ctrl+D - which will terminate the session in many cases
-    collection->setDefaultShortcut(action, static_cast<Qt::Modifiers>(Konsole::ACCEL) | Qt::Key_H);
-
     action = collection->addAction(QStringLiteral("detach-tab"));
-    action->setEnabled(true);
+    action->setEnabled(false);
+    action->setVisible(false);
     action->setIcon(QIcon::fromTheme(QStringLiteral("tab-detach")));
     action->setText(i18nc("@action:inmenu", "Detach Current &Tab"));
-    connect(action, &QAction::triggered, this, &ViewManager::detachActiveTab);
-    _multiTabOnlyActions << action;
 
     // keyboard shortcut only actions
     action = new QAction(i18nc("@action Shortcut entry", "Next Tab"), this);

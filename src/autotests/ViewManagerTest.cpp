@@ -438,6 +438,23 @@ void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
     QCOMPARE(viewManager->activeContainer(), firstProject);
 }
 
+void ViewManagerTest::testProjectWorkspaceDetachActionsDisabled()
+{
+    auto mw = MainWindow();
+
+    auto *detachTab = mw.actionCollection()->action(QStringLiteral("detach-tab"));
+    QVERIFY(detachTab != nullptr);
+    QVERIFY(!detachTab->isEnabled());
+    QVERIFY(!detachTab->isVisible());
+    QVERIFY(detachTab->shortcut().isEmpty());
+
+    auto *detachView = mw.actionCollection()->action(QStringLiteral("detach-view"));
+    QVERIFY(detachView != nullptr);
+    QVERIFY(!detachView->isEnabled());
+    QVERIFY(!detachView->isVisible());
+    QVERIFY(detachView->shortcut().isEmpty());
+}
+
 void ViewManagerTest::testMoveTabBetweenProjectWorkspaces()
 {
     auto mw = MainWindow();
