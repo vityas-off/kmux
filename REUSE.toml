@@ -1,7 +1,7 @@
 version = 1
 SPDX-PackageName = "kmux"
 SPDX-PackageSupplier = "vityas-off <15840124+vityas-off@users.noreply.github.com>"
-SPDX-PackageDownloadLocation = "https://github.com/kmux-project/kmux"
+SPDX-PackageDownloadLocation = "https://github.com/vityas-off/kmux"
 
 [[annotations]]
 path = [".gitignore", ".git-blame-ignore-revs", ".krazy", ".editorconfig"]
