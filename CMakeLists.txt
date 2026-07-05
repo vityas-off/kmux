@@ -10,7 +10,7 @@ set(RELEASE_SERVICE_VERSION "${RELEASE_SERVICE_VERSION_MAJOR}.${RELEASE_SERVICE_
 # approval from maintainer(s).
 # minimal requirements
 
-# See comments in https://invent.kde.org/utilities/konsole/-/commit/9d8e47298c81fc1e47c998eda1b6e980589274eb
+# Keep this conservative so the fork remains easy to build on stable distributions.
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
 set(QT_MIN_VERSION "6.5.0")
@@ -34,7 +34,6 @@ include(GenerateExportHeader)
 include(FeatureSummary)
 include(ECMQtDeclareLoggingCategory)
 include(KDEClangFormat)
-include(KDEGitCommitHooks)
 include(CheckFunctionExists)
 include(CheckIncludeFiles)
 
@@ -180,6 +179,3 @@ feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
 # add clang-format target for all our real source files
 file(GLOB_RECURSE ALL_CLANG_FORMAT_SOURCE_FILES *.c *.cpp *.h *.hpp)
 kde_clang_format(${ALL_CLANG_FORMAT_SOURCE_FILES})
-if(ECM_VERSION VERSION_GREATER_EQUAL 5.79.0)
-    kde_configure_git_pre_commit_hook(CHECKS CLANG_FORMAT)
-endif()

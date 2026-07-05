@@ -1,15 +1,13 @@
-/** @mainpage Konsole
+/** @mainpage Kmux
 
-%Konsole is a terminal emulator for KDE.
+%Kmux is a Konsole-based terminal for KDE with cmux-style project workspaces.
 <p>
-To use a %Konsole part in your application, see the
+To use a %Kmux part in your application, see the
 <a href="https://api.kde.org/frameworks/kparts/html/classTerminalInterface.html">Terminal
 interface documentation</a> in KPart's framework.
 
-To learn more about %Konsole, visit the
-<a href="https://konsole.kde.org">Konsole home page</a>, or join the
-<a href="https://mail.kde.org/mailman/listinfo/konsole-devel">konsole-devel
-mailing list</a>.
+To learn more about %Kmux, visit the
+<a href="https://github.com/kmux-project/kmux">Kmux project page</a>.
 
 @authors
 Lars Doelle<br>
@@ -25,5 +23,5 @@ Kurt Hindenburg
 
 // DOXYGEN_EXCLUDE = data desktop developer-doc tests user-doc tools
 // DOXYGEN_SET_RECURSIVE = YES
-// DOXYGEN_SET_PROJECT_NAME = Konsole
+// DOXYGEN_SET_PROJECT_NAME = Kmux
 // vim:ts=4:sw=4:expandtab:filetype=doxygen
