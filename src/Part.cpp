@@ -37,7 +37,7 @@
 
 using namespace Konsole;
 
-K_PLUGIN_FACTORY_WITH_JSON(KonsolePartFactory, "konsolepart.json", registerPlugin<Konsole::Part>();)
+K_PLUGIN_FACTORY_WITH_JSON(KonsolePartFactory, "kmuxpart.json", registerPlugin<Konsole::Part>();)
 
 Part::Part(QObject *parent, const QVariantList &)
     : KParts::ReadOnlyPart(parent)
@@ -306,11 +306,11 @@ void Part::activeViewTitleChanged(ViewProperties *properties)
 void Part::showManageProfilesDialog(QWidget *parent)
 {
     // Make sure this string is unique among all users of this part
-    if (KConfigDialog::showDialog(QStringLiteral("konsolepartmanageprofiles"))) {
+    if (KConfigDialog::showDialog(QStringLiteral("kmuxpartmanageprofiles"))) {
         return;
     }
 
-    KConfigDialog *settingsDialog = new KConfigDialog(parent, QStringLiteral("konsolepartmanageprofiles"), KonsoleSettings::self());
+    KConfigDialog *settingsDialog = new KConfigDialog(parent, QStringLiteral("kmuxpartmanageprofiles"), KonsoleSettings::self());
     settingsDialog->setFaceType(KPageDialog::Tabbed);
 
     auto profileSettings = new ProfileSettings(settingsDialog);

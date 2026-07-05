@@ -43,12 +43,12 @@ HistoryFile::HistoryFile()
     if (!historyFileLocation.exists()) {
         QString fileLocation;
         KSharedConfigPtr appConfig = KSharedConfig::openConfig();
-        if (qApp->applicationName() != QLatin1String("konsole")) {
+        if (qApp->applicationName() != QLatin1String("kmux")) {
             // Check if "kpart"rc has "FileLocation" group; AFAIK
             // only possible if user manually added it. If not
             // found, use konsole's config.
             if (!appConfig->hasGroup(QStringLiteral("FileLocation"))) {
-                appConfig = KSharedConfig::openConfig(QStringLiteral("konsolerc"));
+                appConfig = KSharedConfig::openConfig(QStringLiteral("kmuxrc"));
             }
         }
 

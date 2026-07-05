@@ -14,7 +14,7 @@ namespace
 {
 std::string statusHookCommand(const char *status)
 {
-    return std::string("command -v konsole-project-status >/dev/null 2>&1 && konsole-project-status --hook-output ") + status + " || printf '{}\\n'";
+    return std::string("command -v kmux-project-status >/dev/null 2>&1 && kmux-project-status --hook-output ") + status + " || printf '{}\\n'";
 }
 
 std::string codexHookConfig(const char *event, const char *status, int timeout)
@@ -61,6 +61,6 @@ int main(int argc, char **argv)
     execArgs.push_back(nullptr);
 
     execvp("codex", execArgs.data());
-    std::cerr << "konsole-codex: failed to exec codex: " << std::strerror(errno) << '\n';
+    std::cerr << "kmux-codex: failed to exec codex: " << std::strerror(errno) << '\n';
     return 127;
 }

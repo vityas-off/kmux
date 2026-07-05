@@ -65,7 +65,7 @@ class KONSOLEPRIVATE_EXPORT Session : public QObject
 #endif
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.kde.konsole.Session")
+    Q_CLASSINFO("D-Bus Interface", "io.github.kmux_project.kmux.Session")
 
 public:
     using Ptr = QPointer<Session>;
@@ -1137,7 +1137,7 @@ private:
 
     /**
      * secret cookie for activationToken, shall be only exposed to shell
-     * environment as KONSOLE_DBUS_ACTIVATION_COOKIE
+     * environment as KMUX_DBUS_ACTIVATION_COOKIE
      */
     const QString m_activationCookie;
 };

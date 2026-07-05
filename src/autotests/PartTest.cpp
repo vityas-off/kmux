@@ -26,7 +26,7 @@ using namespace Konsole;
 
 void PartTest::initTestCase()
 {
-    /* Try to test against build konsolepart, so move directory containing
+    /* Try to test against build kmuxpart, so move directory containing
       executable to front of libraryPaths.  KPluginLoader should find the
       part first in the build dir over the system installed ones.
       I believe the CI installs first and then runs the test so the other
@@ -35,7 +35,7 @@ void PartTest::initTestCase()
     const auto libraryPaths = QCoreApplication::libraryPaths();
     auto buildPath = libraryPaths.last();
     QCoreApplication::removeLibraryPath(buildPath);
-    // konsolepart.so is in ../autotests/
+    // kmuxpart.so is in ../autotests/
     if (buildPath.endsWith(QStringLiteral("/autotests"))) {
         buildPath.chop(10);
     }
@@ -79,7 +79,7 @@ void PartTest::testFd(bool runShell)
     // create a Konsole part and attempt to connect to it
     KParts::Part *terminalPart = createPart();
     if (terminalPart == nullptr) { // not found
-        QFAIL("konsolepart not found.");
+        QFAIL("kmuxpart not found.");
         return;
     }
 
@@ -126,7 +126,7 @@ void PartTest::testFd(bool runShell)
 
 KParts::Part *PartTest::createPart()
 {
-    const KPluginMetaData metaData(QStringLiteral("konsolepart"));
+    const KPluginMetaData metaData(QStringLiteral("kmuxpart"));
     Q_ASSERT(metaData.isValid());
 
     KPluginFactory::Result<KParts::Part> result = KPluginFactory::instantiatePlugin<KParts::Part>(metaData, this);

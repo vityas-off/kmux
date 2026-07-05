@@ -248,7 +248,7 @@ void SSHManagerModel::triggerProfileChange(const QString &sshHost)
 
 void SSHManagerModel::load()
 {
-    auto config = KConfig(QStringLiteral("konsolesshconfig"), KConfig::OpenFlag::SimpleConfig);
+    auto config = KConfig(QStringLiteral("kmuxsshconfig"), KConfig::OpenFlag::SimpleConfig);
 
     const auto groupList = config.groupList();
     for (const QString &groupName : groupList) {
@@ -277,7 +277,7 @@ void SSHManagerModel::load()
 
 void SSHManagerModel::save()
 {
-    auto config = KConfig(QStringLiteral("konsolesshconfig"), KConfig::OpenFlag::SimpleConfig);
+    auto config = KConfig(QStringLiteral("kmuxsshconfig"), KConfig::OpenFlag::SimpleConfig);
     const auto groupList = config.groupList();
     for (const QString &groupName : groupList) {
         config.deleteGroup(groupName);

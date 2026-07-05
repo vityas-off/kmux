@@ -19,7 +19,7 @@
 #include <QDockWidget>
 #include <kcommandbar.h>
 
-K_PLUGIN_CLASS_WITH_JSON(QuickCommandsPlugin, "konsole_quickcommands.json")
+K_PLUGIN_CLASS_WITH_JSON(QuickCommandsPlugin, "kmux_quickcommands.json")
 
 struct QuickCommandsPlugin::Private {
     QuickCommandsModel model;

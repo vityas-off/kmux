@@ -247,7 +247,7 @@ void ViewManager::setupActions()
     action->setIcon(QIcon::fromTheme(QStringLiteral("view-split-top-bottom")));
     action->setText(i18nc("@action:inmenu", "Load a new tab with layout 2x2 terminals"));
     connect(action, &QAction::triggered, this, [this]() {
-        this->loadLayout(QStringLiteral(":/konsole/layouts/2x2-terminals.json"));
+        this->loadLayout(QStringLiteral(":/kmux/layouts/2x2-terminals.json"));
     });
     collection->addAction(QStringLiteral("load-terminals-layout-2x2"), action);
     splitViewActions->addAction(action);
@@ -256,7 +256,7 @@ void ViewManager::setupActions()
     action->setIcon(QIcon::fromTheme(QStringLiteral("view-split-left-right")));
     action->setText(i18nc("@action:inmenu", "Load a new tab with layout 2x1 terminals"));
     connect(action, &QAction::triggered, this, [this]() {
-        this->loadLayout(QStringLiteral(":/konsole/layouts/2x1-terminals.json"));
+        this->loadLayout(QStringLiteral(":/kmux/layouts/2x1-terminals.json"));
     });
     collection->addAction(QStringLiteral("load-terminals-layout-2x1"), action);
     splitViewActions->addAction(action);
@@ -265,7 +265,7 @@ void ViewManager::setupActions()
     action->setIcon(QIcon::fromTheme(QStringLiteral("view-split-top-bottom")));
     action->setText(i18nc("@action:inmenu", "Load a new tab with layout 1x2 terminals"));
     connect(action, &QAction::triggered, this, [this]() {
-        this->loadLayout(QStringLiteral(":/konsole/layouts/1x2-terminals.json"));
+        this->loadLayout(QStringLiteral(":/kmux/layouts/1x2-terminals.json"));
     });
     collection->addAction(QStringLiteral("load-terminals-layout-1x2"), action);
     splitViewActions->addAction(action);
@@ -853,7 +853,7 @@ Session *ViewManager::createSession(const Profile::Ptr &profile, const QString &
     if (!directory.isEmpty()) {
         session->setInitialWorkingDirectory(directory);
     }
-    session->addEnvironmentEntry(QStringLiteral("KONSOLE_DBUS_WINDOW=/Windows/%1").arg(managerId()));
+    session->addEnvironmentEntry(QStringLiteral("KMUX_DBUS_WINDOW=/Windows/%1").arg(managerId()));
 
     // Determine container context for the new session.
     // Priority: inherit from active session (if enabled)

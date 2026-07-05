@@ -17,8 +17,8 @@ ecm_qt_declare_logging_category(
     konsole_colorscheme_SRCS
     HEADER colorschemedebug.h
     IDENTIFIER ColorSchemeDebug
-    CATEGORY_NAME org.kde.konsole.colorScheme
-    DESCRIPTION "Konsole - colorscheme"
+    CATEGORY_NAME io.github.kmux_project.kmux.colorScheme
+    DESCRIPTION "Kmux - colorscheme"
     EXPORT KONSOLE
 )
 

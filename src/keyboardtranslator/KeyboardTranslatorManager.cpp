@@ -69,7 +69,7 @@ bool KeyboardTranslatorManager::isTranslatorDeletable(const QString &name) const
 bool KeyboardTranslatorManager::isTranslatorResettable(const QString &name) const
 {
     auto foundFiles = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".keytab")).count();
-    if (QFile::exists(QStringLiteral(":/konsole/keyboard-layouts/") + name + QStringLiteral(".keytab"))) {
+    if (QFile::exists(QStringLiteral(":/kmux/keyboard-layouts/") + name + QStringLiteral(".keytab"))) {
         ++foundFiles;
     }
     return (foundFiles > 1);
@@ -80,8 +80,8 @@ const QString KeyboardTranslatorManager::findTranslatorPath(const QString &name)
     auto file = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".keytab"));
 
     // fallback to bundled ones
-    if (file.isEmpty() && QFile::exists(QStringLiteral(":/konsole/keyboard-layouts/") + name + QStringLiteral(".keytab"))) {
-        file = QStringLiteral(":/konsole/keyboard-layouts/") + name + QStringLiteral(".keytab");
+    if (file.isEmpty() && QFile::exists(QStringLiteral(":/kmux/keyboard-layouts/") + name + QStringLiteral(".keytab"))) {
+        file = QStringLiteral(":/kmux/keyboard-layouts/") + name + QStringLiteral(".keytab");
     }
 
     return file;
@@ -89,8 +89,8 @@ const QString KeyboardTranslatorManager::findTranslatorPath(const QString &name)
 
 void KeyboardTranslatorManager::findTranslators()
 {
-    QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole"), QStandardPaths::LocateDirectory);
-    dirs.append(QStringLiteral(":/konsole/keyboard-layouts")); // fallback to bundled ones
+    QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
+    dirs.append(QStringLiteral(":/kmux/keyboard-layouts")); // fallback to bundled ones
 
     QStringList list;
     for (const QString &dir : std::as_const(dirs)) {
@@ -137,7 +137,7 @@ const KeyboardTranslator *KeyboardTranslatorManager::findTranslator(const QStrin
 
 bool KeyboardTranslatorManager::saveTranslator(const KeyboardTranslator *translator)
 {
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/konsole/");
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kmux/");
     QDir().mkpath(dir);
     const QString path = dir + translator->name() + QStringLiteral(".keytab");
 

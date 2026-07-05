@@ -23,7 +23,7 @@ void DBusTest::initTestCase()
 {
     qRegisterMetaType<QProcess::ExitStatus>();
 
-    const QString interfaceName = QStringLiteral("org.kde.konsole");
+    const QString interfaceName = QStringLiteral("io.github.kmux_project.kmux");
     QDBusConnectionInterface *bus = nullptr;
     QStringList konsoleServices;
 
@@ -64,7 +64,7 @@ void DBusTest::initTestCase()
     // behavior.
     _process = new QProcess;
     _process->setProcessChannelMode(QProcess::ForwardedChannels);
-    _process->start(QStringLiteral("konsole"), QStringList(QStringLiteral("--separate")));
+    _process->start(QStringLiteral("kmux"), QStringList(QStringLiteral("--separate")));
 
     if (!_process->waitForStarted()) {
         QFAIL(QStringLiteral("Unable to exec a new Konsole").toLatin1().data());
@@ -89,7 +89,7 @@ void DBusTest::initTestCase()
 
     QVERIFY2(!_interfaceName.isEmpty(), "This test will only work in a Konsole window with a new PID.  A new Konsole PID can't be found.");
 
-    QDBusInterface iface(_interfaceName, QStringLiteral("/Windows/1"), QStringLiteral("org.kde.konsole.Konsole"));
+    QDBusInterface iface(_interfaceName, QStringLiteral("/Windows/1"), QStringLiteral("io.github.kmux_project.kmux.Window"));
     QVERIFY(iface.isValid());
 }
 
@@ -126,7 +126,7 @@ void DBusTest::testSessions()
     QDBusReply<QString> stringReply;
     QDBusReply<QStringList> listReply;
 
-    QDBusInterface iface(_interfaceName, QStringLiteral("/Sessions/1"), QStringLiteral("org.kde.konsole.Session"));
+    QDBusInterface iface(_interfaceName, QStringLiteral("/Sessions/1"), QStringLiteral("io.github.kmux_project.kmux.Session"));
     QVERIFY(iface.isValid());
 
     //****************** Test is/set MonitorActivity
@@ -265,7 +265,7 @@ void DBusTest::testWindows()
     int sessionCount = -1;
     int initialSessionId = -1;
 
-    QDBusInterface iface(_interfaceName, QStringLiteral("/Windows/1"), QStringLiteral("org.kde.konsole.Window"));
+    QDBusInterface iface(_interfaceName, QStringLiteral("/Windows/1"), QStringLiteral("io.github.kmux_project.kmux.Window"));
     QVERIFY(iface.isValid());
 
     intReply = iface.call(QStringLiteral("sessionCount"));
@@ -297,7 +297,7 @@ void DBusTest::testWindows()
     newSessionId = intReply.value();
     QVERIFY(newSessionId != initialSessionId);
     {
-        QDBusInterface sessionIface(_interfaceName, QStringLiteral("/Sessions/%1").arg(newSessionId), QStringLiteral("org.kde.konsole.Session"));
+        QDBusInterface sessionIface(_interfaceName, QStringLiteral("/Sessions/%1").arg(newSessionId), QStringLiteral("io.github.kmux_project.kmux.Session"));
         QVERIFY(iface.isValid());
 
         listReply = sessionIface.call(QStringLiteral("environment"));
@@ -314,7 +314,7 @@ void DBusTest::testWindows()
     newSessionId = intReply.value();
     QVERIFY(newSessionId != initialSessionId);
     {
-        QDBusInterface sessionIface(_interfaceName, QStringLiteral("/Sessions/%1").arg(newSessionId), QStringLiteral("org.kde.konsole.Session"));
+        QDBusInterface sessionIface(_interfaceName, QStringLiteral("/Sessions/%1").arg(newSessionId), QStringLiteral("io.github.kmux_project.kmux.Session"));
         QVERIFY(iface.isValid());
 
         listReply = sessionIface.call(QStringLiteral("environment"));

@@ -46,31 +46,31 @@ option(KONSOLE_BUILD_UNI2CHARACTERWIDTH "Konsole: build uni2characterwidth execu
 set(dbus_xml_srcs)
 if(HAVE_DBUS)
     ### Konsole source files shared between embedded terminal and main application
-    # qdbuscpp2xml -m  Session.h -o org.kde.konsole.Session.xml
-    # qdbuscpp2xml -M -s ViewManager.h -o org.kde.konsole.Konsole.xml
+    # qdbuscpp2xml -m  Session.h -o io.github.kmux_project.kmux.Session.xml
+    # qdbuscpp2xml -M -s ViewManager.h -o io.github.kmux_project.kmux.Window.xml
 
     # Generate dbus .xml files; do not store .xml in source folder
-    qt_generate_dbus_interface(ViewManager.h org.kde.konsole.Window.xml OPTIONS -m)
+    qt_generate_dbus_interface(ViewManager.h io.github.kmux_project.kmux.Window.xml OPTIONS -m)
 
     qt_add_dbus_adaptor(windowadaptors_SRCS
-                        ${CMAKE_CURRENT_BINARY_DIR}/org.kde.konsole.Window.xml
+                        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Window.xml
                         ViewManager.h
                         Konsole::ViewManager)
 
-    # qdbuscpp2xml -m  Session.h -o org.kde.konsole.Session.xml
+    # qdbuscpp2xml -m  Session.h -o io.github.kmux_project.kmux.Session.xml
     # Generate dbus .xml files; do not store .xml in source folder
-    qt_generate_dbus_interface(session/Session.h org.kde.konsole.Session.xml OPTIONS -m)
+    qt_generate_dbus_interface(session/Session.h io.github.kmux_project.kmux.Session.xml OPTIONS -m)
 
     qt_add_dbus_adaptor(
         sessionadaptors_SRCS
-        ${CMAKE_CURRENT_BINARY_DIR}/org.kde.konsole.Session.xml
+        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Session.xml
         session/Session.h
         Konsole::Session
     )
 
     set(dbus_xml_srcs
-        ${CMAKE_CURRENT_BINARY_DIR}/org.kde.konsole.Session.xml
-        ${CMAKE_CURRENT_BINARY_DIR}/org.kde.konsole.Window.xml
+        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Session.xml
+        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Window.xml
     )
 endif()
 
@@ -123,8 +123,8 @@ ecm_qt_declare_logging_category(
     konsoleprivate_core_SRCS
     HEADER konsoledebug.h
     IDENTIFIER KonsoleDebug
-    CATEGORY_NAME org.kde.konsole
-    DESCRIPTION "Konsole"
+    CATEGORY_NAME io.github.kmux_project.kmux
+    DESCRIPTION "Kmux"
     EXPORT KONSOLE
 )
 
@@ -264,7 +264,7 @@ set(konsoleprivate_SRCS ${windowadaptors_SRCS}
                         ${dbus_xml_srcs}
 
                         ../data/data.qrc
-                        ../desktop/konsole.qrc)
+                        ../desktop/kmux.qrc)
 
 kconfig_add_kcfg_files(konsoleprivate_SRCS settings/KonsoleSettings.kcfgc)
 
@@ -333,6 +333,7 @@ if (HAVE_LIBSSH)
 endif()
 
 set_target_properties(konsoleprivate PROPERTIES
+    OUTPUT_NAME kmuxprivate
     VERSION ${RELEASE_SERVICE_VERSION}
 )
 
@@ -369,6 +370,7 @@ target_link_libraries(konsoleapp
 )
 
 set_target_properties(konsoleapp PROPERTIES
+    OUTPUT_NAME kmuxapp
     VERSION ${RELEASE_SERVICE_VERSION}
 )
 
@@ -381,8 +383,8 @@ set(konsole_SRCS
 # Sets the icon on Windows and OSX
 ecm_add_app_icon(ICONS_SOURCES ICONS ${ICONS_SRCS})
 
-add_executable(konsole ${konsole_SRCS} ${ICONS_SOURCES})
-target_link_libraries(konsole
+add_executable(kmux ${konsole_SRCS} ${ICONS_SOURCES})
+target_link_libraries(kmux
   konsoleprivate
   konsoleapp
   KF6::XmlGui
@@ -395,33 +397,33 @@ target_link_libraries(konsole
 )
 
 if(APPLE)
-    set_target_properties(konsole PROPERTIES
-        MACOSX_BUNDLE_GUI_IDENTIFIER "org.kde.konsole"
-        MACOSX_BUNDLE_BUNDLE_NAME "Konsole"
-        MACOSX_BUNDLE_DISPLAY_NAME "Konsole"
-        MACOSX_BUNDLE_INFO_STRING "Konsole, the KDE terminal emulator"
-        MACOSX_BUNDLE_LONG_VERSION_STRING "Konsole ${RELEASE_SERVICE_VERSION}"
+    set_target_properties(kmux PROPERTIES
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.kmux_project.kmux"
+        MACOSX_BUNDLE_BUNDLE_NAME "Kmux"
+        MACOSX_BUNDLE_DISPLAY_NAME "Kmux"
+        MACOSX_BUNDLE_INFO_STRING "Kmux, a project workspace terminal"
+        MACOSX_BUNDLE_LONG_VERSION_STRING "Kmux ${RELEASE_SERVICE_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${RELEASE_SERVICE_VERSION_MAJOR}.${RELEASE_SERVICE_VERSION_MINOR}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${RELEASE_SERVICE_VERSION}"
         MACOSX_BUNDLE_COPYRIGHT "1997-2022 The Konsole Developers")
 endif()
 
-install(TARGETS konsole ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+install(TARGETS kmux ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
 if(HAVE_DBUS)
-    add_executable(konsole-project-status konsole-project-status.cpp)
-    ecm_mark_nongui_executable(konsole-project-status)
-    target_link_libraries(konsole-project-status Qt::Core Qt::DBus)
-    install(TARGETS konsole-project-status ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+    add_executable(kmux-project-status konsole-project-status.cpp)
+    ecm_mark_nongui_executable(kmux-project-status)
+    target_link_libraries(kmux-project-status Qt::Core Qt::DBus)
+    install(TARGETS kmux-project-status ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
-    add_executable(konsole-codex konsole-codex.cpp)
-    ecm_mark_nongui_executable(konsole-codex)
-    install(TARGETS konsole-codex ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+    add_executable(kmux-codex konsole-codex.cpp)
+    ecm_mark_nongui_executable(kmux-codex)
+    install(TARGETS kmux-codex ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
-    add_executable(konsole-agent-hooks konsole-agent-hooks.cpp)
-    ecm_mark_nongui_executable(konsole-agent-hooks)
-    target_link_libraries(konsole-agent-hooks Qt::Core)
-    install(TARGETS konsole-agent-hooks ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+    add_executable(kmux-agent-hooks konsole-agent-hooks.cpp)
+    ecm_mark_nongui_executable(kmux-agent-hooks)
+    target_link_libraries(kmux-agent-hooks Qt::Core)
+    install(TARGETS kmux-agent-hooks ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 endif()
 
 ### Embedded Konsole KPart
@@ -432,16 +434,16 @@ set(konsolepart_PART_SRCS Part.cpp
     delegates/ProfileShortcutDelegate.cpp
 )
 
-add_library(konsolepart MODULE ${konsolepart_PART_SRCS})
-generate_export_header(konsolepart BASE_NAME konsole)
-set_target_properties(konsolepart PROPERTIES DEFINE_SYMBOL KONSOLE_PART)
-target_link_libraries(konsolepart
+add_library(kmuxpart MODULE ${konsolepart_PART_SRCS})
+generate_export_header(kmuxpart BASE_NAME konsole)
+set_target_properties(kmuxpart PROPERTIES DEFINE_SYMBOL KONSOLE_PART)
+target_link_libraries(kmuxpart
     KF6::Parts
     KF6::XmlGui
     konsoleprivate
 )
 
-install(TARGETS konsolepart DESTINATION ${KDE_INSTALL_PLUGINDIR}/kf6/parts)
+install(TARGETS kmuxpart DESTINATION ${KDE_INSTALL_PLUGINDIR}/kf6/parts)
 
 # Add cmake-options -DBUILD_COVERAGE=ON -DCOVERAGE_GENERATE_HTML=ON
 if(COVERAGE_GENERATE_HTML)

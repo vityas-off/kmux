@@ -74,18 +74,18 @@ Application::Application(QSharedPointer<QCommandLineParser> parser, const QStrin
 void Application::populateCommandLineParser(QCommandLineParser *parser)
 {
     const auto options = QVector<QCommandLineOption>{
-        {{QStringLiteral("profile")}, i18nc("@info:shell", "Name of profile to use for new Konsole instance"), QStringLiteral("name")},
-        {{QStringLiteral("layout")}, i18nc("@info:shell", "json layoutfile to be loaded to use for new Konsole instance"), QStringLiteral("file")},
+        {{QStringLiteral("profile")}, i18nc("@info:shell", "Name of profile to use for new Kmux instance"), QStringLiteral("name")},
+        {{QStringLiteral("layout")}, i18nc("@info:shell", "json layoutfile to be loaded to use for new Kmux instance"), QStringLiteral("file")},
         {{QStringLiteral("builtin-profile")}, i18nc("@info:shell", "Use the built-in profile instead of the default profile")},
         {{QStringLiteral("workdir")}, i18nc("@info:shell", "Set the initial working directory of the new tab or window to 'dir'"), QStringLiteral("dir")},
         {{QStringLiteral("hold"), QStringLiteral("noclose")}, i18nc("@info:shell", "Do not close the initial session automatically when it ends.")},
         // BR: 373440
         {{QStringLiteral("new-tab")},
          i18nc("@info:shell",
-               "Create a new tab in an existing window rather than creating a new window ('Run all Konsole windows in a single process' must be enabled)")},
+               "Create a new tab in an existing window rather than creating a new window ('Run all Kmux windows in a single process' must be enabled)")},
         {{QStringLiteral("tabs-from-file")}, i18nc("@info:shell", "Create tabs as specified in given tabs configuration file"), QStringLiteral("file")},
         {{QStringLiteral("background-mode")},
-         i18nc("@info:shell", "Start Konsole in the background and bring to the front when Ctrl+Shift+F12 (by default) is pressed")},
+         i18nc("@info:shell", "Start Kmux in the background and bring to the front when Ctrl+Shift+F12 (by default) is pressed")},
         {{QStringLiteral("separate"), QStringLiteral("nofork")}, i18nc("@info:shell", "Compatibility option; this fork always reuses the existing window")},
         {{QStringLiteral("show-menubar")}, i18nc("@info:shell", "Show the menubar, overriding the default setting")},
         {{QStringLiteral("hide-menubar")}, i18nc("@info:shell", "Hide the menubar, overriding the default setting")},
@@ -596,7 +596,7 @@ void Application::startBackgroundMode(MainWindow *window)
 #if HAVE_DBUS
     KActionCollection *collection = window->actionCollection();
     QAction *action = collection->addAction(QStringLiteral("toggle-background-window"));
-    action->setObjectName(QStringLiteral("Konsole Background Mode"));
+    action->setObjectName(QStringLiteral("Kmux Background Mode"));
     action->setText(i18nc("@item", "Toggle Background Window"));
     KGlobalAccel::self()->setGlobalShortcut(action, static_cast<Qt::Modifiers>(Konsole::ACCEL) | Qt::Key_F12);
     connect(action, &QAction::triggered, this, &Application::toggleBackgroundInstance);

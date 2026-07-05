@@ -104,8 +104,8 @@ QString ColorSchemeManager::colorSchemeNameFromPath(const QString &path)
 
 QStringList ColorSchemeManager::listColorSchemes()
 {
-    QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole"), QStandardPaths::LocateDirectory);
-    dirs.append(QStringLiteral(":/konsole/color-schemes")); // fallback to bundled ones
+    QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
+    dirs.append(QStringLiteral(":/kmux/color-schemes")); // fallback to bundled ones
 
     QStringList colorschemes;
     for (const QString &dir : std::as_const(dirs)) {
@@ -129,7 +129,7 @@ void ColorSchemeManager::addColorScheme(const std::shared_ptr<ColorScheme> &sche
 
     // save changes to disk
 
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/konsole/");
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kmux/");
     QDir().mkpath(dir);
     const QString path = dir + scheme->name() + QStringLiteral(".colorscheme");
     KConfig config(path, KConfig::NoGlobals);
@@ -190,7 +190,7 @@ QString ColorSchemeManager::findColorSchemePath(const QString &name) const
         path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".schema"));
     }
     if (path.isEmpty()) {
-        const QString resource = QStringLiteral(":/konsole/color-schemes/") + name + QStringLiteral(".colorscheme");
+        const QString resource = QStringLiteral(":/kmux/color-schemes/") + name + QStringLiteral(".colorscheme");
         if (QFile::exists(resource)) {
             path = resource;
         }

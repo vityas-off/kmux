@@ -1,4 +1,4 @@
-# Konsole project
+# Kmux project
 
 # KDE Application Version, managed by release script
 set(RELEASE_SERVICE_VERSION_MAJOR "26")
@@ -17,7 +17,7 @@ set(QT_MIN_VERSION "6.5.0")
 set(KF6_DEP_VERSION "6.0.0")
 
 # Release script will create bugzilla versions
-project(konsole VERSION ${RELEASE_SERVICE_VERSION})
+project(kmux VERSION ${RELEASE_SERVICE_VERSION})
 
 find_package(ECM ${KF6_DEP_VERSION} REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
@@ -150,9 +150,8 @@ option(ENABLE_PLUGIN_QUICKCOMMANDS "Build the Quick Commands plugin" ON)
 add_subdirectory( src )
 add_subdirectory( desktop )
 
-if(KF6DocTools_FOUND)
-    add_subdirectory( doc/manual )
-endif()
+# Kmux does not install Konsole's handbook to avoid colliding with the
+# distribution-provided Konsole package.
 
 add_subdirectory( tools )
 
@@ -165,17 +164,15 @@ endif()
 
 ecm_qt_install_logging_categories(
     EXPORT KONSOLE
-    FILE konsole.categories
+    FILE kmux.categories
     DESTINATION "${KDE_INSTALL_LOGGINGCATEGORIESDIR}"
 )
 
-ki18n_install( po )
-if(KF6DocTools_FOUND)
-    kdoctools_install( po )
-endif()
+# Do not install upstream Konsole translations/doc translations under their
+# original catalog names; distro packages must be able to install side-by-side.
 
 if(ECM_VERSION VERSION_GREATER_EQUAL 5.101.0)
-  install(FILES completions/konsole.zsh RENAME _konsole DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
+  install(FILES completions/kmux.zsh RENAME _kmux DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
 endif()
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)

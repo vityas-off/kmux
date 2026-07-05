@@ -95,7 +95,7 @@ void PartManualTest::shortcutTriggered()
 
 KParts::Part *PartManualTest::createPart()
 {
-    const KPluginFactory::Result<KParts::Part> result = KPluginFactory::instantiatePlugin<KParts::Part>(KPluginMetaData(QStringLiteral("konsolepart")), this);
+    const KPluginFactory::Result<KParts::Part> result = KPluginFactory::instantiatePlugin<KParts::Part>(KPluginMetaData(QStringLiteral("kmuxpart")), this);
     Q_ASSERT(result);
 
     return result.plugin;

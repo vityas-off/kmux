@@ -34,11 +34,11 @@ void printError(bool hookMode, const QString &message)
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    QCoreApplication::setApplicationName(QStringLiteral("konsole-project-status"));
+    QCoreApplication::setApplicationName(QStringLiteral("kmux-project-status"));
     QCoreApplication::setApplicationVersion(QStringLiteral("1.0"));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Set the project status for the current Konsole terminal session."));
+    parser.setApplicationDescription(QStringLiteral("Set the project status for the current Kmux terminal session."));
     parser.addHelpOption();
     parser.addVersionOption();
 
@@ -58,14 +58,14 @@ int main(int argc, char **argv)
         parser.showHelp(2);
     }
 
-    const QString service = qEnvironmentVariable("KONSOLE_DBUS_SERVICE");
-    const QString objectPath = qEnvironmentVariable("KONSOLE_DBUS_SESSION");
+    const QString service = qEnvironmentVariable("KMUX_DBUS_SERVICE");
+    const QString objectPath = qEnvironmentVariable("KMUX_DBUS_SESSION");
     if (service.isEmpty() || objectPath.isEmpty()) {
-        printError(hookMode, QStringLiteral("KONSOLE_DBUS_SERVICE and KONSOLE_DBUS_SESSION must be set."));
+        printError(hookMode, QStringLiteral("KMUX_DBUS_SERVICE and KMUX_DBUS_SESSION must be set."));
         return finishForHook(hookMode, 2);
     }
 
-    QDBusInterface session(service, objectPath, QStringLiteral("org.kde.konsole.Session"), QDBusConnection::sessionBus());
+    QDBusInterface session(service, objectPath, QStringLiteral("io.github.kmux_project.kmux.Session"), QDBusConnection::sessionBus());
     if (!session.isValid()) {
         printError(hookMode, session.lastError().message());
         return finishForHook(hookMode, 3);

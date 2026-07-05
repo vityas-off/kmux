@@ -91,7 +91,7 @@ static int CurrentConfigVersion = 1;
 
 static void migrateRenamedConfigKeys()
 {
-    KSharedConfigPtr konsoleConfig = KSharedConfig::openConfig(QStringLiteral("konsolerc"));
+    KSharedConfigPtr konsoleConfig = KSharedConfig::openConfig(QStringLiteral("kmuxrc"));
     KConfigGroup verGroup = konsoleConfig->group(QStringLiteral("General"));
     const int savedVersion = verGroup.readEntry<int>("ConfigVersion", 0);
     if (savedVersion < CurrentConfigVersion) {
@@ -144,6 +144,7 @@ int main(int argc, char *argv[])
 #endif
 
     auto app = new QApplication(argc, argv);
+    app->setDesktopFileName(QStringLiteral("io.github.kmux_project.kmux"));
 
 #if HAVE_STYLE_MANAGER
     /**
@@ -169,14 +170,14 @@ int main(int argc, char *argv[])
 
     KLocalizedString::setApplicationDomain("konsole");
 
-    KAboutData about(QStringLiteral("konsole"),
-                     i18nc("@title", "Konsole"),
+    KAboutData about(QStringLiteral("kmux"),
+                     i18nc("@title", "Kmux"),
                      QStringLiteral(KONSOLE_VERSION),
-                     i18nc("@title", "Terminal emulator"),
+                     i18nc("@title", "Project workspace terminal"),
                      KAboutLicense::GPL_V2,
-                     i18nc("@info:credit", "(c) 1997-2022, The Konsole Developers"),
+                     i18nc("@info:credit", "(c) 1997-2022, The Konsole Developers; Kmux fork contributors"),
                      QString(),
-                     QStringLiteral("https://konsole.kde.org/"));
+                     QStringLiteral("https://github.com/kmux-project/kmux"));
     fillAboutData(about);
 
     KAboutData::setApplicationData(about);
@@ -196,16 +197,18 @@ int main(int argc, char *argv[])
     about.processCommandLine(parser.data());
 
 #if HAVE_DBUS
-    // on wayland: init token if we are launched by Konsole and have none
+    // on wayland: init token if we are launched by Kmux and have none
     if (KWindowSystem::isPlatformWayland() && qEnvironmentVariable("XDG_ACTIVATION_TOKEN").isEmpty() && QDBusConnection::sessionBus().interface()) {
-        // can we ask Konsole for a token?
-        const auto konsoleService = qEnvironmentVariable("KONSOLE_DBUS_SERVICE");
-        const auto konsoleSession = qEnvironmentVariable("KONSOLE_DBUS_SESSION");
-        const auto konsoleActivationCookie = qEnvironmentVariable("KONSOLE_DBUS_ACTIVATION_COOKIE");
+        // can we ask Kmux for a token?
+        const auto konsoleService = qEnvironmentVariable("KMUX_DBUS_SERVICE");
+        const auto konsoleSession = qEnvironmentVariable("KMUX_DBUS_SESSION");
+        const auto konsoleActivationCookie = qEnvironmentVariable("KMUX_DBUS_ACTIVATION_COOKIE");
         if (!konsoleService.isEmpty() && !konsoleSession.isEmpty() && !konsoleActivationCookie.isEmpty()) {
             // we ask the current shell session
-            QDBusMessage m =
-                QDBusMessage::createMethodCall(konsoleService, konsoleSession, QStringLiteral("org.kde.konsole.Session"), QStringLiteral("activationToken"));
+            QDBusMessage m = QDBusMessage::createMethodCall(konsoleService,
+                                                            konsoleSession,
+                                                            QStringLiteral("io.github.kmux_project.kmux.Session"),
+                                                            QStringLiteral("activationToken"));
 
             // use the cookie from the environment
             m.setArguments({konsoleActivationCookie});
@@ -231,7 +234,7 @@ int main(int argc, char *argv[])
     needToDeleteQApplication = false;
 #endif
 
-    // If we reach this location, there was no existing copy of Konsole
+    // If we reach this location, there was no existing copy of Kmux
     // running, so create a new instance.
     Application konsoleApp(parser, customCommand);
 
@@ -270,7 +273,7 @@ int main(int argc, char *argv[])
 
 void fillAboutData(KAboutData &aboutData)
 {
-    aboutData.setOrganizationDomain("kde.org");
+    aboutData.setOrganizationDomain("kmux_project.github.io");
 
     aboutData.addAuthor(i18nc("@info:credit", "Kurt Hindenburg"),
                         i18nc("@info:credit",

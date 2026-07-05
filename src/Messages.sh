@@ -9,7 +9,7 @@ done
 $EXTRACTRC `find . -name \*.ui`          >>  rc.cpp
 $EXTRACTRC `find . -name \*.kcfg` >> rc.cpp
 $EXTRACTRC `find ../desktop -name \*.rc` >> rc.cpp
-$XGETTEXT `find . -name \*.cpp -o -name \*.h | grep -v '/tests/'` -o $podir/konsole.pot
+$XGETTEXT `find . -name \*.cpp -o -name \*.h | grep -v '/tests/'` -o $podir/kmux.pot
 rm -f schemas.cpp
 #rm -f tips.cpp
 rm -f rc.cpp

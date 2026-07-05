@@ -98,10 +98,10 @@ public Q_SLOTS:
     void showEditCurrentProfileDialog(QWidget *parent);
     /**
      * Sends a profile change command to the active session.  This is equivalent to using
-     * the konsoleprofile tool within the session to change its settings.  The @p text string
+     * the kmuxprofile tool within the session to change its settings.  The @p text string
      * is a semi-colon separated list of property=value pairs, eg. "colors=Linux Colors"
      *
-     * See the documentation for konsoleprofile for information on the format of @p text
+     * See the documentation for kmuxprofile for information on the format of @p text
      *
      * This is experimental API and not guaranteed to be present in later KDE 4 releases.
      */

@@ -22,12 +22,12 @@
 
 namespace
 {
-constexpr auto HooksJsonMarker = "konsole-project-status";
-constexpr auto HooksFeatureBegin = "# konsole-codex-hooks-feature begin";
-constexpr auto HooksFeatureEnd = "# konsole-codex-hooks-feature end";
-constexpr auto HooksFeaturePreviousLinePrefix = "# konsole-codex-hooks-feature previous line: ";
-constexpr auto HookTrustBegin = "# konsole-codex-hook-trust begin";
-constexpr auto HookTrustEnd = "# konsole-codex-hook-trust end";
+constexpr auto HooksJsonMarker = "kmux-project-status";
+constexpr auto HooksFeatureBegin = "# kmux-codex-hooks-feature begin";
+constexpr auto HooksFeatureEnd = "# kmux-codex-hooks-feature end";
+constexpr auto HooksFeaturePreviousLinePrefix = "# kmux-codex-hooks-feature previous line: ";
+constexpr auto HookTrustBegin = "# kmux-codex-hook-trust begin";
+constexpr auto HookTrustEnd = "# kmux-codex-hook-trust end";
 constexpr auto CodexAgentName = "codex";
 constexpr auto ClaudeAgentName = "claude";
 
@@ -93,7 +93,7 @@ QString claudeHome(const QString &overridePath)
 QString hookScriptDirectory()
 {
     const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-    return QDir(dataRoot.isEmpty() ? QDir(homePath()).filePath(QStringLiteral(".local/share")) : dataRoot).filePath(QStringLiteral("konsole/hooks"));
+    return QDir(dataRoot.isEmpty() ? QDir(homePath()).filePath(QStringLiteral(".local/share")) : dataRoot).filePath(QStringLiteral("kmux/hooks"));
 }
 
 QString shellQuote(const QString &value)
@@ -112,12 +112,12 @@ QString shellQuote(const QString &value)
 
 QString projectStatusHelperPath()
 {
-    const QString sibling = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("konsole-project-status"));
+    const QString sibling = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("kmux-project-status"));
     if (QFileInfo(sibling).isExecutable()) {
         return sibling;
     }
 
-    return QStringLiteral("konsole-project-status");
+    return QStringLiteral("kmux-project-status");
 }
 
 QString hookScriptPath(const QString &agentName, const HookEvent &event)
@@ -132,12 +132,12 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
 
     return QStringLiteral(
                "#!/bin/sh\n"
-               "# konsole-%1-hook v1\n"
+               "# kmux-%1-hook v1\n"
                "helper=%2\n"
                "if [ -x \"$helper\" ]; then\n"
                "    \"$helper\" --hook-output %3\n"
-               "elif command -v konsole-project-status >/dev/null 2>&1; then\n"
-               "    konsole-project-status --hook-output %3\n"
+               "elif command -v kmux-project-status >/dev/null 2>&1; then\n"
+               "    kmux-project-status --hook-output %3\n"
                "else\n"
                "    printf '{}\\n'\n"
                "fi\n")
@@ -199,7 +199,7 @@ QJsonObject readJsonObject(const QString &path, QString *error)
 
 bool commandIsKonsoleOwned(const QString &command, const QString &agentName)
 {
-    return command.contains(QStringLiteral("konsole/hooks/%1-").arg(agentName)) || command.contains(QStringLiteral("konsole-%1-hook").arg(agentName))
+    return command.contains(QStringLiteral("kmux/hooks/%1-").arg(agentName)) || command.contains(QStringLiteral("kmux-%1-hook").arg(agentName))
         || (agentName == QLatin1String(CodexAgentName) && command.contains(QString::fromLatin1(HooksJsonMarker)));
 }
 
@@ -679,8 +679,8 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
         return 1;
     }
 
-    out << "Removed " << removed << " Konsole Codex hook group(s) from " << hooksPath << '\n';
-    out << "Removed Konsole Codex hook trust from " << configPath << '\n';
+    out << "Removed " << removed << " Kmux Codex hook group(s) from " << hooksPath << '\n';
+    out << "Removed Kmux Codex hook trust from " << configPath << '\n';
     return 0;
 }
 
@@ -710,7 +710,7 @@ int statusCodexHooks(const QString &codexHomeOverride)
     out << "Codex home: " << configDir << '\n';
     out << "hooks.json: " << hooksPath << (QFileInfo::exists(hooksPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
     out << "config.toml: " << configPath << (QFileInfo::exists(configPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
-    out << "Konsole hook groups: " << installedGroups << '\n';
+    out << "Kmux hook groups: " << installedGroups << '\n';
     out << "Hook scripts: " << hookScriptDirectory() << '\n';
     return 0;
 }
@@ -794,7 +794,7 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
         return 1;
     }
 
-    out << "Removed " << removed << " Konsole Claude Code hook group(s) from " << settingsPath << '\n';
+    out << "Removed " << removed << " Kmux Claude Code hook group(s) from " << settingsPath << '\n';
     return 0;
 }
 
@@ -822,7 +822,7 @@ int statusClaudeHooks(const QString &claudeHomeOverride)
 
     out << "Claude home: " << configDir << '\n';
     out << "settings.json: " << settingsPath << (QFileInfo::exists(settingsPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
-    out << "Konsole hook groups: " << installedGroups << '\n';
+    out << "Kmux hook groups: " << installedGroups << '\n';
     out << "Hook scripts: " << hookScriptDirectory() << '\n';
     return 0;
 }
@@ -831,11 +831,11 @@ int statusClaudeHooks(const QString &claudeHomeOverride)
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    QCoreApplication::setApplicationName(QStringLiteral("konsole-agent-hooks"));
+    QCoreApplication::setApplicationName(QStringLiteral("kmux-agent-hooks"));
     QCoreApplication::setApplicationVersion(QStringLiteral("1.0"));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Install terminal agent hooks for Konsole project workspaces."));
+    parser.setApplicationDescription(QStringLiteral("Install terminal agent hooks for Kmux project workspaces."));
     parser.addHelpOption();
     parser.addVersionOption();
     parser.setOptionsAfterPositionalArgumentsMode(QCommandLineParser::ParseAsOptions);

@@ -184,7 +184,7 @@ bool MainWindow::wasWindowGeometrySaved() const
 {
     KSharedConfigPtr konsoleConfig = KSharedConfig::openStateConfig();
     KConfigGroup cg = konsoleConfig->group(QStringLiteral("MainWindow"));
-    if (!cg.exists()) { // First run, no existing konsolerc?
+    if (!cg.exists()) { // First run, no existing kmuxrc?
         return false;
     }
 
@@ -419,7 +419,7 @@ void MainWindow::updateProgress()
         properties.insert(QStringLiteral("progress-visible"), false);
     }
 
-    QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/org/kde/konsole/UnityLauncher"),
+    QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/org/kde/kmux/UnityLauncher"),
                                                       QStringLiteral("com.canonical.Unity.LauncherEntry"),
                                                       QStringLiteral("Update"));
     message.setArguments({launcherId, properties});

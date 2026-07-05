@@ -140,7 +140,7 @@ SessionController::SessionController(Session *sessionParam, TerminalDisplay *vie
 
     // handle user interface related to session (menus etc.)
     if (isKonsolePart()) {
-        setComponentName(QStringLiteral("konsole"), i18n("Konsole"));
+        setComponentName(QStringLiteral("kmux"), i18n("Kmux"));
         setXMLFile(QStringLiteral("partui.rc"));
         setupCommonActions();
     } else {
@@ -2270,7 +2270,7 @@ void SessionController::zmodemUpload()
 bool SessionController::isKonsolePart() const
 {
     // Check to see if we are being called from Konsole or a KPart
-    return !(qApp->applicationName() == QLatin1String("konsole"));
+    return !(qApp->applicationName() == QLatin1String("kmux"));
 }
 
 QString SessionController::userTitle() const

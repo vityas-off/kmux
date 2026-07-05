@@ -33,7 +33,7 @@
 #include "MainWindow.h"
 #include "terminalDisplay/TerminalDisplay.h"
 
-K_PLUGIN_CLASS_WITH_JSON(SSHManagerPlugin, "konsole_sshmanager.json")
+K_PLUGIN_CLASS_WITH_JSON(SSHManagerPlugin, "kmux_sshmanager.json")
 
 struct SSHManagerPluginPrivate {
     SSHManagerModel model;

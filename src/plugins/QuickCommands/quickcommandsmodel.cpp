@@ -21,7 +21,7 @@ QuickCommandsModel::~QuickCommandsModel() noexcept
 
 void QuickCommandsModel::load()
 {
-    auto config = KConfig(QStringLiteral("konsolequickcommandsconfig"), KConfig::OpenFlag::SimpleConfig);
+    auto config = KConfig(QStringLiteral("kmuxquickcommandsconfig"), KConfig::OpenFlag::SimpleConfig);
     const auto groupList = config.groupList();
     for (const QString &groupName : groupList) {
         KConfigGroup group = config.group(groupName);
@@ -40,7 +40,7 @@ void QuickCommandsModel::load()
 
 void QuickCommandsModel::save()
 {
-    auto config = KConfig(QStringLiteral("konsolequickcommandsconfig"), KConfig::OpenFlag::SimpleConfig);
+    auto config = KConfig(QStringLiteral("kmuxquickcommandsconfig"), KConfig::OpenFlag::SimpleConfig);
     const auto groupList = config.groupList();
     for (const QString &groupName : groupList) {
         config.deleteGroup(groupName);

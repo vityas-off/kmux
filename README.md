@@ -1,35 +1,98 @@
-# Konsole - KDE's Terminal Emulator
+# Kmux
 
-Konsole is a terminal program for KDE.
+Kmux is a Konsole-based terminal emulator with project workspaces.
 
-As well as being a standalone program, it is also used by other KDE programs
-such as the Kate editor and KDevelop development environment to provide easy
-access to a terminal window. Konsole's features and usage are explained and
-illustrated in the Konsole handbook, which can be accessed by browsing to
-`help:/konsole` in Konqueror.
+It keeps Konsole's terminal emulation foundation, profiles, color schemes,
+shortcuts, split views, search, and KDE/Qt integration, while adding a
+workspace model for project-oriented work:
 
+- vertical project tabs for workspace-level switching;
+- independent terminal tabs inside each project;
+- per-project active tab and split/view state;
+- cheap project switching without restarting terminal sessions.
 
-## Directory Structure
+## Why
 
-| Directory          | Description                                                                                                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/doc/user`        | README files, primarily for advanced users, explaining various aspects of Konsole such as fonts and keyboard handling in-depth.                                                    |
-| `/doc/developer`   | README files and resources for developers of Konsole. This includes information on the design of Konsole's internals and the VT100 terminal on which Konsole's emulation is based. |
-| `/src`             | Source code for Konsole, including the embedded versions of Konsole which are used in Kate, KDevelop and others.                                                                   |
-| `/desktop`         | .desktop files for Konsole, used to launch the program from KDE's various menus and other application launchers.                                                                   |
-| `/data`            | Data files for use with Konsole as well as the keyboard setup and color schemes provided with Konsole.                                                                             |
+Regular terminal tabs become hard to manage when work is organized by projects.
+Kmux adds a project layer above normal terminal tabs so each project keeps its
+own terminal context instead of sharing one global tab strip.
 
-## Contact
+Kmux is not a terminal multiplexer server like tmux. It is a graphical terminal
+emulator for local desktop workflows where projects, tabs, and split views
+should stay visually separate.
 
-Up-to-date information about the latest releases can be found on Konsole's
-website at https://konsole.kde.org. Discussions about Konsole's development are
-held on the konsole-devel mailing list, which can be accessed at
-https://mail.kde.org/mailman/listinfo/konsole-devel.
+## Relationship To Konsole
 
-## Quick Links
-- [KDE Release Schedule](https://community.kde.org/Schedules)
-- [Official Homepage](https://konsole.kde.org)
-- [Builds](https://invent.kde.org/utilities/konsole/-/pipelines)
-- [Forums](https://discuss.kde.org/tag/konsole)
-- [Konsole Bug Reports ](https://bugs.kde.org/describecomponents.cgi?product=konsole)
+Kmux is a fork of KDE Konsole. The terminal emulator foundation remains Konsole;
+the main product change is the project workspace UI.
 
+Kmux is not an official KDE project unless explicitly accepted by KDE. KDE and
+Konsole names remain the property of their respective owners. Kmux keeps the
+upstream license and attribution.
+
+## Side-By-Side Installation
+
+Kmux is intended to install next to KDE Konsole without depending on the
+distribution's `konsole` package.
+
+The public install surface is renamed to avoid conflicts:
+
+- binary: `kmux`;
+- desktop/AppStream ID: `io.github.kmux_project.kmux`;
+- config file: `kmuxrc`;
+- data directory: `~/.local/share/kmux`;
+- DBus environment variables: `KMUX_DBUS_*`;
+- helper tools: `kmux-project-status`, `kmux-codex`, `kmux-agent-hooks`;
+- plugin namespace: `kmuxplugins`.
+
+The source still contains many internal `Konsole` class, namespace, and file
+names. That is deliberate for now: it keeps the fork easier to rebase while the
+installed application behaves as a standalone product.
+
+## Build
+
+Use the same dependency baseline as upstream Konsole: Qt 6, KDE Frameworks 6,
+ECM, ICU, and the usual optional platform integrations.
+
+```sh
+cmake -S . -B build
+cmake --build build
+```
+
+To run from the build tree:
+
+```sh
+./build/bin/kmux
+```
+
+For broader validation:
+
+```sh
+ctest --test-dir build --output-on-failure
+```
+
+## Packaging Notes
+
+Kmux should be packaged as a standalone application. Do not add a runtime
+dependency on the `konsole` package; depend on the needed Qt/KF6 libraries
+instead.
+
+For the first public releases, Flatpak or AppImage are good distribution
+targets because they avoid distro-level file conflicts while the fork's package
+metadata stabilizes.
+
+## Source Layout
+
+| Directory | Description |
+| --- | --- |
+| `src` | Application, terminal emulator integration, sessions, profiles, project workspaces, and plugins. |
+| `desktop` | Desktop entry, AppStream metadata, notification config, and XMLGUI resources. |
+| `data` | Bundled profiles, keyboard layouts, color schemes, and layouts. |
+| `doc` | Upstream documentation sources retained for reference; Konsole handbook installation is disabled for side-by-side packaging. |
+| `tests` / `src/autotests` | Upstream and fork tests. Some upstream tests still refer to Konsole names and need follow-up updates. |
+
+## Status
+
+The fork is being prepared for public release. Before publishing, verify that
+the final project name and repository namespace are clear on major package
+indexes, GitHub/GitLab, and trademark databases.

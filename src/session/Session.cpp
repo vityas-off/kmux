@@ -98,7 +98,7 @@ static QString computeRandomCookie()
     quint32 array[8];
     QRandomGenerator::global()->fillRange(array);
 
-    // convert to string usable for env var KONSOLE_DBUS_ACTIVATION_COOKIE
+    // convert to string usable for env var KMUX_DBUS_ACTIVATION_COOKIE
     return QString::fromUtf8(QByteArray(reinterpret_cast<const char *>(array), sizeof(array)).toBase64());
 }
 
@@ -610,13 +610,13 @@ void Session::run()
 
 #if HAVE_DBUS
     const QString dbusService = QDBusConnection::sessionBus().baseService();
-    addEnvironmentEntry(QStringLiteral("KONSOLE_DBUS_SERVICE=%1").arg(dbusService));
+    addEnvironmentEntry(QStringLiteral("KMUX_DBUS_SERVICE=%1").arg(dbusService));
 
     const QString dbusObject = QStringLiteral("/Sessions/%1").arg(QString::number(_sessionId));
-    addEnvironmentEntry(QStringLiteral("KONSOLE_DBUS_SESSION=%1").arg(dbusObject));
+    addEnvironmentEntry(QStringLiteral("KMUX_DBUS_SESSION=%1").arg(dbusObject));
 
     // secret cookie to trigger activationToken via dbus
-    secretEnv << QStringLiteral("KONSOLE_DBUS_ACTIVATION_COOKIE=%1").arg(m_activationCookie);
+    secretEnv << QStringLiteral("KMUX_DBUS_ACTIVATION_COOKIE=%1").arg(m_activationCookie);
 #endif
 
     addEnvironmentEntry(QStringLiteral("FLATPAK_TTY_PROGRESS=1"));

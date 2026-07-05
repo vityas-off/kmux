@@ -48,7 +48,7 @@ using namespace Konsole;
 // as that is used when reading/writing profiles from/to disk
 //
 // the other names are usually shorter versions for convenience
-// when parsing konsoleprofile commands
+// when parsing kmuxprofile commands
 static const char GENERAL_GROUP[] = "General";
 static const char KEYBOARD_GROUP[] = "Keyboard";
 static const char APPEARANCE_GROUP[] = "Appearance";

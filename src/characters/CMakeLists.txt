@@ -10,8 +10,8 @@ ecm_qt_declare_logging_category(
     konsolecharacters_SRCS
     HEADER charactersdebug.h
     IDENTIFIER CharactersDebug
-    CATEGORY_NAME org.kde.konsole.characters
-    DESCRIPTION "Konsole - characters"
+    CATEGORY_NAME io.github.kmux_project.kmux.characters
+    DESCRIPTION "Kmux - characters"
     EXPORT KONSOLE
 )
 
