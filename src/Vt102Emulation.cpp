@@ -1263,9 +1263,11 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
         Q_EMIT osc777Received(params);
 
         // Handle "notify" command internally for backward compatibility
-        if (params.length() < 1 || params[0] != QLatin1String("notify")) {
+        if (params.length() < 2 || params[0] != QLatin1String("notify")) {
             return;
         }
+
+        Q_EMIT terminalNotificationReceived(params.value(1), params.value(2));
 
         const auto hasFocus = _currentScreen->currentTerminalDisplay()->hasFocus();
         KNotification *notification = nullptr;
@@ -1513,6 +1515,7 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
                         fullTitle += QStringLiteral(": ");
                     fullTitle += notificationState->title;
                     }
+                    Q_EMIT terminalNotificationReceived(fullTitle, notificationState->body);
 
                     notification = KNotification::event(hasFocus ? QStringLiteral("ProcessNotification") : QStringLiteral("ProcessNotificationHidden"),
                                                         fullTitle,

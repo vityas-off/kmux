@@ -408,6 +408,22 @@ endif()
 
 install(TARGETS konsole ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
+if(HAVE_DBUS)
+    add_executable(konsole-project-status konsole-project-status.cpp)
+    ecm_mark_nongui_executable(konsole-project-status)
+    target_link_libraries(konsole-project-status Qt::Core Qt::DBus)
+    install(TARGETS konsole-project-status ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+
+    add_executable(konsole-codex konsole-codex.cpp)
+    ecm_mark_nongui_executable(konsole-codex)
+    install(TARGETS konsole-codex ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+
+    add_executable(konsole-agent-hooks konsole-agent-hooks.cpp)
+    ecm_mark_nongui_executable(konsole-agent-hooks)
+    target_link_libraries(konsole-agent-hooks Qt::Core)
+    install(TARGETS konsole-agent-hooks ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+endif()
+
 ### Embedded Konsole KPart
 
 set(konsolepart_PART_SRCS Part.cpp

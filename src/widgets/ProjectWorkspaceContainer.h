@@ -16,6 +16,7 @@ class QListWidgetItem;
 class QPoint;
 class QSplitter;
 class QStackedWidget;
+class QTimer;
 
 namespace Konsole
 {
@@ -26,6 +27,14 @@ class KONSOLEPRIVATE_EXPORT ProjectWorkspaceContainer : public QWidget
     Q_OBJECT
 
 public:
+    enum class ProjectStatus {
+        None,
+        Running,
+        Idle,
+        NeedsInput,
+    };
+    Q_ENUM(ProjectStatus)
+
     explicit ProjectWorkspaceContainer(QWidget *parent = nullptr);
     ~ProjectWorkspaceContainer() override = default;
 
@@ -41,8 +50,15 @@ public:
     QString projectSubtitle(TabbedViewContainer *container) const;
     int projectTabCount(TabbedViewContainer *container) const;
     int projectActiveProcessCount(TabbedViewContainer *container) const;
-    void
-    setProjectSummary(TabbedViewContainer *container, const QString &subtitle, int tabCount, int activeProcessCount, bool hasActivity, const QIcon &icon = {});
+    bool projectHasActivity(TabbedViewContainer *container) const;
+    ProjectStatus projectStatus(TabbedViewContainer *container) const;
+    void setProjectSummary(TabbedViewContainer *container,
+                           const QString &subtitle,
+                           int tabCount,
+                           int activeProcessCount,
+                           bool hasActivity,
+                           ProjectStatus status = ProjectStatus::None,
+                           const QIcon &icon = {});
 
     int projectCount() const;
     QString nextDefaultProjectTitle() const;
@@ -70,17 +86,20 @@ private:
         int tabCount = 0;
         int activeProcessCount = 0;
         bool hasActivity = false;
+        ProjectStatus status = ProjectStatus::None;
     };
 
     int indexOf(TabbedViewContainer *container) const;
     void updateListItem(int index);
     void applyRailStyle();
+    void updateStatusAnimationTimer();
 
     QList<Project> _projects;
     QWidget *_rail;
     QSplitter *_splitter;
     QListWidget *_projectList;
     QStackedWidget *_stack;
+    QTimer *_statusAnimationTimer;
     int _nextProjectNumber = 1;
     int _projectRailWidth;
 };

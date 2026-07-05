@@ -64,6 +64,52 @@ int ViewManager::lastManagerId = 0;
 
 Q_DECLARE_METATYPE(QList<double>);
 
+namespace
+{
+ProjectWorkspaceContainer::ProjectStatus projectStatusFromString(const QString &status)
+{
+    QString normalized = status.trimmed().toLower();
+    normalized.remove(QLatin1Char('-'));
+    normalized.remove(QLatin1Char('_'));
+    normalized.remove(QLatin1Char(' '));
+
+    if (normalized == QLatin1String("running") || normalized == QLatin1String("working") || normalized == QLatin1String("busy")) {
+        return ProjectWorkspaceContainer::ProjectStatus::Running;
+    }
+
+    if (normalized == QLatin1String("idle") || normalized == QLatin1String("complete") || normalized == QLatin1String("done")) {
+        return ProjectWorkspaceContainer::ProjectStatus::Idle;
+    }
+
+    if (normalized == QLatin1String("needsinput") || normalized == QLatin1String("waiting") || normalized == QLatin1String("waitingforinput")) {
+        return ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
+    }
+
+    return ProjectWorkspaceContainer::ProjectStatus::None;
+}
+
+ProjectWorkspaceContainer::ProjectStatus higherPriorityProjectStatus(ProjectWorkspaceContainer::ProjectStatus current,
+                                                                     ProjectWorkspaceContainer::ProjectStatus candidate)
+{
+    auto priority = [](ProjectWorkspaceContainer::ProjectStatus status) {
+        switch (status) {
+        case ProjectWorkspaceContainer::ProjectStatus::NeedsInput:
+            return 3;
+        case ProjectWorkspaceContainer::ProjectStatus::Running:
+            return 2;
+        case ProjectWorkspaceContainer::ProjectStatus::Idle:
+            return 1;
+        case ProjectWorkspaceContainer::ProjectStatus::None:
+            return 0;
+        }
+
+        return 0;
+    };
+
+    return priority(candidate) > priority(current) ? candidate : current;
+}
+}
+
 ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     : QObject(parent)
     , _viewContainer(nullptr)
@@ -1044,6 +1090,20 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(session, &Konsole::Session::notificationsChanged, this, [this, view](Session::Notification, bool) {
         refreshProjectSummary(containerForTerminal(view));
     });
+    connect(session, &Konsole::Session::terminalNotificationReceived, this, [this, session, view](const QString &, const QString &) {
+        auto *container = containerForTerminal(view);
+        markSessionAttention(session, container);
+        refreshProjectSummary(container);
+    });
+    connect(session, &Konsole::Session::projectStatusChanged, this, [this, session, view](const QString &status) {
+        auto *container = containerForTerminal(view);
+        setSessionProjectStatus(session, container, status);
+        refreshProjectSummary(container);
+    });
+    connect(session, &QObject::destroyed, this, [this, session] {
+        _sessionsNeedingAttention.remove(session);
+        _sessionProjectStatuses.remove(session);
+    });
 
     // if this is the first controller created then set it as the active controller
     if (_pluggedController.isNull()) {
@@ -1391,6 +1451,7 @@ void ViewManager::activeProjectChanged(TabbedViewContainer *container)
     }
 
     toggleActionsBasedOnState();
+    clearProjectAttention(container);
     refreshProjectSummary(container);
     Q_EMIT viewPropertiesChanged(viewProperties());
 }
@@ -2313,6 +2374,46 @@ void ViewManager::unregisterTerminal(TerminalDisplay *terminal)
     disconnect(terminal, &TerminalDisplay::requestMoveToNewTab, nullptr, nullptr);
 }
 
+void ViewManager::markSessionAttention(Session *session, TabbedViewContainer *container)
+{
+    if (session == nullptr || container == nullptr || container == activeContainer()) {
+        return;
+    }
+
+    _sessionsNeedingAttention.insert(session);
+}
+
+void ViewManager::clearProjectAttention(TabbedViewContainer *container)
+{
+    const auto controllers = sessionControllersForContainer(container);
+    for (SessionController *controller : controllers) {
+        if (controller != nullptr) {
+            _sessionsNeedingAttention.remove(controller->session());
+        }
+    }
+}
+
+void ViewManager::setSessionProjectStatus(Session *session, TabbedViewContainer *container, const QString &status)
+{
+    if (session == nullptr) {
+        return;
+    }
+
+    const auto projectStatus = projectStatusFromString(status);
+    if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
+        _sessionProjectStatuses.remove(session);
+        _sessionsNeedingAttention.remove(session);
+        return;
+    }
+
+    _sessionProjectStatuses.insert(session, projectStatus);
+    if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+        markSessionAttention(session, container);
+    } else {
+        _sessionsNeedingAttention.remove(session);
+    }
+}
+
 void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
 {
     if (container == nullptr || _workspaceContainer.isNull()) {
@@ -2355,6 +2456,7 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
 
     int activeProcessCount = 0;
     bool hasActivity = false;
+    auto projectStatus = ProjectWorkspaceContainer::ProjectStatus::None;
     QSet<Session *> seenSessions;
     const auto terminals = container->findChildren<TerminalDisplay *>();
     for (TerminalDisplay *terminal : terminals) {
@@ -2364,7 +2466,8 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
         }
 
         seenSessions.insert(session);
-        hasActivity = hasActivity || session->activeNotifications() != Session::NoNotification;
+        hasActivity = hasActivity || session->activeNotifications() != Session::NoNotification || _sessionsNeedingAttention.contains(session);
+        projectStatus = higherPriorityProjectStatus(projectStatus, _sessionProjectStatuses.value(session, ProjectWorkspaceContainer::ProjectStatus::None));
         if (!session->isRunning() || !session->isForegroundProcessActive()) {
             continue;
         }
@@ -2376,7 +2479,7 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
         }
     }
 
-    _workspaceContainer->setProjectSummary(container, subtitle, container->count(), activeProcessCount, hasActivity, activeIcon);
+    _workspaceContainer->setProjectSummary(container, subtitle, container->count(), activeProcessCount, hasActivity, projectStatus, activeIcon);
 }
 
 #include "moc_ViewManager.cpp"

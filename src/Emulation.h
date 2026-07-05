@@ -444,6 +444,11 @@ Q_SIGNALS:
     void osc777Received(const QStringList &params);
 
     /**
+     * Emitted when a terminal notification escape sequence is received.
+     */
+    void terminalNotificationReceived(const QString &title, const QString &body);
+
+    /**
      * Mainly used to communicate dropped lines to active autosave tasks.
      * Takes into account lines dropped by Screen::addHistLine and Screen::fastAddHistLine.
      * Also includes lines dropped by clearing scrollback and resetting the screen.

@@ -287,6 +287,73 @@ void ViewManagerTest::testProjectWorkspaceSummaryTracksActiveTab()
     QCOMPARE(workspaces->projectTabCount(secondProject), 1);
 }
 
+void ViewManagerTest::testProjectWorkspaceTerminalNotificationMarksInactiveProject()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    auto *firstTerminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    Session *firstSession = firstTerminal->sessionController()->session();
+    QVERIFY(firstSession != nullptr);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+
+    Q_EMIT firstSession->terminalNotificationReceived(QStringLiteral("Codex"), QStringLiteral("Turn complete"));
+    QVERIFY(workspaces->projectHasActivity(firstProject));
+
+    workspaces->activateProject(firstProject);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+}
+
+void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    auto *firstTerminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    Session *firstSession = firstTerminal->sessionController()->session();
+    QVERIFY(firstSession != nullptr);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::None);
+
+    firstSession->setProjectStatus(QStringLiteral("needsInput"));
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    QVERIFY(workspaces->projectHasActivity(firstProject));
+
+    workspaces->activateProject(firstProject);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    firstSession->setProjectStatus(QStringLiteral("running"));
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    firstSession->setProjectStatus(QStringLiteral("idle"));
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    firstSession->setProjectStatus(QStringLiteral("unknown"));
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::None);
+}
+
 void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
 {
     auto mw = MainWindow();

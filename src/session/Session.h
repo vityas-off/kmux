@@ -848,6 +848,14 @@ public Q_SLOTS:
     Q_SCRIPTABLE QString tabColor() const;
     Q_SCRIPTABLE void setTabColor(const QString &colorName);
 
+    /**
+     * Sets the project-level status associated with this session.
+     *
+     * Accepted values are "running", "idle", "needsInput", and
+     * "unknown"/"none" to clear the explicit status.
+     */
+    Q_SCRIPTABLE void setProjectStatus(const QString &status);
+
 Q_SIGNALS:
 
     /** Emitted when the terminal process starts. */
@@ -892,6 +900,17 @@ Q_SIGNALS:
 
     /** Emitted when @p notification state changed to @p enabled */
     void notificationsChanged(Notification notification, bool enabled);
+
+    /**
+     * Emitted when the terminal process sends an OSC notification.
+     */
+    void terminalNotificationReceived(const QString &title, const QString &body);
+
+    /**
+     * Emitted when an external agent hook updates the project-level status
+     * associated with this session.
+     */
+    void projectStatusChanged(const QString &status);
 
     /**
      * Requests that the background color of views on this session

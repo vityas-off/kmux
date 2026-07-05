@@ -13,9 +13,11 @@
 #include <QHash>
 #include <QObject>
 #include <QPointer>
+#include <QSet>
 
 #include "containers/ContainerInfo.h"
 #include "konsoleprivate_export.h"
+#include "widgets/ProjectWorkspaceContainer.h"
 // Konsole
 
 class KActionCollection;
@@ -32,7 +34,6 @@ class TabbedViewContainer;
 class TerminalDisplay;
 class ViewProperties;
 class ViewSplitter;
-class ProjectWorkspaceContainer;
 
 /**
  * Manages the terminal display widgets in a Konsole window or part.
@@ -533,6 +534,9 @@ private:
 
     void registerTerminal(TerminalDisplay *terminal);
     void unregisterTerminal(TerminalDisplay *terminal);
+    void markSessionAttention(Session *session, TabbedViewContainer *container);
+    void clearProjectAttention(TabbedViewContainer *container);
+    void setSessionProjectStatus(Session *session, TabbedViewContainer *container, const QString &status);
     QList<SessionController *> sessionControllersForContainer(TabbedViewContainer *container) const;
     bool confirmCloseProject(TabbedViewContainer *container) const;
     void refreshProjectSummary(TabbedViewContainer *container);
@@ -545,6 +549,8 @@ private:
     QPointer<SessionController> _pluggedController;
 
     QHash<TerminalDisplay *, Session *> _sessionMap;
+    QSet<Session *> _sessionsNeedingAttention;
+    QHash<Session *, ProjectWorkspaceContainer::ProjectStatus> _sessionProjectStatuses;
 
     KActionCollection *_actionCollection;
 

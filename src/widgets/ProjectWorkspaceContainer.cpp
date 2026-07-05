@@ -8,6 +8,7 @@
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QDateTime>
 #include <QDropEvent>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -28,6 +29,8 @@
 
 #include <KLocalizedString>
 
+#include <algorithm>
+#include <cmath>
 #include <functional>
 
 using namespace Konsole;
@@ -45,6 +48,7 @@ enum ProjectRoles {
     TabCountRole,
     ActiveProcessCountRole,
     HasActivityRole,
+    ProjectStatusRole,
 };
 
 QString badgeText(int count)
@@ -61,6 +65,18 @@ QColor blendedColor(const QColor &background, const QColor &foreground, qreal fo
                             1.0);
 }
 
+QColor runningPulseColor(const QColor &baseColor, const QColor &highlightColor, bool selected)
+{
+    constexpr qint64 PulseDurationMs = 1400;
+    constexpr qreal FullTurn = 6.2831853071795864769;
+
+    const qreal progress = static_cast<qreal>(QDateTime::currentMSecsSinceEpoch() % PulseDurationMs) / PulseDurationMs;
+    const qreal wave = (std::sin(progress * FullTurn) + 1.0) / 2.0;
+    const qreal minimumOpacity = selected ? 0.50 : 0.34;
+    const qreal maximumOpacity = selected ? 0.88 : 0.72;
+    return blendedColor(baseColor, highlightColor, minimumOpacity + ((maximumOpacity - minimumOpacity) * wave));
+}
+
 int indicatorWidth(const QFontMetrics &metrics, const QString &text)
 {
     if (text.isEmpty()) {
@@ -68,6 +84,22 @@ int indicatorWidth(const QFontMetrics &metrics, const QString &text)
     }
 
     return 13 + 4 + metrics.horizontalAdvance(text);
+}
+
+QString projectStatusText(ProjectWorkspaceContainer::ProjectStatus status)
+{
+    switch (status) {
+    case ProjectWorkspaceContainer::ProjectStatus::Running:
+        return i18nc("@info:project status", "Running");
+    case ProjectWorkspaceContainer::ProjectStatus::Idle:
+        return i18nc("@info:project status", "Idle");
+    case ProjectWorkspaceContainer::ProjectStatus::NeedsInput:
+        return i18nc("@info:project status", "Needs input");
+    case ProjectWorkspaceContainer::ProjectStatus::None:
+        return {};
+    }
+
+    return {};
 }
 
 void drawTabIndicatorIcon(QPainter *painter, const QRect &rect, const QColor &color)
@@ -183,6 +215,7 @@ public:
         const int tabCount = index.data(TabCountRole).toInt();
         const int processCount = index.data(ActiveProcessCountRole).toInt();
         const bool hasActivity = index.data(HasActivityRole).toBool();
+        const auto projectStatus = static_cast<ProjectWorkspaceContainer::ProjectStatus>(index.data(ProjectStatusRole).toInt());
 
         const QRect contentRect = rect;
         QRect titleRect = contentRect;
@@ -191,11 +224,17 @@ public:
         const QFontMetrics indicatorMetrics(indicatorFont);
         const QString tabsBadge = tabCount > 0 ? badgeText(tabCount) : QString();
         const QString processBadge = processCount > 0 ? badgeText(processCount) : QString();
+        const QString statusBadge = projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
+            ? QStringLiteral("!")
+            : (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running && processBadge.isEmpty() ? i18nc("@info:project status short", "run")
+                                                                                                            : QString());
         const int tabsIndicatorWidth = indicatorWidth(indicatorMetrics, tabsBadge);
         const int processIndicatorWidth = indicatorWidth(indicatorMetrics, processBadge);
-        const int indicatorGap = (!tabsBadge.isEmpty() && !processBadge.isEmpty()) ? 10 : 0;
+        const int statusIndicatorWidth = indicatorWidth(indicatorMetrics, statusBadge);
+        const int visibleIndicatorCount = (!tabsBadge.isEmpty() ? 1 : 0) + (!processBadge.isEmpty() ? 1 : 0) + (!statusBadge.isEmpty() ? 1 : 0);
+        const int indicatorGap = qMax(0, visibleIndicatorCount - 1) * 10;
         const int activityWidth = processBadge.isEmpty() && hasActivity ? 8 : 0;
-        const int indicatorsWidth = tabsIndicatorWidth + processIndicatorWidth + indicatorGap + activityWidth;
+        const int indicatorsWidth = tabsIndicatorWidth + processIndicatorWidth + statusIndicatorWidth + indicatorGap + activityWidth;
         QRect indicatorsRect;
         if (indicatorsWidth > 0) {
             indicatorsRect = QRect(rect.right() - indicatorsWidth, rect.top() + 1, indicatorsWidth, 18);
@@ -207,14 +246,19 @@ public:
 
         QRect tabsIndicatorRect;
         QRect processIndicatorRect;
+        QRect statusIndicatorRect;
         QRect activityRect;
         int indicatorLeft = indicatorsRect.left();
         if (!tabsBadge.isEmpty()) {
             tabsIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), tabsIndicatorWidth, indicatorsRect.height());
-            indicatorLeft = tabsIndicatorRect.right() + 1 + indicatorGap;
+            indicatorLeft = tabsIndicatorRect.right() + 1 + 10;
         }
         if (!processBadge.isEmpty()) {
             processIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), processIndicatorWidth, indicatorsRect.height());
+            indicatorLeft = processIndicatorRect.right() + 1 + 10;
+        }
+        if (!statusBadge.isEmpty()) {
+            statusIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), statusIndicatorWidth, indicatorsRect.height());
         } else if (hasActivity) {
             activityRect = QRect(indicatorLeft, indicatorsRect.center().y() - 3, 7, 7);
         }
@@ -239,8 +283,18 @@ public:
         if (!tabsIndicatorRect.isNull()) {
             drawInlineIndicator(painter, tabsIndicatorRect, tabsBadge, indicatorColor, indicatorFont, drawTabIndicatorIcon);
         }
+        QColor processIndicatorColor = indicatorColor;
+        if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running) {
+            processIndicatorColor = runningPulseColor(indicatorColor, highlightColor, selected);
+        }
         if (!processIndicatorRect.isNull()) {
-            drawInlineIndicator(painter, processIndicatorRect, processBadge, indicatorColor, indicatorFont, drawProcessIndicatorIcon);
+            drawInlineIndicator(painter, processIndicatorRect, processBadge, processIndicatorColor, indicatorFont, drawProcessIndicatorIcon);
+        }
+        if (!statusIndicatorRect.isNull()) {
+            QColor statusColor = projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
+                ? QColor(245, 165, 36)
+                : runningPulseColor(indicatorColor, highlightColor, selected);
+            drawInlineIndicator(painter, statusIndicatorRect, statusBadge, statusColor, indicatorFont, drawProcessIndicatorIcon);
         } else if (!activityRect.isNull()) {
             painter->setPen(Qt::NoPen);
             painter->setBrush(highlightColor);
@@ -279,8 +333,14 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     , _splitter(new QSplitter(Qt::Horizontal, this))
     , _projectList(new ProjectListWidget(this))
     , _stack(new QStackedWidget(this))
+    , _statusAnimationTimer(new QTimer(this))
     , _projectRailWidth(ProjectRailDefaultWidth)
 {
+    _statusAnimationTimer->setInterval(100);
+    connect(_statusAnimationTimer, &QTimer::timeout, _projectList->viewport(), [this] {
+        _projectList->viewport()->update();
+    });
+
     _rail->setObjectName(QStringLiteral("projectRail"));
     _rail->setMinimumWidth(ProjectRailMinimumWidth);
     _rail->setMaximumWidth(ProjectRailMaximumWidth);
@@ -344,6 +404,7 @@ int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const 
     item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
     item->setSizeHint(QSize(1, ProjectItemHeight));
     updateListItem(index);
+    updateStatusAnimationTimer();
 
     _nextProjectNumber = qMax(_nextProjectNumber, index + 2);
     _projectList->setCurrentRow(index);
@@ -361,6 +422,7 @@ void ProjectWorkspaceContainer::removeProject(TabbedViewContainer *container)
 
     delete _projectList->takeItem(index);
     _projects.removeAt(index);
+    updateStatusAnimationTimer();
 
     if (_projects.isEmpty()) {
         return;
@@ -464,11 +526,32 @@ int ProjectWorkspaceContainer::projectActiveProcessCount(TabbedViewContainer *co
     return _projects.at(index).activeProcessCount;
 }
 
+bool ProjectWorkspaceContainer::projectHasActivity(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return false;
+    }
+
+    return _projects.at(index).hasActivity;
+}
+
+ProjectWorkspaceContainer::ProjectStatus ProjectWorkspaceContainer::projectStatus(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return ProjectStatus::None;
+    }
+
+    return _projects.at(index).status;
+}
+
 void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container,
                                                   const QString &subtitle,
                                                   int tabCount,
                                                   int activeProcessCount,
                                                   bool hasActivity,
+                                                  ProjectStatus status,
                                                   const QIcon &icon)
 {
     const int index = indexOf(container);
@@ -481,8 +564,10 @@ void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container
     project.tabCount = tabCount;
     project.activeProcessCount = activeProcessCount;
     project.hasActivity = hasActivity;
+    project.status = status;
     project.icon = icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : icon;
     updateListItem(index);
+    updateStatusAnimationTimer();
 }
 
 int ProjectWorkspaceContainer::projectCount() const
@@ -630,8 +715,14 @@ void ProjectWorkspaceContainer::updateListItem(int index)
     item->setData(TabCountRole, _projects.at(index).tabCount);
     item->setData(ActiveProcessCountRole, _projects.at(index).activeProcessCount);
     item->setData(HasActivityRole, _projects.at(index).hasActivity);
-    item->setToolTip(_projects.at(index).subtitle.isEmpty() ? _projects.at(index).title
-                                                            : QStringLiteral("%1\n%2").arg(_projects.at(index).title, _projects.at(index).subtitle));
+    item->setData(ProjectStatusRole, static_cast<int>(_projects.at(index).status));
+    QString tooltip = _projects.at(index).subtitle.isEmpty() ? _projects.at(index).title
+                                                             : QStringLiteral("%1\n%2").arg(_projects.at(index).title, _projects.at(index).subtitle);
+    const QString statusText = projectStatusText(_projects.at(index).status);
+    if (!statusText.isEmpty()) {
+        tooltip += QStringLiteral("\n%1").arg(statusText);
+    }
+    item->setToolTip(tooltip);
     item->setIcon(_projects.at(index).icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : _projects.at(index).icon);
 }
 
@@ -655,6 +746,19 @@ void ProjectWorkspaceContainer::applyRailStyle()
             color: palette(highlighted-text);
         }
     )"));
+}
+
+void ProjectWorkspaceContainer::updateStatusAnimationTimer()
+{
+    const bool hasRunningProject = std::any_of(_projects.cbegin(), _projects.cend(), [](const Project &project) {
+        return project.status == ProjectStatus::Running;
+    });
+
+    if (hasRunningProject && !_statusAnimationTimer->isActive()) {
+        _statusAnimationTimer->start();
+    } else if (!hasRunningProject && _statusAnimationTimer->isActive()) {
+        _statusAnimationTimer->stop();
+    }
 }
 
 #include "moc_ProjectWorkspaceContainer.cpp"
