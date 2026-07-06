@@ -28,6 +28,11 @@ constexpr auto HooksFeatureEnd = "# kmux-codex-hooks-feature end";
 constexpr auto HooksFeaturePreviousLinePrefix = "# kmux-codex-hooks-feature previous line: ";
 constexpr auto HookTrustBegin = "# kmux-codex-hook-trust begin";
 constexpr auto HookTrustEnd = "# kmux-codex-hook-trust end";
+constexpr auto LegacyHooksFeatureBegin = "# konsole-codex-hooks-feature begin";
+constexpr auto LegacyHooksFeatureEnd = "# konsole-codex-hooks-feature end";
+constexpr auto LegacyHooksFeaturePreviousLinePrefix = "# konsole-codex-hooks-feature previous line: ";
+constexpr auto LegacyHookTrustBegin = "# konsole-codex-hook-trust begin";
+constexpr auto LegacyHookTrustEnd = "# konsole-codex-hook-trust end";
 constexpr auto CodexAgentName = "codex";
 constexpr auto ClaudeAgentName = "claude";
 
@@ -200,6 +205,8 @@ QJsonObject readJsonObject(const QString &path, QString *error)
 bool commandIsKonsoleOwned(const QString &command, const QString &agentName)
 {
     return command.contains(QStringLiteral("kmux/hooks/%1-").arg(agentName)) || command.contains(QStringLiteral("kmux-%1-hook").arg(agentName))
+        || command.contains(QStringLiteral("konsole/hooks/%1-").arg(agentName)) || command.contains(QStringLiteral("konsole-%1-hook").arg(agentName))
+        || (agentName == QLatin1String(CodexAgentName) && command.contains(QStringLiteral("konsole-project-status")))
         || (agentName == QLatin1String(CodexAgentName) && command.contains(QString::fromLatin1(HooksJsonMarker)));
 }
 
@@ -358,13 +365,22 @@ bool lineDefinesTrueValue(const QString &line, const QString &keyPattern)
 void removeKonsoleBlocks(QStringList *lines)
 {
     for (int i = 0; i < lines->size();) {
-        if (lines->at(i) != QString::fromLatin1(HooksFeatureBegin) && lines->at(i) != QString::fromLatin1(HookTrustBegin)) {
+        const QString line = lines->at(i);
+        const bool legacyFeatureBlock = line == QString::fromLatin1(LegacyHooksFeatureBegin);
+        const bool legacyTrustBlock = line == QString::fromLatin1(LegacyHookTrustBegin);
+        const bool featureBlock = line == QString::fromLatin1(HooksFeatureBegin) || legacyFeatureBlock;
+        const bool trustBlock = line == QString::fromLatin1(HookTrustBegin) || legacyTrustBlock;
+        if (!featureBlock && !trustBlock) {
             ++i;
             continue;
         }
 
-        const bool featureBlock = lines->at(i) == QString::fromLatin1(HooksFeatureBegin);
-        const QString endMarker = featureBlock ? QString::fromLatin1(HooksFeatureEnd) : QString::fromLatin1(HookTrustEnd);
+        const QString endMarker = legacyFeatureBlock ? QString::fromLatin1(LegacyHooksFeatureEnd)
+            : legacyTrustBlock                       ? QString::fromLatin1(LegacyHookTrustEnd)
+            : featureBlock                           ? QString::fromLatin1(HooksFeatureEnd)
+                                                     : QString::fromLatin1(HookTrustEnd);
+        const QString previousLinePrefix =
+            legacyFeatureBlock ? QString::fromLatin1(LegacyHooksFeaturePreviousLinePrefix) : QString::fromLatin1(HooksFeaturePreviousLinePrefix);
         int end = i;
         while (end < lines->size() && lines->at(end) != endMarker) {
             ++end;
@@ -373,8 +389,8 @@ void removeKonsoleBlocks(QStringList *lines)
         QStringList replacements;
         if (featureBlock && end < lines->size()) {
             for (int j = i + 1; j < end; ++j) {
-                if (lines->at(j).startsWith(QString::fromLatin1(HooksFeaturePreviousLinePrefix))) {
-                    replacements.append(lines->at(j).mid(QString::fromLatin1(HooksFeaturePreviousLinePrefix).size()));
+                if (lines->at(j).startsWith(previousLinePrefix)) {
+                    replacements.append(lines->at(j).mid(previousLinePrefix.size()));
                 }
             }
         }
