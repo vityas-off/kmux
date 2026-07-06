@@ -177,7 +177,8 @@ int main(int argc, char *argv[])
                      KAboutLicense::GPL_V2,
                      i18nc("@info:credit", "(c) 1997-2022, The Konsole Developers; Kmux fork contributors"),
                      QString(),
-                     QStringLiteral("https://github.com/kmux-project/kmux"));
+                     QStringLiteral("https://github.com/vityas-off/kmux"));
+    about.setDesktopFileName(QStringLiteral("io.github.kmux_project.kmux"));
     fillAboutData(about);
 
     KAboutData::setApplicationData(about);
@@ -273,7 +274,7 @@ int main(int argc, char *argv[])
 
 void fillAboutData(KAboutData &aboutData)
 {
-    aboutData.setOrganizationDomain("kmux_project.github.io");
+    aboutData.setOrganizationDomain("github.com");
 
     aboutData.addAuthor(i18nc("@info:credit", "Kurt Hindenburg"),
                         i18nc("@info:credit",
