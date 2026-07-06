@@ -11,6 +11,8 @@ workspace model for project-oriented work:
 - per-project active tab and split/view state;
 - cheap project switching without restarting terminal sessions.
 
+![Kmux project workspace UI](screenshots/kmux-project-workspaces.png)
+
 ## Why
 
 Regular terminal tabs become hard to manage when work is organized by projects.
