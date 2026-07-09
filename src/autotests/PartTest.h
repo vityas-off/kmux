@@ -20,6 +20,7 @@ private Q_SLOTS:
     void initTestCase();
     void testFdShell();
     void testFdStandalone();
+    void testCompatibilityPluginId();
 
 private:
     void testFd(bool runShell);

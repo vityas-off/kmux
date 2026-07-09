@@ -443,7 +443,15 @@ target_link_libraries(kmuxpart
     konsoleprivate
 )
 
-install(TARGETS kmuxpart DESTINATION ${KDE_INSTALL_PLUGINDIR}/kf6/parts)
+add_library(konsolepart MODULE ${konsolepart_PART_SRCS})
+set_target_properties(konsolepart PROPERTIES DEFINE_SYMBOL KONSOLE_PART)
+target_link_libraries(konsolepart
+    KF6::Parts
+    KF6::XmlGui
+    konsoleprivate
+)
+
+install(TARGETS kmuxpart konsolepart DESTINATION ${KDE_INSTALL_PLUGINDIR}/kf6/parts)
 
 # Add cmake-options -DBUILD_COVERAGE=ON -DCOVERAGE_GENERATE_HTML=ON
 if(COVERAGE_GENERATE_HTML)
