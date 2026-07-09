@@ -17,9 +17,11 @@ class KeyboardTranslatorTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase();
     void testEntryTextWildcards();
     void testEntryTextWildcards_data();
     void testHexKeys();
+    void testCustomTranslatorReloadsFromKmuxDataDirectory();
 };
 
 }

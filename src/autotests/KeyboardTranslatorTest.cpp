@@ -7,14 +7,22 @@
 // Own
 #include "KeyboardTranslatorTest.h"
 
+#include "keyboardtranslator/KeyboardTranslatorManager.h"
 #include "keyboardtranslator/KeyboardTranslatorReader.h"
 
 // KDE
+#include <QFile>
+#include <QStandardPaths>
 #include <QTest>
 
 using namespace Konsole;
 
 Q_DECLARE_METATYPE(Qt::KeyboardModifiers)
+
+void KeyboardTranslatorTest::initTestCase()
+{
+    QStandardPaths::setTestModeEnabled(true);
+}
 
 void KeyboardTranslatorTest::testEntryTextWildcards_data()
 {
@@ -151,6 +159,28 @@ void KeyboardTranslatorTest::testHexKeys()
     QVERIFY(entry == translator->findEntry(Qt::Key_Space, Qt::NoModifier));
     QVERIFY(!entry.matches(Qt::Key_Backspace, Qt::NoModifier, KeyboardTranslator::NoState));
     QVERIFY(!(entry == translator->findEntry(Qt::Key_Backspace, Qt::NoModifier)));
+}
+
+void KeyboardTranslatorTest::testCustomTranslatorReloadsFromKmuxDataDirectory()
+{
+    const QString name = QStringLiteral("KmuxReloadTest");
+    const QString path = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kmux/") + name + QStringLiteral(".keytab");
+    QFile::remove(path);
+
+    {
+        KeyboardTranslatorManager manager;
+        auto *translator = new KeyboardTranslator(name);
+        translator->setDescription(QStringLiteral("Reload test translator"));
+        manager.addTranslator(translator);
+    }
+    QVERIFY2(QFile::exists(path), qPrintable(path));
+
+    KeyboardTranslatorManager reloadedManager;
+    const auto *reloadedTranslator = reloadedManager.findTranslator(name);
+    QVERIFY(reloadedTranslator != nullptr);
+    QCOMPARE(reloadedTranslator->description(), QStringLiteral("Reload test translator"));
+
+    QVERIFY(QFile::remove(path));
 }
 
 QTEST_GUILESS_MAIN(KeyboardTranslatorTest)

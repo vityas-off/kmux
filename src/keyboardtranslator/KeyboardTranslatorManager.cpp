@@ -20,6 +20,34 @@
 
 using namespace Konsole;
 
+namespace
+{
+QStringList translatorPaths(const QString &name)
+{
+    const QStringList searchPaths = {
+        QStringLiteral("kmux/") + name + QStringLiteral(".keytab"),
+        QStringLiteral("konsole/") + name + QStringLiteral(".keytab"),
+    };
+
+    QStringList paths;
+    for (const QString &searchPath : searchPaths) {
+        const auto locations = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, searchPath);
+        for (const QString &location : locations) {
+            if (!paths.contains(location)) {
+                paths.append(location);
+            }
+        }
+    }
+
+    const QString resource = QStringLiteral(":/kmux/keyboard-layouts/") + name + QStringLiteral(".keytab");
+    if (QFile::exists(resource)) {
+        paths.append(resource);
+    }
+
+    return paths;
+}
+}
+
 KeyboardTranslatorManager::KeyboardTranslatorManager()
     : _haveLoadedAll(false)
     , _translators(QHash<QString, KeyboardTranslator *>())
@@ -68,28 +96,20 @@ bool KeyboardTranslatorManager::isTranslatorDeletable(const QString &name) const
 
 bool KeyboardTranslatorManager::isTranslatorResettable(const QString &name) const
 {
-    auto foundFiles = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".keytab")).count();
-    if (QFile::exists(QStringLiteral(":/kmux/keyboard-layouts/") + name + QStringLiteral(".keytab"))) {
-        ++foundFiles;
-    }
-    return (foundFiles > 1);
+    const QStringList paths = translatorPaths(name);
+    return paths.count() > 1 && QFileInfo(paths.constFirst()).isWritable();
 }
 
 const QString KeyboardTranslatorManager::findTranslatorPath(const QString &name) const
 {
-    auto file = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".keytab"));
-
-    // fallback to bundled ones
-    if (file.isEmpty() && QFile::exists(QStringLiteral(":/kmux/keyboard-layouts/") + name + QStringLiteral(".keytab"))) {
-        file = QStringLiteral(":/kmux/keyboard-layouts/") + name + QStringLiteral(".keytab");
-    }
-
-    return file;
+    const QStringList paths = translatorPaths(name);
+    return paths.isEmpty() ? QString() : paths.constFirst();
 }
 
 void KeyboardTranslatorManager::findTranslators()
 {
     QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
+    dirs.append(QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole"), QStandardPaths::LocateDirectory));
     dirs.append(QStringLiteral(":/kmux/keyboard-layouts")); // fallback to bundled ones
 
     QStringList list;
