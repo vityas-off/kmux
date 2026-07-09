@@ -21,8 +21,10 @@
 #include "../ViewManager.h"
 #include "../containers/ContainerSessionState.h"
 #include "../containers/IContainerDetector.h"
+#include "../profile/ProfileManager.h"
 #include "../session/Session.h"
 #include "../session/SessionController.h"
+#include "../session/SessionManager.h"
 #include "../terminalDisplay/TerminalDisplay.h"
 #include "../widgets/ProjectWorkspaceContainer.h"
 #include "../widgets/ViewContainer.h"
@@ -658,6 +660,66 @@ void ViewManagerTest::testRestoreSessionsCreatesProjectWorkspacesWithoutSessionI
     QCOMPARE(restoredProjects.at(1)->currentIndex(), 1);
     QCOMPARE(restoredManager->activeContainer(), restoredProjects.at(1));
     QCOMPARE(restoredManager->sessionList().count(), 2);
+}
+
+void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
+{
+    KConfig config(m_testDir->filePath(QStringLiteral("cold-restore-state-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+
+    const QString profileName = QStringLiteral("Cold restore test profile");
+    const QString profilePath = m_testDir->filePath(QStringLiteral("cold-restore.profile"));
+    const QString program = QStringLiteral("/bin/sh");
+    const QStringList arguments = {program, QStringLiteral("-c"), QStringLiteral("printf restored")};
+    const QStringList environment = {QStringLiteral("TERM=xterm-256color"), QStringLiteral("KMUX_RESTORE_TEST=preserved")};
+
+    {
+        auto sourceWindow = MainWindow();
+        Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+        profile->setHidden(true);
+        profile->setProperty(Profile::Name, profileName);
+        profile->setProperty(Profile::Path, profilePath);
+        profile->setProperty(Profile::Command, program);
+        profile->setProperty(Profile::Arguments, arguments);
+        profile->setProperty(Profile::Environment, environment);
+
+        Session *session = sourceWindow.createSession(profile, m_testDir->path());
+        QVERIFY(session != nullptr);
+        session->setAutoClose(false);
+        session->setTabTitleFormat(Session::LocalTabTitle, QStringLiteral("restored title"));
+        session->setColor(QColor(QStringLiteral("#ff336699")));
+        session->setBadgeEnabled(true);
+        session->setBadgeText(QStringLiteral("restore badge"));
+        sourceWindow.viewManager()->saveSessions(group);
+
+        const auto projects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+        const auto terminal =
+            projects.at(0).toObject()[QStringLiteral("Tabs")].toArray().at(0).toObject()[QStringLiteral("Widgets")].toArray().at(0).toObject();
+        QCOMPARE(terminal[QStringLiteral("ProfilePath")].toString(), profilePath);
+        QCOMPARE(terminal[QStringLiteral("ProfileName")].toString(), profileName);
+        QCOMPARE(terminal[QStringLiteral("Command")].toString(), program);
+        QCOMPARE(terminal[QStringLiteral("Arguments")].toArray(), QJsonArray::fromStringList(arguments));
+        QCOMPARE(terminal[QStringLiteral("Environment")].toArray(), QJsonArray::fromStringList(environment));
+    }
+
+    auto restoredWindow = MainWindow();
+    auto *restoredManager = restoredWindow.viewManager();
+    restoredManager->restoreSessions(group, false);
+
+    Session *restoredSession = restoredManager->activeViewController()->session();
+    QVERIFY(restoredSession != nullptr);
+    const Profile::Ptr restoredProfile = SessionManager::instance()->sessionProfile(restoredSession);
+    QVERIFY(restoredProfile != nullptr);
+    QCOMPARE(restoredProfile->name(), profileName);
+    QCOMPARE(restoredProfile->path(), profilePath);
+    QCOMPARE(restoredSession->program(), program);
+    QCOMPARE(restoredSession->arguments(), arguments);
+    QCOMPARE(restoredProfile->environment(), environment);
+    QVERIFY(!restoredSession->autoClose());
+    QCOMPARE(restoredSession->tabTitleFormat(Session::LocalTabTitle), QStringLiteral("restored title"));
+    QCOMPARE(restoredSession->color(), QColor(QStringLiteral("#ff336699")));
+    QVERIFY(restoredSession->badgeEnabled());
+    QCOMPARE(restoredSession->badgeText(), QStringLiteral("restore badge"));
 }
 
 void ViewManagerTest::testContainerMenuLaunchKeepsPendingColor()

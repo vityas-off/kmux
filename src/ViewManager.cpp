@@ -11,6 +11,7 @@
 #include "konsoledebug.h"
 
 // Qt
+#include <QColor>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -22,6 +23,8 @@
 
 #include <QJsonArray>
 #include <QJsonDocument>
+
+#include <algorithm>
 
 #if HAVE_DBUS
 #include <QDBusArgument>
@@ -1682,12 +1685,32 @@ QJsonObject saveSessionTerminal(TerminalDisplay *terminalDisplay)
 {
     QJsonObject thisTerminal;
     auto terminalSession = terminalDisplay->sessionController()->session();
+    const Profile::Ptr profile = SessionManager::instance()->sessionProfile(terminalSession);
     const int sessionRestoreId = SessionManager::instance()->getRestoreId(terminalSession);
     thisTerminal.insert(QStringLiteral("SessionRestoreId"), sessionRestoreId);
     thisTerminal.insert(QStringLiteral("Columns"), terminalDisplay->columns());
     thisTerminal.insert(QStringLiteral("Lines"), terminalDisplay->lines());
     thisTerminal.insert(QStringLiteral("WorkingDirectory"), terminalDisplay->session()->currentWorkingDirectory());
-    thisTerminal.insert(QStringLiteral("Command"), QStringLiteral(""));
+    thisTerminal.insert(QStringLiteral("ProfilePath"), profile ? profile->path() : QString());
+    thisTerminal.insert(QStringLiteral("ProfileName"), profile ? profile->name() : QString());
+    thisTerminal.insert(QStringLiteral("Command"), terminalSession->program());
+    thisTerminal.insert(QStringLiteral("Arguments"), QJsonArray::fromStringList(terminalSession->arguments()));
+    thisTerminal.insert(QStringLiteral("Environment"), QJsonArray::fromStringList(profile ? profile->environment() : QStringList()));
+    thisTerminal.insert(QStringLiteral("AutoClose"), terminalSession->autoClose());
+    thisTerminal.insert(QStringLiteral("LocalTabTitleFormat"), terminalSession->tabTitleFormat(Session::LocalTabTitle));
+    thisTerminal.insert(QStringLiteral("RemoteTabTitleFormat"), terminalSession->tabTitleFormat(Session::RemoteTabTitle));
+    thisTerminal.insert(QStringLiteral("TabColor"), terminalSession->color().isValid() ? terminalSession->color().name(QColor::HexArgb) : QString());
+    thisTerminal.insert(QStringLiteral("TabActivityColor"),
+                        terminalSession->activityColor().isValid() ? terminalSession->activityColor().name(QColor::HexArgb) : QString());
+    thisTerminal.insert(QStringLiteral("Encoding"), QString::fromUtf8(terminalSession->codec()));
+    thisTerminal.insert(QStringLiteral("BadgeEnabled"), terminalSession->badgeEnabled());
+    thisTerminal.insert(QStringLiteral("BadgeText"), terminalSession->badgeText());
+    thisTerminal.insert(QStringLiteral("BadgeFontFamily"), terminalSession->badgeFontFamily());
+    thisTerminal.insert(QStringLiteral("BadgeFontSize"), terminalSession->badgeFontSize());
+    thisTerminal.insert(QStringLiteral("BadgeColor"),
+                        terminalSession->badgeColor().isValid() ? terminalSession->badgeColor().name(QColor::HexArgb) : QString());
+    thisTerminal.insert(QStringLiteral("BadgeTextOnly"), terminalSession->badgeTextOnly());
+    thisTerminal.insert(QStringLiteral("BadgeTransparency"), terminalSession->badgeTransparency());
     return thisTerminal;
 }
 
@@ -1794,6 +1817,93 @@ void ViewManager::saveSessions(KConfigGroup &group)
 
 namespace
 {
+QStringList jsonStringList(const QJsonValue &value)
+{
+    QStringList result;
+    const QJsonArray array = value.toArray();
+    result.reserve(array.size());
+    for (const QJsonValue &item : array) {
+        result.append(item.toString());
+    }
+    return result;
+}
+
+Profile::Ptr savedSessionProfile(const QJsonObject &sessionObject)
+{
+    Profile::Ptr profile;
+    const QString profilePath = sessionObject[QStringLiteral("ProfilePath")].toString();
+    if (!profilePath.isEmpty()) {
+        profile = ProfileManager::instance()->loadProfile(profilePath);
+    }
+
+    const QString profileName = sessionObject[QStringLiteral("ProfileName")].toString();
+    if (!profile && !profileName.isEmpty()) {
+        const QList<Profile::Ptr> profiles = ProfileManager::instance()->allProfiles();
+        const auto profileIterator = std::find_if(profiles.cbegin(), profiles.cend(), [&profileName](const Profile::Ptr &candidate) {
+            return candidate->name() == profileName;
+        });
+        if (profileIterator != profiles.cend()) {
+            profile = *profileIterator;
+        }
+    }
+
+    if (!profile) {
+        profile = ProfileManager::instance()->defaultProfile();
+    }
+
+    const bool hasRuntimeSettings = sessionObject.contains(QStringLiteral("Command")) || sessionObject.contains(QStringLiteral("Arguments"))
+        || sessionObject.contains(QStringLiteral("Environment"));
+    if (!hasRuntimeSettings) {
+        return profile;
+    }
+
+    Profile::Ptr restoredProfile(new Profile(profile));
+    restoredProfile->setHidden(true);
+    restoredProfile->setProperty(Profile::Name, profileName.isEmpty() ? profile->name() : profileName);
+    restoredProfile->setProperty(Profile::Path, profilePath.isEmpty() ? profile->path() : profilePath);
+    if (sessionObject.contains(QStringLiteral("Command"))) {
+        restoredProfile->setProperty(Profile::Command, sessionObject[QStringLiteral("Command")].toString());
+    }
+    if (sessionObject.contains(QStringLiteral("Arguments"))) {
+        restoredProfile->setProperty(Profile::Arguments, jsonStringList(sessionObject[QStringLiteral("Arguments")]));
+    }
+    if (sessionObject.contains(QStringLiteral("Environment"))) {
+        restoredProfile->setProperty(Profile::Environment, jsonStringList(sessionObject[QStringLiteral("Environment")]));
+    }
+    return restoredProfile;
+}
+
+void restoreColdSessionState(Session *session, const QJsonObject &sessionObject)
+{
+    if (sessionObject.contains(QStringLiteral("AutoClose"))) {
+        session->setAutoClose(sessionObject[QStringLiteral("AutoClose")].toBool());
+    }
+    if (sessionObject.contains(QStringLiteral("LocalTabTitleFormat"))) {
+        session->setTabTitleFormat(Session::LocalTabTitle, sessionObject[QStringLiteral("LocalTabTitleFormat")].toString());
+    }
+    if (sessionObject.contains(QStringLiteral("RemoteTabTitleFormat"))) {
+        session->setTabTitleFormat(Session::RemoteTabTitle, sessionObject[QStringLiteral("RemoteTabTitleFormat")].toString());
+    }
+    if (sessionObject.contains(QStringLiteral("TabColor"))) {
+        session->setColor(QColor(sessionObject[QStringLiteral("TabColor")].toString()));
+    }
+    if (sessionObject.contains(QStringLiteral("TabActivityColor"))) {
+        session->setActivityColor(QColor(sessionObject[QStringLiteral("TabActivityColor")].toString()));
+    }
+    if (sessionObject.contains(QStringLiteral("Encoding"))) {
+        session->setCodec(sessionObject[QStringLiteral("Encoding")].toString().toUtf8());
+    }
+    if (sessionObject.contains(QStringLiteral("BadgeEnabled"))) {
+        session->setBadgeEnabled(sessionObject[QStringLiteral("BadgeEnabled")].toBool());
+        session->setBadgeText(sessionObject[QStringLiteral("BadgeText")].toString());
+        session->setBadgeFontFamily(sessionObject[QStringLiteral("BadgeFontFamily")].toString());
+        session->setBadgeFontSize(sessionObject[QStringLiteral("BadgeFontSize")].toInt());
+        session->setBadgeColor(QColor(sessionObject[QStringLiteral("BadgeColor")].toString()));
+        session->setBadgeTextOnly(sessionObject[QStringLiteral("BadgeTextOnly")].toBool());
+        session->setBadgeTransparency(sessionObject[QStringLiteral("BadgeTransparency")].toInt());
+    }
+}
+
 ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, ViewManager *manager, bool useSessionId)
 {
     const QJsonArray splitterWidgets = jsonSplitter[QStringLiteral("Widgets")].toArray();
@@ -1811,7 +1921,12 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
         const auto cwdIterator = widgetJsonObject.constFind(QStringLiteral("WorkingDirectory"));
 
         if (sessionIterator != widgetJsonObject.constEnd()) {
-            Session *session = useSessionId ? SessionManager::instance()->idToSession(sessionIterator->toInt()) : SessionManager::instance()->createSession();
+            Session *session = useSessionId ? SessionManager::instance()->idToSession(sessionIterator->toInt())
+                                            : manager->createSession(savedSessionProfile(widgetJsonObject));
+
+            if (!useSessionId) {
+                restoreColdSessionState(session, widgetJsonObject);
+            }
 
             auto newView = manager->createView(session);
             currentSplitter->addTerminalDisplay(newView, -1);
@@ -1838,7 +1953,7 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
                 newView->session()->run();
             }
 
-            if (commandIterator != widgetJsonObject.constEnd()) {
+            if (useSessionId && commandIterator != widgetJsonObject.constEnd()) {
                 auto command = commandIterator->toString();
                 // Don't open a program that is already running, such as bash
                 if (!command.isEmpty() && command != newView->session()->program()) {
