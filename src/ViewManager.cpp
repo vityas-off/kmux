@@ -2118,6 +2118,37 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
     }
 }
 
+void ViewManager::initializeRestoredSessions()
+{
+    if (_workspaceContainer.isNull()) {
+        return;
+    }
+
+    const QList<TabbedViewContainer *> containers = _workspaceContainer->containers();
+    QHash<TabbedViewContainer *, int> activeTabs;
+    activeTabs.reserve(containers.count());
+    for (auto *container : containers) {
+        activeTabs.insert(container, container->currentIndex());
+    }
+    auto *activeProject = _workspaceContainer->activeContainer();
+
+    for (auto *container : containers) {
+        for (int tab = 0; tab < container->count(); ++tab) {
+            container->setCurrentIndex(tab);
+        }
+    }
+
+    for (auto *container : containers) {
+        const int activeTab = activeTabs.value(container, 0);
+        if (container->count() > 0) {
+            container->setCurrentIndex(qBound(0, activeTab, container->count() - 1));
+        }
+    }
+    if (activeProject != nullptr) {
+        _workspaceContainer->activateProject(activeProject);
+    }
+}
+
 TabbedViewContainer *ViewManager::activeContainer() const
 {
     return _workspaceContainer != nullptr ? _workspaceContainer->activeContainer() : nullptr;

@@ -722,6 +722,31 @@ void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
     QCOMPARE(restoredSession->badgeText(), QStringLiteral("restore badge"));
 }
 
+void ViewManagerTest::testInitializeRestoredSessionsPreservesActiveTabs()
+{
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *projects = manager->_workspaceContainer.data();
+    QVERIFY(projects != nullptr);
+
+    window.newTab();
+    auto *firstProject = manager->activeContainer();
+    window.newTab();
+    firstProject->setCurrentIndex(0);
+
+    manager->createProject();
+    auto *secondProject = manager->activeContainer();
+    window.newTab();
+    secondProject->setCurrentIndex(1);
+    projects->activateProject(firstProject);
+
+    manager->initializeRestoredSessions();
+
+    QCOMPARE(firstProject->currentIndex(), 0);
+    QCOMPARE(secondProject->currentIndex(), 1);
+    QCOMPARE(manager->activeContainer(), firstProject);
+}
+
 void ViewManagerTest::testContainerMenuLaunchKeepsPendingColor()
 {
     auto mw = MainWindow();

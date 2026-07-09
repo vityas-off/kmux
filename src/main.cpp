@@ -362,12 +362,7 @@ void restoreSession(Application &app)
     mainWindow->viewManager()->toggleActionsBasedOnState();
     mainWindow->show();
 
-    // TODO: HACK without the code below the sessions would be `uninitialized`
-    // and the tabs wouldn't display the correct information.
-    const auto tabbedContainers = mainWindow->viewManager()->widget()->findChildren<Konsole::TabbedViewContainer *>();
-    for (auto *tabbedContainer : tabbedContainers) {
-        for (int i = 0; i < tabbedContainer->count(); i++) {
-            tabbedContainer->setCurrentIndex(i);
-        }
-    }
+    // Without visiting the restored tabs, the sessions remain uninitialized
+    // and do not display the correct information.
+    mainWindow->viewManager()->initializeRestoredSessions();
 }

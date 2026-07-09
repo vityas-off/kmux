@@ -165,6 +165,7 @@ public:
     void saveSessions(KConfigGroup &group);
     void restoreSessions(const KConfigGroup &group);
     void restoreSessions(const KConfigGroup &group, bool useSessionIds);
+    void initializeRestoredSessions();
 
     int managerId() const;
 
