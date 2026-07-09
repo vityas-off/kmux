@@ -78,10 +78,12 @@ private:
     void createTabFromArgs(MainWindow *window, const QHash<QString, QString> &);
     bool shouldRestoreLastWorkspaceState(bool createdNewMainWindow) const;
     bool hasExplicitSessionRequest() const;
+    QString initialWorkingDirectory(const QString &requestedDirectory = QString()) const;
 
     MainWindow *_backgroundInstance;
     QSharedPointer<QCommandLineParser> m_parser;
     QStringList m_customCommand;
+    QString m_activationWorkingDirectory;
     PluginManager m_pluginManager;
 };
 }

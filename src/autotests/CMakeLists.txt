@@ -52,6 +52,7 @@ endif()
 
 ecm_add_tests(
     HistoryTest.cpp
+    ApplicationTest.cpp
     SessionTest.cpp
     TerminalInterfaceTest.cpp
     TerminalTest.cpp

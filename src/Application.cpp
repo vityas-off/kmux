@@ -67,6 +67,7 @@ Application::Application(QSharedPointer<QCommandLineParser> parser, const QStrin
     : _backgroundInstance(nullptr)
     , m_parser(parser)
     , m_customCommand(customCommand)
+    , m_activationWorkingDirectory(QDir::currentPath())
 {
     m_pluginManager.loadAllPlugins();
 }
@@ -222,10 +223,7 @@ int Application::newInstance()
     } else if (!restoredLastWorkspaceState && !m_parser->isSet(QStringLiteral("tabs-from-file"))) {
         Session *session = window->createSession(newProfile, QString());
 
-        const QString workingDir = m_parser->value(QStringLiteral("workdir"));
-        if (!workingDir.isEmpty()) {
-            session->setInitialWorkingDirectory(workingDir);
-        }
+        session->setInitialWorkingDirectory(initialWorkingDirectory(m_parser->value(QStringLiteral("workdir"))));
 
         if (m_parser->isSet(QStringLiteral("noclose"))) {
             session->setAutoClose(false);
@@ -432,7 +430,7 @@ void Application::createTabFromArgs(MainWindow *window, const QHash<QString, QSt
 
     const QString wdirOptionName(QStringLiteral("workdir"));
     auto it = tokens.constFind(wdirOptionName);
-    const QString workingDirectory = it != tokens.cend() ? it.value() : m_parser->value(wdirOptionName);
+    const QString workingDirectory = initialWorkingDirectory(it != tokens.cend() ? it.value() : m_parser->value(wdirOptionName));
 
     if (!workingDirectory.isEmpty()) {
         session->setInitialWorkingDirectory(workingDirectory);
@@ -571,8 +569,8 @@ Profile::Ptr Application::processProfileChangeArgs(Profile::Ptr baseProfile)
             commandArguments = shellCommand.arguments();
         }
 
-        if (commandExec.startsWith(QLatin1String("./"))) {
-            commandExec = QDir::currentPath() + commandExec.mid(1);
+        if (QFileInfo(commandExec).isRelative() && commandExec.contains(QLatin1Char('/'))) {
+            commandExec = QDir::cleanPath(QDir(m_activationWorkingDirectory).absoluteFilePath(commandExec));
         }
 
         newProfile->setProperty(Profile::Command, commandExec);
@@ -585,6 +583,17 @@ Profile::Ptr Application::processProfileChangeArgs(Profile::Ptr baseProfile)
         return newProfile;
     }
     return baseProfile;
+}
+
+QString Application::initialWorkingDirectory(const QString &requestedDirectory) const
+{
+    if (requestedDirectory.isEmpty()) {
+        return m_activationWorkingDirectory;
+    }
+    if (QFileInfo(requestedDirectory).isAbsolute()) {
+        return QDir::cleanPath(requestedDirectory);
+    }
+    return QDir::cleanPath(QDir(m_activationWorkingDirectory).absoluteFilePath(requestedDirectory));
 }
 
 void Application::startBackgroundMode(MainWindow *window)
@@ -619,7 +628,7 @@ void Application::toggleBackgroundInstance()
     }
 }
 
-void Application::slotActivateRequested(QStringList args, const QString & /*workingDir*/)
+void Application::slotActivateRequested(QStringList args, const QString &workingDir)
 {
     // QCommandLineParser expects the first argument to be the executable name
     // In the current version it just strips it away
@@ -633,6 +642,7 @@ void Application::slotActivateRequested(QStringList args, const QString & /*work
     populateCommandLineParser(parser);
     parser->parse(args);
     m_parser.reset(parser);
+    m_activationWorkingDirectory = workingDir.isEmpty() ? QDir::currentPath() : QFileInfo(workingDir).absoluteFilePath();
 
     if (!hasExplicitSessionRequest()) {
         showAndActivateWindow(existingMainWindow());
