@@ -747,6 +747,33 @@ void ViewManagerTest::testInitializeRestoredSessionsPreservesActiveTabs()
     QCOMPARE(manager->activeContainer(), firstProject);
 }
 
+void ViewManagerTest::testRemovingBackgroundProjectPreservesActiveProject()
+{
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *projects = manager->_workspaceContainer.data();
+    QVERIFY(projects != nullptr);
+
+    auto *firstProject = manager->activeContainer();
+    manager->createProject();
+    auto *secondProject = manager->activeContainer();
+    manager->createProject();
+    auto *thirdProject = manager->activeContainer();
+    QVERIFY(firstProject != secondProject);
+    QVERIFY(secondProject != thirdProject);
+
+    projects->activateProject(thirdProject);
+    projects->removeProject(firstProject);
+
+    QCOMPARE(projects->projectCount(), 2);
+    QCOMPARE(manager->activeContainer(), thirdProject);
+
+    projects->removeProject(thirdProject);
+
+    QCOMPARE(projects->projectCount(), 1);
+    QCOMPARE(manager->activeContainer(), secondProject);
+}
+
 void ViewManagerTest::testContainerMenuLaunchKeepsPendingColor()
 {
     auto mw = MainWindow();

@@ -18,6 +18,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QPainter>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStyle>
@@ -417,19 +418,28 @@ void ProjectWorkspaceContainer::removeProject(TabbedViewContainer *container)
     if (index < 0) {
         return;
     }
+    auto *previousActiveContainer = activeContainer();
+    const bool removingActiveProject = previousActiveContainer == container;
 
     _stack->removeWidget(container);
 
-    delete _projectList->takeItem(index);
-    _projects.removeAt(index);
+    {
+        const QSignalBlocker blocker(_projectList);
+        delete _projectList->takeItem(index);
+        _projects.removeAt(index);
+
+        if (!_projects.isEmpty()) {
+            const int nextIndex = removingActiveProject ? qMin(index, _projects.count() - 1) : indexOf(previousActiveContainer);
+            _projectList->setCurrentRow(nextIndex);
+        }
+    }
     updateStatusAnimationTimer();
 
     if (_projects.isEmpty()) {
         return;
     }
 
-    const int nextIndex = qMin(index, _projects.count() - 1);
-    _projectList->setCurrentRow(nextIndex);
+    currentRowChanged(_projectList->currentRow());
 }
 
 void ProjectWorkspaceContainer::activateProject(TabbedViewContainer *container)

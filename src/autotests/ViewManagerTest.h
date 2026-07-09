@@ -37,6 +37,7 @@ private Q_SLOTS:
     void testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds();
     void testColdRestorePreservesSessionProfileAndState();
     void testInitializeRestoredSessionsPreservesActiveTabs();
+    void testRemovingBackgroundProjectPreservesActiveProject();
     void testContainerMenuLaunchKeepsPendingColor();
 
 private:
