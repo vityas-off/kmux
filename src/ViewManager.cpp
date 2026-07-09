@@ -492,6 +492,7 @@ void ViewManager::setupActions()
         });
         collection->addAction(QStringLiteral("switch-to-workspace-%1").arg(i), action);
         collection->setDefaultShortcut(action, QKeySequence(Qt::CTRL | Qt::ALT | (Qt::Key_1 + i)));
+        _multiProjectOnlyActions << action;
     }
 
     toggleActionsBasedOnState();
@@ -507,7 +508,7 @@ void ViewManager::toggleActionsBasedOnState()
 
     const int projectCount = _workspaceContainer != nullptr ? _workspaceContainer->projectCount() : 0;
     for (QAction *projectOnlyAction : std::as_const(_multiProjectOnlyActions)) {
-        projectOnlyAction->setEnabled(projectCount > 1);
+        projectOnlyAction->setEnabled(_navigationMethod != NoNavigation && projectCount > 1);
     }
 
     if ((container != nullptr) && (container->activeViewSplitter() != nullptr)) {
@@ -1353,6 +1354,10 @@ TabbedViewContainer *ViewManager::createContainer()
 
 void ViewManager::createProject()
 {
+    if (_navigationMethod == NoNavigation) {
+        return;
+    }
+
     auto *container = createContainer();
     _workspaceContainer->addProject(container, _workspaceContainer->nextDefaultProjectTitle());
     Q_EMIT newViewRequest();
@@ -1553,6 +1558,9 @@ void ViewManager::setNavigationMethod(NavigationMethod method)
     enableAction(QStringLiteral("rename-session"));
     enableAction(QStringLiteral("move-view-left"));
     enableAction(QStringLiteral("move-view-right"));
+    enableAction(QStringLiteral("add-workspace"));
+
+    toggleActionsBasedOnState();
 }
 
 ViewManager::NavigationMethod ViewManager::navigationMethod() const
@@ -2455,7 +2463,7 @@ void ViewManager::setSessionProjectStatus(Session *session, TabbedViewContainer 
 
 void ViewManager::addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex)
 {
-    if (menu == nullptr || sourceContainer == nullptr || _workspaceContainer.isNull()) {
+    if (_navigationMethod == NoNavigation || menu == nullptr || sourceContainer == nullptr || _workspaceContainer.isNull()) {
         return;
     }
 

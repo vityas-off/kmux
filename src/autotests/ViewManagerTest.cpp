@@ -455,6 +455,37 @@ void ViewManagerTest::testProjectWorkspaceDetachActionsDisabled()
     QVERIFY(detachView->shortcut().isEmpty());
 }
 
+void ViewManagerTest::testNoNavigationDisablesProjectActions()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    viewManager->createProject();
+    viewManager->createProject();
+    QCOMPARE(workspaces->projectCount(), 3);
+
+    viewManager->setNavigationMethod(ViewManager::NoNavigation);
+
+    const QStringList actionNames = {
+        QStringLiteral("add-workspace"),
+        QStringLiteral("next-workspace"),
+        QStringLiteral("previous-workspace"),
+        QStringLiteral("next-attention-workspace"),
+        QStringLiteral("switch-to-workspace-0"),
+        QStringLiteral("switch-to-workspace-8"),
+    };
+    for (const QString &actionName : actionNames) {
+        auto *action = mw.actionCollection()->action(actionName);
+        QVERIFY(action != nullptr);
+        QVERIFY(!action->isEnabled());
+    }
+
+    viewManager->createProject();
+    QCOMPARE(workspaces->projectCount(), 3);
+}
+
 void ViewManagerTest::testProjectWorkspaceNewWindowActionDisabled()
 {
     auto mw = MainWindow();
