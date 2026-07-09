@@ -608,7 +608,7 @@ int ProjectWorkspaceContainer::projectCount() const
 
 QString ProjectWorkspaceContainer::nextDefaultProjectTitle() const
 {
-    return i18nc("@title", "Workspace %1", _nextProjectNumber);
+    return i18nc("@title", "Project %1", _nextProjectNumber);
 }
 
 void ProjectWorkspaceContainer::setProjectNavigationVisible(bool visible)
@@ -648,16 +648,16 @@ void ProjectWorkspaceContainer::openProjectContextMenu(const QPoint &point)
     }
 
     QMenu menu(this);
-    menu.addAction(QIcon::fromTheme(QStringLiteral("folder-new")), i18nc("@action:inmenu", "Add Workspace"), this, [this] {
+    menu.addAction(QIcon::fromTheme(QStringLiteral("folder-new")), i18nc("@action:inmenu", "Add Project"), this, [this] {
         Q_EMIT newProjectRequested();
     });
 
-    auto *renameAction = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "Rename Workspace..."), this, [this] {
+    auto *renameAction = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "Rename Project..."), this, [this] {
         renameCurrentProject();
     });
     renameAction->setEnabled(activeContainer() != nullptr);
 
-    auto *closeAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-close")), i18nc("@action:inmenu", "Close Workspace"), this, [this] {
+    auto *closeAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-close")), i18nc("@action:inmenu", "Close Project"), this, [this] {
         if (auto *container = activeContainer()) {
             Q_EMIT closeProjectRequested(container);
         }
@@ -676,8 +676,8 @@ void ProjectWorkspaceContainer::renameCurrentProject()
 
     bool ok = false;
     const QString title = QInputDialog::getText(this,
-                                                i18nc("@title:window", "Rename Workspace"),
-                                                i18nc("@label:textbox", "Workspace name:"),
+                                                i18nc("@title:window", "Rename Project"),
+                                                i18nc("@label:textbox", "Project name:"),
                                                 QLineEdit::Normal,
                                                 _projects.at(row).title,
                                                 &ok);

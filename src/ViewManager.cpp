@@ -188,7 +188,7 @@ void ViewManager::setupActions()
     // Let's reuse the pointer, no need not to.
     auto *action = new QAction(this);
     action->setIcon(QIcon::fromTheme(QStringLiteral("folder-new")));
-    action->setText(i18nc("@action:inmenu", "Add Workspace"));
+    action->setText(i18nc("@action:inmenu", "Add Project"));
     connect(action, &QAction::triggered, this, &ViewManager::createProject);
     collection->addAction(QStringLiteral("add-workspace"), action);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_W);
@@ -318,19 +318,19 @@ void ViewManager::setupActions()
     _multiTabOnlyActions << action;
     // _viewSplitter->addAction(previousViewAction);
 
-    action = new QAction(i18nc("@action Shortcut entry", "Next Workspace"), this);
+    action = new QAction(i18nc("@action Shortcut entry", "Next Project"), this);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_PageDown);
     collection->addAction(QStringLiteral("next-workspace"), action);
     connect(action, &QAction::triggered, this, &ViewManager::nextProject);
     _multiProjectOnlyActions << action;
 
-    action = new QAction(i18nc("@action Shortcut entry", "Previous Workspace"), this);
+    action = new QAction(i18nc("@action Shortcut entry", "Previous Project"), this);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_PageUp);
     collection->addAction(QStringLiteral("previous-workspace"), action);
     connect(action, &QAction::triggered, this, &ViewManager::previousProject);
     _multiProjectOnlyActions << action;
 
-    action = new QAction(i18nc("@action Shortcut entry", "Next Workspace Needing Attention"), this);
+    action = new QAction(i18nc("@action Shortcut entry", "Next Project Needing Attention"), this);
     collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_A);
     collection->addAction(QStringLiteral("next-attention-workspace"), action);
     connect(action, &QAction::triggered, this, &ViewManager::nextProjectNeedingAttention);
@@ -489,7 +489,7 @@ void ViewManager::setupActions()
 
     const int SWITCH_TO_PROJECT_COUNT = 9;
     for (int i = 0; i < SWITCH_TO_PROJECT_COUNT; ++i) {
-        action = new QAction(i18nc("@action Shortcut entry", "Switch to Workspace %1", i + 1), this);
+        action = new QAction(i18nc("@action Shortcut entry", "Switch to Project %1", i + 1), this);
         connect(action, &QAction::triggered, this, [this, i]() {
             switchToProject(i);
         });
@@ -1454,26 +1454,26 @@ bool ViewManager::confirmCloseProject(TabbedViewContainer *container) const
     if (!processesRunning.isEmpty()) {
         result = KMessageBox::warningTwoActionsList(_workspaceContainer,
                                                     i18ncp("@info",
-                                                           "There is a process running in this workspace. "
+                                                           "There is a process running in this project. "
                                                            "Do you still want to close it?",
-                                                           "There are %1 processes running in this workspace. "
+                                                           "There are %1 processes running in this project. "
                                                            "Do you still want to close it?",
                                                            processesRunning.count()),
                                                     processesRunning,
                                                     i18nc("@title", "Confirm Close"),
-                                                    KGuiItem(i18nc("@action:button", "Close &Workspace"), QStringLiteral("window-close")),
+                                                    KGuiItem(i18nc("@action:button", "Close &Project"), QStringLiteral("window-close")),
                                                     KStandardGuiItem::cancel(),
                                                     QStringLiteral("CloseProjectWorkspaceWithProcesses"));
     } else {
         result = KMessageBox::warningTwoActions(_workspaceContainer,
                                                 i18ncp("@info",
-                                                       "There is %1 open terminal in this workspace. "
+                                                       "There is %1 open terminal in this project. "
                                                        "Do you still want to close it?",
-                                                       "There are %1 open terminals in this workspace. "
+                                                       "There are %1 open terminals in this project. "
                                                        "Do you still want to close it?",
                                                        openTerminals),
                                                 i18nc("@title", "Confirm Close"),
-                                                KGuiItem(i18nc("@action:button", "Close &Workspace"), QStringLiteral("window-close")),
+                                                KGuiItem(i18nc("@action:button", "Close &Project"), QStringLiteral("window-close")),
                                                 KStandardGuiItem::cancel(),
                                                 QStringLiteral("CloseProjectWorkspaceWithTabs"));
     }
@@ -2614,7 +2614,7 @@ void ViewManager::addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sour
         return;
     }
 
-    auto *projectMenu = menu->addMenu(QIcon::fromTheme(QStringLiteral("go-jump")), i18nc("@action:inmenu", "Move Tab to Workspace"));
+    auto *projectMenu = menu->addMenu(QIcon::fromTheme(QStringLiteral("go-jump")), i18nc("@action:inmenu", "Move Tab to Project"));
     projectMenu->menuAction()->setObjectName(QStringLiteral("move-tab-to-project"));
     projectMenu->setEnabled(tabIndex >= 0 && tabIndex < sourceContainer->count() && _workspaceContainer->projectCount() > 1);
 
@@ -2625,7 +2625,7 @@ void ViewManager::addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sour
         }
 
         const QString title = _workspaceContainer->projectTitle(targetContainer);
-        auto *action = projectMenu->addAction(title.isEmpty() ? i18nc("@title", "Workspace") : title, this, [this, sourceContainer, targetContainer, tabIndex] {
+        auto *action = projectMenu->addAction(title.isEmpty() ? i18nc("@title", "Project") : title, this, [this, sourceContainer, targetContainer, tabIndex] {
             moveTabToProject(sourceContainer, tabIndex, targetContainer);
         });
         action->setEnabled(tabIndex >= 0 && tabIndex < sourceContainer->count());

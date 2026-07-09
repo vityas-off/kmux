@@ -575,12 +575,12 @@ void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()
     QCOMPARE(group.readEntry("ActiveProject", -1), 1);
 
     const auto firstProjectObject = projects.at(0).toObject();
-    QCOMPARE(firstProjectObject[QStringLiteral("Title")].toString(), QStringLiteral("Workspace 1"));
+    QCOMPARE(firstProjectObject[QStringLiteral("Title")].toString(), QStringLiteral("Project 1"));
     QCOMPARE(firstProjectObject[QStringLiteral("Tabs")].toArray().count(), 2);
     QCOMPARE(firstProjectObject[QStringLiteral("Active")].toInt(), 1);
 
     const auto secondProjectObject = projects.at(1).toObject();
-    QCOMPARE(secondProjectObject[QStringLiteral("Title")].toString(), QStringLiteral("Workspace 2"));
+    QCOMPARE(secondProjectObject[QStringLiteral("Title")].toString(), QStringLiteral("Project 2"));
     QCOMPARE(secondProjectObject[QStringLiteral("Tabs")].toArray().count(), 3);
     QCOMPARE(secondProjectObject[QStringLiteral("Active")].toInt(), 2);
 
