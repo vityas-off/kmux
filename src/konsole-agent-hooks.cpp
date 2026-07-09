@@ -582,7 +582,7 @@ bool uninstallHookScripts(const QString &agentName, const QList<HookEvent> &even
     return true;
 }
 
-int installCodexHooks(const QString &codexHomeOverride)
+int installCodexHooks(const QString &codexHomeOverride, bool quiet)
 {
     QTextStream out(stdout);
     QTextStream err(stderr);
@@ -635,9 +635,11 @@ int installCodexHooks(const QString &codexHomeOverride)
         return 1;
     }
 
-    out << "Installed Codex hooks at " << hooksPath << '\n';
-    out << "Enabled and trusted Codex hooks in " << configPath << '\n';
-    out << "Hook scripts are in " << hookScriptDirectory() << '\n';
+    if (!quiet) {
+        out << "Installed Codex hooks at " << hooksPath << '\n';
+        out << "Enabled and trusted Codex hooks in " << configPath << '\n';
+        out << "Hook scripts are in " << hookScriptDirectory() << '\n';
+    }
     return 0;
 }
 
@@ -855,6 +857,8 @@ int main(int argc, char **argv)
     parser.addHelpOption();
     parser.addVersionOption();
     parser.setOptionsAfterPositionalArgumentsMode(QCommandLineParser::ParseAsOptions);
+    const QCommandLineOption quietOption(QStringLiteral("quiet"), QStringLiteral("Do not print successful installation details."));
+    parser.addOption(quietOption);
     const QCommandLineOption codexHomeOption(QStringLiteral("codex-home"),
                                              QStringLiteral("Use a custom Codex config directory instead of CODEX_HOME or ~/.codex."),
                                              QStringLiteral("path"));
@@ -881,7 +885,7 @@ int main(int argc, char **argv)
 
     if (command == QLatin1String("install")) {
         if (agent == QLatin1String(CodexAgentName)) {
-            return installCodexHooks(parser.value(codexHomeOption));
+            return installCodexHooks(parser.value(codexHomeOption), parser.isSet(quietOption));
         }
         return installClaudeHooks(parser.value(claudeHomeOption));
     }

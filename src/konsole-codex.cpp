@@ -7,26 +7,42 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
 namespace
 {
-std::string statusHookCommand(const char *status)
+std::string agentHooksExecutable(const char *launcherPath)
 {
-    return std::string("command -v kmux-project-status >/dev/null 2>&1 && kmux-project-status --hook-output ") + status + " || printf '{}\\n'";
+    const std::string path = launcherPath;
+    const auto separator = path.find_last_of('/');
+    if (separator == std::string::npos) {
+        return std::string("kmux-agent-hooks");
+    }
+    return path.substr(0, separator + 1) + "kmux-agent-hooks";
 }
 
-std::string codexHookConfig(const char *event, const char *status, int timeout)
+bool installTrustedHooks(const char *launcherPath)
 {
-    return std::string("hooks.") + event + "=[{hooks=[{type=\"command\",command='''" + statusHookCommand(status) + "''',timeout=" + std::to_string(timeout)
-        + "}]}]";
-}
+    const std::string executable = agentHooksExecutable(launcherPath);
+    const pid_t installerPid = fork();
+    if (installerPid < 0) {
+        return false;
+    }
 
-void appendHook(std::vector<std::string> &args, const char *event, const char *status, int timeout)
-{
-    args.emplace_back("-c");
-    args.push_back(codexHookConfig(event, status, timeout));
+    if (installerPid == 0) {
+        execlp(executable.c_str(), executable.c_str(), "--quiet", "install", "codex", nullptr);
+        _exit(127);
+    }
+
+    int status = 0;
+    while (waitpid(installerPid, &status, 0) < 0) {
+        if (errno != EINTR) {
+            return false;
+        }
+    }
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 }
 
@@ -37,16 +53,9 @@ int main(int argc, char **argv)
 
     const char *disabled = std::getenv("KONSOLE_CODEX_HOOKS_DISABLED");
     if (disabled == nullptr || std::strcmp(disabled, "1") != 0) {
-        args.emplace_back("--enable");
-        args.emplace_back("hooks");
-        args.emplace_back("--dangerously-bypass-hook-trust");
-
-        appendHook(args, "SessionStart", "running", 10000);
-        appendHook(args, "UserPromptSubmit", "running", 10000);
-        appendHook(args, "PreToolUse", "running", 10000);
-        appendHook(args, "PostToolUse", "running", 10000);
-        appendHook(args, "PermissionRequest", "needsInput", 120000);
-        appendHook(args, "Stop", "idle", 10000);
+        if (!installTrustedHooks(argv[0])) {
+            std::cerr << "kmux-codex: failed to install trusted Kmux hooks; continuing without changing Codex hook trust\n";
+        }
     }
 
     for (int i = 1; i < argc; ++i) {
