@@ -44,7 +44,7 @@ constexpr int ProjectRailMinimumWidth = 120;
 constexpr int ProjectRailMaximumWidth = 320;
 
 enum ProjectRoles {
-    ContainerRole = Qt::UserRole,
+    ProjectIdRole = Qt::UserRole,
     SubtitleRole,
     TabCountRole,
     ActiveProcessCountRole,
@@ -330,6 +330,7 @@ protected:
 
 ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     : QWidget(parent)
+    , _model(new ProjectWorkspaceModel(this))
     , _rail(new QWidget(this))
     , _splitter(new QSplitter(Qt::Horizontal, this))
     , _projectList(new ProjectListWidget(this))
@@ -337,6 +338,11 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     , _statusAnimationTimer(new QTimer(this))
     , _projectRailWidth(ProjectRailDefaultWidth)
 {
+    connect(_model, &ProjectWorkspaceModel::projectChanged, this, [this](const ProjectWorkspaceModel::ProjectId &id) {
+        updateListItem(_model->indexOf(id));
+        updateStatusAnimationTimer();
+    });
+
     _statusAnimationTimer->setInterval(100);
     connect(_statusAnimationTimer, &QTimer::timeout, _projectList->viewport(), [this] {
         _projectList->viewport()->update();
@@ -393,21 +399,18 @@ int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const 
 {
     Q_ASSERT(container != nullptr);
 
-    Project project;
-    project.title = title;
-    project.container = container;
-    _projects.append(project);
-
-    const int index = _projects.count() - 1;
+    const ProjectWorkspaceModel::ProjectId id = _model->addProject(title);
+    _projectIds.insert(container, id);
+    _containers.insert(id, container);
+    const int index = _model->indexOf(id);
     _stack->addWidget(container);
     auto *item = new QListWidgetItem(_projectList);
-    item->setData(ContainerRole, QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(container)));
+    item->setData(ProjectIdRole, id);
     item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
     item->setSizeHint(QSize(1, ProjectItemHeight));
     updateListItem(index);
     updateStatusAnimationTimer();
 
-    _nextProjectNumber = qMax(_nextProjectNumber, index + 2);
     _projectList->setCurrentRow(index);
     return index;
 }
@@ -426,16 +429,19 @@ void ProjectWorkspaceContainer::removeProject(TabbedViewContainer *container)
     {
         const QSignalBlocker blocker(_projectList);
         delete _projectList->takeItem(index);
-        _projects.removeAt(index);
+        const ProjectWorkspaceModel::ProjectId id = projectId(container);
+        _projectIds.remove(container);
+        _containers.remove(id);
+        _model->removeProject(id);
 
-        if (!_projects.isEmpty()) {
-            const int nextIndex = removingActiveProject ? qMin(index, _projects.count() - 1) : indexOf(previousActiveContainer);
+        if (_model->projectCount() > 0) {
+            const int nextIndex = removingActiveProject ? qMin(index, _model->projectCount() - 1) : indexOf(previousActiveContainer);
             _projectList->setCurrentRow(nextIndex);
         }
     }
     updateStatusAnimationTimer();
 
-    if (_projects.isEmpty()) {
+    if (_model->projectCount() == 0) {
         return;
     }
 
@@ -453,19 +459,15 @@ void ProjectWorkspaceContainer::activateProject(TabbedViewContainer *container)
 TabbedViewContainer *ProjectWorkspaceContainer::activeContainer() const
 {
     const int row = _projectList->currentRow();
-    if (row < 0 || row >= _projects.count()) {
-        return nullptr;
-    }
-
-    return _projects.at(row).container;
+    return containerAt(row);
 }
 
 QList<TabbedViewContainer *> ProjectWorkspaceContainer::containers() const
 {
     QList<TabbedViewContainer *> result;
-    result.reserve(_projects.count());
-    for (const Project &project : _projects) {
-        result.append(project.container);
+    result.reserve(_model->projectCount());
+    for (const ProjectWorkspaceModel::ProjectId &id : _model->projectIds()) {
+        result.append(_containers.value(id));
     }
     return result;
 }
@@ -476,9 +478,9 @@ TabbedViewContainer *ProjectWorkspaceContainer::containerForWidget(QWidget *widg
         return nullptr;
     }
 
-    for (const Project &project : _projects) {
-        if (project.container == widget || project.container->isAncestorOf(widget)) {
-            return project.container;
+    for (TabbedViewContainer *container : containers()) {
+        if (container == widget || container->isAncestorOf(widget)) {
+            return container;
         }
     }
 
@@ -492,7 +494,7 @@ QString ProjectWorkspaceContainer::projectTitle(TabbedViewContainer *container) 
         return {};
     }
 
-    return _projects.at(index).title;
+    return _model->projectAt(index).title;
 }
 
 void ProjectWorkspaceContainer::setProjectTitle(TabbedViewContainer *container, const QString &title)
@@ -502,8 +504,7 @@ void ProjectWorkspaceContainer::setProjectTitle(TabbedViewContainer *container, 
         return;
     }
 
-    _projects[index].title = title.trimmed();
-    updateListItem(index);
+    _model->setProjectTitle(projectId(container), title);
 }
 
 QString ProjectWorkspaceContainer::projectSubtitle(TabbedViewContainer *container) const
@@ -513,7 +514,7 @@ QString ProjectWorkspaceContainer::projectSubtitle(TabbedViewContainer *containe
         return {};
     }
 
-    return _projects.at(index).subtitle;
+    return _model->projectAt(index).subtitle;
 }
 
 int ProjectWorkspaceContainer::projectTabCount(TabbedViewContainer *container) const
@@ -523,7 +524,7 @@ int ProjectWorkspaceContainer::projectTabCount(TabbedViewContainer *container) c
         return 0;
     }
 
-    return _projects.at(index).tabCount;
+    return _model->projectAt(index).tabCount;
 }
 
 int ProjectWorkspaceContainer::projectActiveProcessCount(TabbedViewContainer *container) const
@@ -533,7 +534,7 @@ int ProjectWorkspaceContainer::projectActiveProcessCount(TabbedViewContainer *co
         return 0;
     }
 
-    return _projects.at(index).activeProcessCount;
+    return _model->projectAt(index).activeProcessCount;
 }
 
 bool ProjectWorkspaceContainer::projectHasActivity(TabbedViewContainer *container) const
@@ -543,7 +544,7 @@ bool ProjectWorkspaceContainer::projectHasActivity(TabbedViewContainer *containe
         return false;
     }
 
-    return _projects.at(index).hasActivity;
+    return _model->projectAt(index).hasActivity;
 }
 
 ProjectWorkspaceContainer::ProjectStatus ProjectWorkspaceContainer::projectStatus(TabbedViewContainer *container) const
@@ -553,7 +554,7 @@ ProjectWorkspaceContainer::ProjectStatus ProjectWorkspaceContainer::projectStatu
         return ProjectStatus::None;
     }
 
-    return _projects.at(index).status;
+    return _model->projectAt(index).status;
 }
 
 QString ProjectWorkspaceContainer::projectNotification(TabbedViewContainer *container) const
@@ -563,7 +564,7 @@ QString ProjectWorkspaceContainer::projectNotification(TabbedViewContainer *cont
         return {};
     }
 
-    return _projects.at(index).notification;
+    return _model->projectAt(index).notification;
 }
 
 void ProjectWorkspaceContainer::setProjectNotification(TabbedViewContainer *container, const QString &notification)
@@ -573,8 +574,7 @@ void ProjectWorkspaceContainer::setProjectNotification(TabbedViewContainer *cont
         return;
     }
 
-    _projects[index].notification = notification.simplified();
-    updateListItem(index);
+    _model->setProjectNotification(projectId(container), notification);
 }
 
 void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container,
@@ -590,25 +590,22 @@ void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container
         return;
     }
 
-    auto &project = _projects[index];
-    project.subtitle = subtitle;
-    project.tabCount = tabCount;
-    project.activeProcessCount = activeProcessCount;
-    project.hasActivity = hasActivity;
-    project.status = status;
-    project.icon = icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : icon;
-    updateListItem(index);
-    updateStatusAnimationTimer();
+    _model->setProjectSummary(projectId(container), subtitle, tabCount, activeProcessCount, hasActivity, status, icon);
 }
 
 int ProjectWorkspaceContainer::projectCount() const
 {
-    return _projects.count();
+    return _model->projectCount();
 }
 
 QString ProjectWorkspaceContainer::nextDefaultProjectTitle() const
 {
-    return i18nc("@title", "Project %1", _nextProjectNumber);
+    return i18nc("@title", "Project %1", _model->nextProjectNumber());
+}
+
+ProjectWorkspaceModel *ProjectWorkspaceContainer::projectModel() const
+{
+    return _model;
 }
 
 void ProjectWorkspaceContainer::setProjectNavigationVisible(bool visible)
@@ -632,12 +629,13 @@ void ProjectWorkspaceContainer::setProjectRailWidth(int requestedWidth)
 
 void ProjectWorkspaceContainer::currentRowChanged(int row)
 {
-    if (row < 0 || row >= _projects.count()) {
+    auto *container = containerAt(row);
+    if (container == nullptr) {
         return;
     }
 
-    _stack->setCurrentWidget(_projects.at(row).container);
-    Q_EMIT currentProjectChanged(_projects.at(row).container);
+    _stack->setCurrentWidget(container);
+    Q_EMIT currentProjectChanged(container);
 }
 
 void ProjectWorkspaceContainer::openProjectContextMenu(const QPoint &point)
@@ -670,7 +668,7 @@ void ProjectWorkspaceContainer::openProjectContextMenu(const QPoint &point)
 void ProjectWorkspaceContainer::renameCurrentProject()
 {
     const int row = _projectList->currentRow();
-    if (row < 0 || row >= _projects.count()) {
+    if (row < 0 || row >= _model->projectCount()) {
         return;
     }
 
@@ -679,25 +677,24 @@ void ProjectWorkspaceContainer::renameCurrentProject()
                                                 i18nc("@title:window", "Rename Project"),
                                                 i18nc("@label:textbox", "Project name:"),
                                                 QLineEdit::Normal,
-                                                _projects.at(row).title,
+                                                _model->projectAt(row).title,
                                                 &ok);
     if (!ok || title.trimmed().isEmpty()) {
         return;
     }
 
-    _projects[row].title = title.trimmed();
-    updateListItem(row);
+    _model->setProjectTitle(_model->projectAt(row).id, title);
 }
 
 void ProjectWorkspaceContainer::syncProjectsToListOrder()
 {
-    if (_projectList->count() != _projects.count()) {
+    if (_projectList->count() != _model->projectCount()) {
         qWarning("Project workspace list and container list are out of sync after drag/drop");
         return;
     }
 
-    QList<Project> reorderedProjects;
-    reorderedProjects.reserve(_projects.count());
+    QList<ProjectWorkspaceModel::ProjectId> orderedIds;
+    orderedIds.reserve(_model->projectCount());
 
     for (int row = 0; row < _projectList->count(); ++row) {
         auto *item = _projectList->item(row);
@@ -706,33 +703,40 @@ void ProjectWorkspaceContainer::syncProjectsToListOrder()
             return;
         }
 
-        auto *container = reinterpret_cast<TabbedViewContainer *>(item->data(ContainerRole).value<quintptr>());
-        const int index = indexOf(container);
-        if (index < 0) {
+        const ProjectWorkspaceModel::ProjectId id = item->data(ProjectIdRole).toUuid();
+        if (!_containers.contains(id)) {
             qWarning("Project workspace list contains an unknown container after drag/drop");
             return;
         }
 
-        reorderedProjects.append(_projects.at(index));
+        orderedIds.append(id);
     }
 
-    _projects = reorderedProjects;
+    if (!_model->reorderProjects(orderedIds)) {
+        qWarning("Project workspace model rejected the project order after drag/drop");
+        return;
+    }
     currentRowChanged(_projectList->currentRow());
 }
 
 int ProjectWorkspaceContainer::indexOf(TabbedViewContainer *container) const
 {
-    for (int i = 0; i < _projects.count(); ++i) {
-        if (_projects.at(i).container == container) {
-            return i;
-        }
-    }
-    return -1;
+    return _model->indexOf(projectId(container));
+}
+
+ProjectWorkspaceModel::ProjectId ProjectWorkspaceContainer::projectId(TabbedViewContainer *container) const
+{
+    return _projectIds.value(container);
+}
+
+TabbedViewContainer *ProjectWorkspaceContainer::containerAt(int index) const
+{
+    return _containers.value(_model->projectAt(index).id);
 }
 
 void ProjectWorkspaceContainer::updateListItem(int index)
 {
-    if (index < 0 || index >= _projects.count()) {
+    if (index < 0 || index >= _model->projectCount()) {
         return;
     }
 
@@ -741,23 +745,23 @@ void ProjectWorkspaceContainer::updateListItem(int index)
         return;
     }
 
-    item->setText(_projects.at(index).title);
-    item->setData(SubtitleRole, _projects.at(index).subtitle);
-    item->setData(TabCountRole, _projects.at(index).tabCount);
-    item->setData(ActiveProcessCountRole, _projects.at(index).activeProcessCount);
-    item->setData(HasActivityRole, _projects.at(index).hasActivity);
-    item->setData(ProjectStatusRole, static_cast<int>(_projects.at(index).status));
-    QString tooltip = _projects.at(index).subtitle.isEmpty() ? _projects.at(index).title
-                                                             : QStringLiteral("%1\n%2").arg(_projects.at(index).title, _projects.at(index).subtitle);
-    const QString statusText = projectStatusText(_projects.at(index).status);
+    const ProjectWorkspaceModel::ProjectData project = _model->projectAt(index);
+    item->setText(project.title);
+    item->setData(SubtitleRole, project.subtitle);
+    item->setData(TabCountRole, project.tabCount);
+    item->setData(ActiveProcessCountRole, project.activeProcessCount);
+    item->setData(HasActivityRole, project.hasActivity);
+    item->setData(ProjectStatusRole, static_cast<int>(project.status));
+    QString tooltip = project.subtitle.isEmpty() ? project.title : QStringLiteral("%1\n%2").arg(project.title, project.subtitle);
+    const QString statusText = projectStatusText(project.status);
     if (!statusText.isEmpty()) {
         tooltip += QStringLiteral("\n%1").arg(statusText);
     }
-    if (!_projects.at(index).notification.isEmpty()) {
-        tooltip += QStringLiteral("\n%1").arg(i18nc("@info:tooltip", "Last notification: %1", _projects.at(index).notification));
+    if (!project.notification.isEmpty()) {
+        tooltip += QStringLiteral("\n%1").arg(i18nc("@info:tooltip", "Last notification: %1", project.notification));
     }
     item->setToolTip(tooltip);
-    item->setIcon(_projects.at(index).icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : _projects.at(index).icon);
+    item->setIcon(project.icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : project.icon);
 }
 
 void ProjectWorkspaceContainer::applyRailStyle()
@@ -784,9 +788,7 @@ void ProjectWorkspaceContainer::applyRailStyle()
 
 void ProjectWorkspaceContainer::updateStatusAnimationTimer()
 {
-    const bool hasRunningProject = std::any_of(_projects.cbegin(), _projects.cend(), [](const Project &project) {
-        return project.status == ProjectStatus::Running;
-    });
+    const bool hasRunningProject = _model->hasRunningProject();
 
     if (hasRunningProject && !_statusAnimationTimer->isActive()) {
         _statusAnimationTimer->start();

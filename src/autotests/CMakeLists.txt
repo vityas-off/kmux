@@ -36,6 +36,7 @@ ecm_add_tests(
     HotSpotFilterTest.cpp
     ProcessInfoTest.cpp
     ProfileTest.cpp
+    ProjectWorkspaceModelTest.cpp
     ScreenTest.cpp
     ShellCommandTest.cpp
     TerminalCharacterDecoderTest.cpp

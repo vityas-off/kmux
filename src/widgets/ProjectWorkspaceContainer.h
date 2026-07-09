@@ -5,11 +5,13 @@
 #ifndef PROJECTWORKSPACECONTAINER_H
 #define PROJECTWORKSPACECONTAINER_H
 
+#include <QHash>
 #include <QIcon>
 #include <QList>
 #include <QWidget>
 
 #include "konsoleprivate_export.h"
+#include "workspaces/ProjectWorkspaceModel.h"
 
 class QListWidget;
 class QListWidgetItem;
@@ -27,13 +29,7 @@ class KONSOLEPRIVATE_EXPORT ProjectWorkspaceContainer : public QWidget
     Q_OBJECT
 
 public:
-    enum class ProjectStatus {
-        None,
-        Running,
-        Idle,
-        NeedsInput,
-    };
-    Q_ENUM(ProjectStatus)
+    using ProjectStatus = ProjectWorkspaceModel::ProjectStatus;
 
     explicit ProjectWorkspaceContainer(QWidget *parent = nullptr);
     ~ProjectWorkspaceContainer() override = default;
@@ -64,6 +60,7 @@ public:
 
     int projectCount() const;
     QString nextDefaultProjectTitle() const;
+    ProjectWorkspaceModel *projectModel() const;
     void setProjectNavigationVisible(bool visible);
     int projectRailWidth() const;
     void setProjectRailWidth(int requestedWidth);
@@ -80,30 +77,21 @@ private Q_SLOTS:
     void syncProjectsToListOrder();
 
 private:
-    struct Project {
-        QString title;
-        QString subtitle;
-        QIcon icon;
-        TabbedViewContainer *container = nullptr;
-        int tabCount = 0;
-        int activeProcessCount = 0;
-        bool hasActivity = false;
-        ProjectStatus status = ProjectStatus::None;
-        QString notification;
-    };
-
     int indexOf(TabbedViewContainer *container) const;
+    ProjectWorkspaceModel::ProjectId projectId(TabbedViewContainer *container) const;
+    TabbedViewContainer *containerAt(int index) const;
     void updateListItem(int index);
     void applyRailStyle();
     void updateStatusAnimationTimer();
 
-    QList<Project> _projects;
+    ProjectWorkspaceModel *_model;
+    QHash<TabbedViewContainer *, ProjectWorkspaceModel::ProjectId> _projectIds;
+    QHash<ProjectWorkspaceModel::ProjectId, TabbedViewContainer *> _containers;
     QWidget *_rail;
     QSplitter *_splitter;
     QListWidget *_projectList;
     QStackedWidget *_stack;
     QTimer *_statusAnimationTimer;
-    int _nextProjectNumber = 1;
     int _projectRailWidth;
 };
 

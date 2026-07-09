@@ -33,6 +33,9 @@ unless a change is explicitly part of the fork's workspace UI.
   abstractions.
 - Keep workspace/project state in a model layer that can be tested without
   rendering widgets.
+- `ProjectWorkspaceModel` owns project IDs, order, titles, summaries, statuses,
+  notifications, and default numbering. `ProjectWorkspaceContainer` only maps
+  those IDs to tab containers and renders/binds the project rail.
 - Keep UI widgets thin: they should bind actions and display state, not own core
   project/tab behavior.
 - Do not duplicate terminal session management for projects. Reuse existing tab,
