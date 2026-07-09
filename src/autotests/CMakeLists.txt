@@ -31,6 +31,7 @@ ecm_add_tests(
     CharacterColorTest.cpp
     CharacterTest.cpp
     CharacterWidthTest.cpp
+    ColorSchemeManagerTest.cpp
     ContainerDetectorParsingTest.cpp
     HotSpotFilterTest.cpp
     ProcessInfoTest.cpp

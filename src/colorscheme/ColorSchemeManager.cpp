@@ -16,11 +16,41 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSet>
 
 // KDE
 #include <KConfig>
 
 using namespace Konsole;
+
+namespace
+{
+QStringList colorSchemePaths(const QString &name)
+{
+    const QStringList searchPaths = {
+        QStringLiteral("kmux/") + name + QStringLiteral(".colorscheme"),
+        QStringLiteral("konsole/") + name + QStringLiteral(".colorscheme"),
+        QStringLiteral("konsole/") + name + QStringLiteral(".schema"),
+    };
+
+    QStringList paths;
+    for (const QString &searchPath : searchPaths) {
+        const auto locations = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, searchPath);
+        for (const QString &location : locations) {
+            if (!paths.contains(location)) {
+                paths.append(location);
+            }
+        }
+    }
+
+    const QString resource = QStringLiteral(":/kmux/color-schemes/") + name + QStringLiteral(".colorscheme");
+    if (QFile::exists(resource)) {
+        paths.append(resource);
+    }
+
+    return paths;
+}
+}
 
 ColorSchemeManager::ColorSchemeManager()
 {
@@ -105,13 +135,20 @@ QString ColorSchemeManager::colorSchemeNameFromPath(const QString &path)
 QStringList ColorSchemeManager::listColorSchemes()
 {
     QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
+    dirs.append(QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole"), QStandardPaths::LocateDirectory));
     dirs.append(QStringLiteral(":/kmux/color-schemes")); // fallback to bundled ones
 
     QStringList colorschemes;
+    QSet<QString> schemeNames;
     for (const QString &dir : std::as_const(dirs)) {
         const QStringList fileNames = QDir(dir).entryList(QStringList() << QStringLiteral("*.colorscheme"));
         for (const QString &file : fileNames) {
-            colorschemes.append(dir + QLatin1Char('/') + file);
+            const QString path = dir + QLatin1Char('/') + file;
+            const QString name = colorSchemeNameFromPath(path);
+            if (!schemeNames.contains(name)) {
+                schemeNames.insert(name);
+                colorschemes.append(path);
+            }
         }
     }
     return colorschemes;
@@ -135,6 +172,7 @@ void ColorSchemeManager::addColorScheme(const std::shared_ptr<ColorScheme> &sche
     KConfig config(path, KConfig::NoGlobals);
 
     scheme->write(config);
+    config.sync();
 }
 
 bool ColorSchemeManager::deleteColorScheme(const QString &name)
@@ -185,17 +223,8 @@ std::shared_ptr<const ColorScheme> ColorSchemeManager::findColorScheme(const QSt
 
 QString ColorSchemeManager::findColorSchemePath(const QString &name) const
 {
-    QString path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".colorscheme"));
-    if (path.isEmpty()) {
-        path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".schema"));
-    }
-    if (path.isEmpty()) {
-        const QString resource = QStringLiteral(":/kmux/color-schemes/") + name + QStringLiteral(".colorscheme");
-        if (QFile::exists(resource)) {
-            path = resource;
-        }
-    }
-    return path;
+    const QStringList paths = colorSchemePaths(name);
+    return paths.isEmpty() ? QString() : paths.constFirst();
 }
 
 bool ColorSchemeManager::pathIsColorScheme(const QString &path)
@@ -213,13 +242,8 @@ bool ColorSchemeManager::isColorSchemeDeletable(const QString &name)
 
 bool ColorSchemeManager::canResetColorScheme(const QString &name)
 {
-    const QStringList paths =
-        QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".colorscheme"));
+    const QStringList paths = colorSchemePaths(name);
 
-    // if the colorscheme exists in both a writable location under the
-    // user's home dir and a system-wide location, then it's possible
-    // to delete the colorscheme under the user's home dir so that the
-    // colorscheme from the system-wide location can be used instead,
-    // i.e. resetting the colorscheme
-    return (paths.count() > 1);
+    // Resetting removes the preferred writable scheme and reveals a fallback.
+    return paths.count() > 1 && QFileInfo(paths.constFirst()).isWritable();
 }
