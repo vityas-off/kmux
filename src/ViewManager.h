@@ -534,7 +534,7 @@ private:
 
     void activateLastUsedView(bool reverse);
 
-    void registerTerminal(TerminalDisplay *terminal);
+    void registerTerminal(TerminalDisplay *terminal, TabbedViewContainer *container = nullptr);
     void unregisterTerminal(TerminalDisplay *terminal);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
     void clearProjectAttention(TabbedViewContainer *container);

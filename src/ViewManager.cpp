@@ -2394,9 +2394,11 @@ TabbedViewContainer *ViewManager::containerForTerminal(TerminalDisplay *terminal
     return _workspaceContainer->containerForWidget(splitter->getToplevelSplitter());
 }
 
-void ViewManager::registerTerminal(TerminalDisplay *terminal)
+void ViewManager::registerTerminal(TerminalDisplay *terminal, TabbedViewContainer *container)
 {
-    auto *container = activeContainer();
+    if (container == nullptr) {
+        container = activeContainer();
+    }
     if (terminal == nullptr || container == nullptr) {
         return;
     }
@@ -2482,7 +2484,18 @@ void ViewManager::moveTabToProject(TabbedViewContainer *sourceContainer, int tab
         return;
     }
 
+    auto *splitter = sourceContainer->viewSplitterAt(tabIndex);
+    if (splitter == nullptr) {
+        return;
+    }
+
+    const auto terminals = splitter->findChildren<TerminalDisplay *>();
     sourceContainer->moveTabToContainer(tabIndex, targetContainer);
+    for (TerminalDisplay *terminal : terminals) {
+        unregisterTerminal(terminal);
+        registerTerminal(terminal, targetContainer);
+    }
+
     if (!_workspaceContainer.isNull()) {
         _workspaceContainer->activateProject(targetContainer);
     }

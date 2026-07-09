@@ -498,6 +498,16 @@ void ViewManagerTest::testMoveTabBetweenProjectWorkspaces()
     QCOMPARE(viewManager->activeContainer(), secondProject);
     QCOMPARE(secondProject->currentWidget(), movedSplitter);
     QCOMPARE(viewManager->containerForTerminal(movedTerminal), secondProject);
+
+    auto *remainingSplitter = firstProject->viewSplitterAt(0);
+    QVERIFY(remainingSplitter != nullptr);
+    QVERIFY(!remainingSplitter->terminalMaximized());
+    QVERIFY(!movedSplitter->terminalMaximized());
+
+    Q_EMIT movedTerminal->requestToggleExpansion();
+
+    QVERIFY(!remainingSplitter->terminalMaximized());
+    QVERIFY(movedSplitter->terminalMaximized());
 }
 
 void ViewManagerTest::testSaveSessionsStoresProjectWorkspaces()
