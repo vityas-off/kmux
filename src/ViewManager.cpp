@@ -1516,6 +1516,7 @@ void ViewManager::containerEmptied(TabbedViewContainer *container)
     if (container == _viewContainer) {
         _viewContainer = _workspaceContainer->activeContainer();
     }
+    container->deleteLater();
 }
 
 void ViewManager::setNavigationMethod(NavigationMethod method)

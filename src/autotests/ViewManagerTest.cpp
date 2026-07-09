@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPointer>
 #include <QSet>
 #include <QTest>
 
@@ -772,6 +773,33 @@ void ViewManagerTest::testRemovingBackgroundProjectPreservesActiveProject()
 
     QCOMPARE(projects->projectCount(), 1);
     QCOMPARE(manager->activeContainer(), secondProject);
+}
+
+void ViewManagerTest::testClosedProjectsDeleteViewContainers()
+{
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *projects = manager->_workspaceContainer.data();
+    QVERIFY(projects != nullptr);
+
+    QPointer<TabbedViewContainer> firstClosedContainer = manager->createContainer();
+    projects->addProject(firstClosedContainer, QStringLiteral("First temporary project"));
+    QPointer<TabbedViewContainer> secondClosedContainer = manager->createContainer();
+    projects->addProject(secondClosedContainer, QStringLiteral("Second temporary project"));
+    QCOMPARE(projects->projectCount(), 3);
+    QCOMPARE(projects->findChildren<TabbedViewContainer *>().count(), 3);
+
+    manager->containerEmptied(firstClosedContainer);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QVERIFY(firstClosedContainer.isNull());
+    QCOMPARE(projects->projectCount(), 2);
+    QCOMPARE(projects->findChildren<TabbedViewContainer *>().count(), 2);
+
+    manager->containerEmptied(secondClosedContainer);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QVERIFY(secondClosedContainer.isNull());
+    QCOMPARE(projects->projectCount(), 1);
+    QCOMPARE(projects->findChildren<TabbedViewContainer *>().count(), 1);
 }
 
 void ViewManagerTest::testContainerMenuLaunchKeepsPendingColor()
