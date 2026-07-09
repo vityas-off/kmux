@@ -4,7 +4,7 @@ TryExec=kmux
 Exec=kmux
 Icon=utilities-terminal
 Categories=Qt;KDE;System;TerminalEmulator;
-Actions=NewWindow;NewTab;
+Actions=NewTab;
 StartupNotify=true
 X-KDE-AuthorizeAction=shell_access
 X-KDE-Shortcuts=Ctrl+Alt+T
@@ -14,10 +14,6 @@ Keywords=terminal;console;script;run;execute;command;command-line;commandline;cl
 Name=Kmux
 GenericName=Project Workspace Terminal
 Comment=Use project workspaces and terminal tabs from a Konsole-based terminal
-
-[Desktop Action NewWindow]
-Name=New Window
-Exec=kmux
 
 [Desktop Action NewTab]
 Name=New Tab
