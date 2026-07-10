@@ -16,6 +16,7 @@
 #include <KPluginMetaData>
 
 #include <QAction>
+#include <QVersionNumber>
 
 namespace Konsole
 {
@@ -36,14 +37,13 @@ PluginManager::~PluginManager()
 void PluginManager::loadAllPlugins()
 {
     QVector<KPluginMetaData> pluginMetaData = KPluginMetaData::findPlugins(QStringLiteral("kmuxplugins"), [](const KPluginMetaData &data) {
-        // Compare RELEASE_SERVICE_VERSION MAJOR and MINOR only: XX.YY
-        auto plugin_version = QString(data.version()).left(5);
-        auto release_version = QLatin1String(RELEASE_SERVICE_VERSION).left(5);
-        if (plugin_version == release_version) {
+        const QVersionNumber pluginVersion = QVersionNumber::fromString(data.version());
+        const QVersionNumber applicationVersion = QVersionNumber::fromString(QLatin1String(KMUX_VERSION));
+        if (pluginVersion.majorVersion() == applicationVersion.majorVersion() && pluginVersion.minorVersion() == applicationVersion.minorVersion()) {
             return true;
         } else {
-            qCWarning(KonsoleDebug) << "Ignoring" << data.name() << "plugin version (" << plugin_version << ") doesn't match release version ("
-                                    << release_version << ")";
+            qCWarning(KonsoleDebug) << "Ignoring" << data.name() << "plugin version (" << pluginVersion << ") doesn't match application version ("
+                                    << applicationVersion << ")";
             return false;
         }
     });

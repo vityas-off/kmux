@@ -1,10 +1,11 @@
 # Kmux project
 
-# KDE Application Version, managed by release script
-set(RELEASE_SERVICE_VERSION_MAJOR "26")
-set(RELEASE_SERVICE_VERSION_MINOR "07")
-set(RELEASE_SERVICE_VERSION_MICRO "70")
-set(RELEASE_SERVICE_VERSION "${RELEASE_SERVICE_VERSION_MAJOR}.${RELEASE_SERVICE_VERSION_MINOR}.${RELEASE_SERVICE_VERSION_MICRO}")
+# Kmux follows its own semantic versioning scheme, independently of KDE's
+# Release Service calendar versions.
+set(KMUX_VERSION_MAJOR "0")
+set(KMUX_VERSION_MINOR "1")
+set(KMUX_VERSION_PATCH "0")
+set(KMUX_VERSION "${KMUX_VERSION_MAJOR}.${KMUX_VERSION_MINOR}.${KMUX_VERSION_PATCH}")
 
 # Do not increase these requirements without a merge-request or/and
 # approval from maintainer(s).
@@ -16,8 +17,7 @@ cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 set(QT_MIN_VERSION "6.5.0")
 set(KF6_DEP_VERSION "6.0.0")
 
-# Release script will create bugzilla versions
-project(kmux VERSION ${RELEASE_SERVICE_VERSION})
+project(kmux VERSION ${KMUX_VERSION})
 
 find_package(ECM ${KF6_DEP_VERSION} REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})

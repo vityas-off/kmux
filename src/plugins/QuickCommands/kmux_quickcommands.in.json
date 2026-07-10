@@ -47,6 +47,6 @@
         "Name[uk]": "Швидкі команди",
         "Name[zh_CN]": "快速命令",
         "Name[zh_TW]": "快速命令",
-        "Version": "@RELEASE_SERVICE_VERSION@"
+        "Version": "@KMUX_VERSION@"
     }
 }

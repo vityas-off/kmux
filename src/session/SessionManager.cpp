@@ -184,15 +184,12 @@ void SessionManager::applyProfile(Session *session, const Profile::Ptr &profile,
         // add environment variable containing home directory of current profile
         // (if specified)
 
-        // prepend a 0 to the VERSION_MICRO part to make the version string
-        // length consistent, so that conditions that depend on the exported
-        // env var actually work
-        // e.g. the second version should be higher than the first one:
-        // 18.04.12 -> 180412
-        // 18.08.0  -> 180800
+        // Keep each semantic-version component two digits wide so numeric
+        // comparisons of the exported value remain predictable.
+        // For example, 0.1.0 becomes 000100 and 0.10.0 becomes 001000.
         QStringList list = QStringLiteral(KONSOLE_VERSION).split(QLatin1Char('.'));
-        if (list[2].length() < 2) {
-            list[2].prepend(QLatin1String("0"));
+        for (QString &component : list) {
+            component = component.rightJustified(2, QLatin1Char('0'));
         }
         const QString &numericVersion = list.join(QString());
 

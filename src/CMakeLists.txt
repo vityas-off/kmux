@@ -335,7 +335,7 @@ endif()
 
 set_target_properties(konsoleprivate PROPERTIES
     OUTPUT_NAME kmuxprivate
-    VERSION ${RELEASE_SERVICE_VERSION}
+    VERSION ${KMUX_VERSION}
 )
 
 install(TARGETS konsoleprivate ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} LIBRARY NAMELINK_SKIP)
@@ -357,7 +357,7 @@ add_library(konsoleapp SHARED Application.cpp
 
 generate_export_header(konsoleapp BASE_NAME konsoleapp)
 
-target_compile_definitions(konsoleapp PRIVATE -DRELEASE_SERVICE_VERSION="${RELEASE_SERVICE_VERSION}")
+target_compile_definitions(konsoleapp PRIVATE -DKMUX_VERSION="${KMUX_VERSION}")
 
 target_link_libraries(konsoleapp
   konsoleprivate
@@ -372,7 +372,7 @@ target_link_libraries(konsoleapp
 
 set_target_properties(konsoleapp PROPERTIES
     OUTPUT_NAME kmuxapp
-    VERSION ${RELEASE_SERVICE_VERSION}
+    VERSION ${KMUX_VERSION}
 )
 
 install(TARGETS konsoleapp ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} LIBRARY NAMELINK_SKIP)
@@ -403,9 +403,9 @@ if(APPLE)
         MACOSX_BUNDLE_BUNDLE_NAME "Kmux"
         MACOSX_BUNDLE_DISPLAY_NAME "Kmux"
         MACOSX_BUNDLE_INFO_STRING "Kmux, a project workspace terminal"
-        MACOSX_BUNDLE_LONG_VERSION_STRING "Kmux ${RELEASE_SERVICE_VERSION}"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "${RELEASE_SERVICE_VERSION_MAJOR}.${RELEASE_SERVICE_VERSION_MINOR}"
-        MACOSX_BUNDLE_BUNDLE_VERSION "${RELEASE_SERVICE_VERSION}"
+        MACOSX_BUNDLE_LONG_VERSION_STRING "Kmux ${KMUX_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${KMUX_VERSION_MAJOR}.${KMUX_VERSION_MINOR}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${KMUX_VERSION}"
         MACOSX_BUNDLE_COPYRIGHT "1997-2022 The Konsole Developers")
 endif()
 

@@ -46,6 +46,6 @@
         "Name[uk]": "Керування SSH",
         "Name[zh_CN]": "SSH 管理器",
         "Name[zh_TW]": "SSH 管理程式",
-        "Version": "@RELEASE_SERVICE_VERSION@"
+        "Version": "@KMUX_VERSION@"
     }
 }
