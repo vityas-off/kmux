@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
                      QStringLiteral(KONSOLE_VERSION),
                      i18nc("@title", "Project workspace terminal"),
                      KAboutLicense::GPL_V2,
-                     i18nc("@info:credit", "(c) 1997-2022, The Konsole Developers; Kmux fork contributors"),
+                     i18nc("@info:credit", "© 1997–2026 The Konsole Developers; © 2026 Kmux contributors"),
                      QString(),
                      QStringLiteral("https://github.com/vityas-off/kmux"));
     about.setDesktopFileName(QStringLiteral("io.github.kmux_project.kmux"));
