@@ -42,4 +42,8 @@
     <rect x="81" y="77" width="23" height="7" rx="2" fill="#54c7f3"/>
 
   </g>
+
+  <!-- Breeze-style edge lighting: highlight above, shadow below. -->
+  <path d="M12 8C9.8 8 8 9.8 8 12v2c0-2.2 1.8-4 4-4h104c2.2 0 4 1.8 4 4v-2c0-2.2-1.8-4-4-4z" fill="#ffffff" opacity=".3"/>
+  <path d="M12 120c-2.2 0-4-1.8-4-4v-2c0 2.2 1.8 4 4 4h104c2.2 0 4-1.8 4-4v2c0 2.2-1.8 4-4 4z" fill="#000000" opacity=".3"/>
 </svg>
