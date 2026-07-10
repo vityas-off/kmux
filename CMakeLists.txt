@@ -141,7 +141,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
 
-file(GLOB ICONS_SRCS "data/icons/*.png")
+set(KMUX_ICON_SVG "${CMAKE_CURRENT_SOURCE_DIR}/data/icons/sc-apps-kmux.svg")
+file(GLOB ICONS_SRCS "data/icons/*-apps-kmux.png")
+set(PLATFORM_ICONS_SRCS ${ICONS_SRCS})
+list(FILTER PLATFORM_ICONS_SRCS EXCLUDE REGEX "/22-apps-kmux\\.png$")
 
 option(ENABLE_PLUGIN_SSHMANAGER "Build the SSHManager plugin" ON)
 option(ENABLE_PLUGIN_QUICKCOMMANDS "Build the Quick Commands plugin" ON)
@@ -154,12 +157,9 @@ add_subdirectory( desktop )
 
 add_subdirectory( tools )
 
-# Conditionally install icons for Linux as they may not be provided by the user theme
-option(INSTALL_ICONS "Install icons" OFF)
-if(INSTALL_ICONS)
-    include(ECMInstallIcons)
-    ecm_install_icons( ICONS ${ICONS_SRCS} DESTINATION ${KDE_INSTALL_ICONDIR} )
-endif()
+# Install the Kmux icon into the fallback hicolor theme.
+include(ECMInstallIcons)
+ecm_install_icons(ICONS ${ICONS_SRCS} ${KMUX_ICON_SVG} DESTINATION ${KDE_INSTALL_ICONDIR})
 
 ecm_qt_install_logging_categories(
     EXPORT KONSOLE

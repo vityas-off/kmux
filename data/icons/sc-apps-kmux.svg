@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Kmux contributors -->
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="terminal" x1="28" y1="8" x2="104" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b4650"/>
+      <stop offset="1" stop-color="#242b32"/>
+    </linearGradient>
+    <linearGradient id="project" x1="14" y1="24" x2="36" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#54c7f3"/>
+      <stop offset="1" stop-color="#168bd2"/>
+    </linearGradient>
+    <clipPath id="window">
+      <rect x="8" y="8" width="112" height="112" rx="4"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#window)">
+    <rect x="8" y="8" width="112" height="112" fill="url(#terminal)"/>
+
+    <!-- Project rail -->
+    <rect x="8" y="8" width="34" height="112" fill="#192127"/>
+    <rect x="40" y="8" width="2" height="112" fill="#11171b" opacity=".75"/>
+    <rect x="8" y="24" width="4" height="24" fill="#54c7f3"/>
+    <rect x="14" y="24" width="22" height="24" rx="5" fill="url(#project)"/>
+    <rect x="19" y="31" width="12" height="3" rx="1.5" fill="#ffffff" opacity=".95"/>
+    <rect x="19" y="38" width="9" height="3" rx="1.5" fill="#dff5ff" opacity=".8"/>
+    <rect x="15" y="58" width="20" height="10" rx="3" fill="#68757e"/>
+    <rect x="15" y="76" width="20" height="10" rx="3" fill="#68757e" opacity=".75"/>
+    <rect x="15" y="94" width="20" height="10" rx="3" fill="#68757e" opacity=".5"/>
+
+    <!-- Horizontal terminal tabs -->
+    <rect x="42" y="8" width="78" height="27" fill="#232b32" opacity=".72"/>
+    <rect x="49" y="17" width="28" height="5" rx="2.5" fill="#e7edef"/>
+    <rect x="84" y="17" width="23" height="5" rx="2.5" fill="#77838b"/>
+    <rect x="46" y="31" width="35" height="4" rx="2" fill="#3daee9"/>
+    <rect x="42" y="35" width="78" height="2" fill="#11171b" opacity=".55"/>
+
+    <!-- Terminal prompt -->
+    <path d="M59 54 75 68 59 82" fill="none" stroke="#f4f7f8" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/>
+    <rect x="81" y="77" width="23" height="7" rx="2" fill="#54c7f3"/>
+
+    <path d="M12 9h96c6.1 0 11 4.9 11 11" fill="none" stroke="#ffffff" stroke-width="2" opacity=".16"/>
+  </g>
+  <rect x="8" y="8" width="112" height="112" rx="4" fill="none" stroke="#11171b" stroke-width="3"/>
+</svg>

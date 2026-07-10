@@ -1,3 +1,5 @@
+<img src="logo.png" alt="Kmux logo" width="96" align="right">
+
 # Kmux
 
 Kmux is a [KDE Konsole](https://apps.kde.org/konsole/) fork with a

@@ -382,7 +382,7 @@ set(konsole_SRCS
 )
 
 # Sets the icon on Windows and OSX
-ecm_add_app_icon(ICONS_SOURCES ICONS ${ICONS_SRCS})
+ecm_add_app_icon(ICONS_SOURCES ICONS ${KMUX_ICON_SVG} ${PLATFORM_ICONS_SRCS})
 
 add_executable(kmux ${konsole_SRCS} ${ICONS_SOURCES})
 target_link_libraries(kmux

@@ -1,5 +1,5 @@
 [Global]
-IconName=utilities-terminal
+IconName=kmux
 DesktopEntry=io.github.kmux_project.kmux
 Comment=Konsole
 Comment[af]=Konsole
