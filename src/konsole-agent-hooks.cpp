@@ -44,8 +44,11 @@ struct HookEvent {
     QString matcher;
 };
 
+// Codex SessionStart describes the agent process, not an active turn. Its
+// PermissionRequest hook has no matching approval-resolved event, so Kmux
+// clears that needs-input state when the terminal receives the decision key.
 const QList<HookEvent> CodexHookEvents = {
-    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("running"), 5, QString()},
+    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("idle"), 5, QString()},
     {QStringLiteral("UserPromptSubmit"), QStringLiteral("user_prompt_submit"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PreToolUse"), QStringLiteral("pre_tool_use"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PostToolUse"), QStringLiteral("post_tool_use"), QStringLiteral("running"), 5, QString()},
@@ -134,23 +137,38 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
 {
     const QString helper = projectStatusHelperPath();
     const QString quotedHelper = shellQuote(helper);
+    const QString quotedAgentName = shellQuote(agentName);
+    const QString quotedEventName = shellQuote(event.eventName);
+    const QString agentProcessArguments = agentName == QLatin1String(CodexAgentName) ? QStringLiteral(
+                                                                                           "if [ -n \"${KMUX_CODEX_PID:-}\" ]; then\n"
+                                                                                           "    set -- \"$@\" --agent-pid \"$KMUX_CODEX_PID\"\n"
+                                                                                           "fi\n")
+                                                                                     : QString();
 
     return QStringLiteral(
                "#!/bin/sh\n"
                "# kmux-%1-hook v1\n"
                "helper=%2\n"
+               "set -- --hook-output --agent %3 --event %4\n"
+               "%5"
                "if [ -x \"$helper\" ]; then\n"
-               "    \"$helper\" --hook-output %3\n"
+               "    \"$helper\" \"$@\" %6\n"
                "elif command -v kmux-project-status >/dev/null 2>&1; then\n"
-               "    kmux-project-status --hook-output %3\n"
+               "    kmux-project-status \"$@\" %6\n"
                "else\n"
                "    printf '{}\\n'\n"
                "fi\n")
-        .arg(agentName, quotedHelper, event.status);
+        .arg(agentName, quotedHelper, quotedAgentName, quotedEventName, agentProcessArguments, event.status);
 }
 
 bool writeTextFileAtomically(const QString &path, const QString &content, QString *error)
 {
+    const QByteArray encodedContent = content.toUtf8();
+    QFile existingFile(path);
+    if (existingFile.open(QIODevice::ReadOnly) && existingFile.readAll() == encodedContent) {
+        return true;
+    }
+
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         if (error != nullptr) {
@@ -159,7 +177,7 @@ bool writeTextFileAtomically(const QString &path, const QString &content, QStrin
         return false;
     }
 
-    file.write(content.toUtf8());
+    file.write(encodedContent);
     if (!file.commit()) {
         if (error != nullptr) {
             *error = file.errorString();

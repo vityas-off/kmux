@@ -62,6 +62,9 @@ int main(int argc, char **argv)
         args.emplace_back(argv[i]);
     }
 
+    const std::string agentPid = std::to_string(getpid());
+    setenv("KMUX_CODEX_PID", agentPid.c_str(), 1);
+
     std::vector<char *> execArgs;
     execArgs.reserve(args.size() + 1);
     for (std::string &arg : args) {

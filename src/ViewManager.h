@@ -14,6 +14,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QSet>
+#include <QTimer>
 
 #include "containers/ContainerInfo.h"
 #include "konsoleprivate_export.h"
@@ -22,6 +23,7 @@
 
 class KActionCollection;
 class KConfigGroup;
+class QKeyEvent;
 class QMenu;
 
 namespace Konsole
@@ -539,7 +541,15 @@ private:
     void unregisterTerminal(TerminalDisplay *terminal);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
     void clearProjectAttention(TabbedViewContainer *container);
-    void setSessionProjectStatus(Session *session, TabbedViewContainer *container, const QString &status);
+    void setSessionProjectStatus(Session *session,
+                                 TabbedViewContainer *container,
+                                 const QString &status,
+                                 qlonglong agentProcessId = 0,
+                                 const QString &agent = {},
+                                 const QString &event = {});
+    void handleSessionTerminalDecisionKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent);
+    void clearExitedSessionProjectStatuses();
+    void updateProjectStatusProcessTimer();
     QList<SessionController *> sessionControllersForContainer(TabbedViewContainer *container) const;
     void addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex);
     void moveTabToProject(TabbedViewContainer *sourceContainer, int tabIndex, TabbedViewContainer *targetContainer);
@@ -555,7 +565,13 @@ private:
 
     QHash<TerminalDisplay *, Session *> _sessionMap;
     QSet<Session *> _sessionsNeedingAttention;
-    QHash<Session *, ProjectWorkspaceContainer::ProjectStatus> _sessionProjectStatuses;
+    struct SessionProjectStatus {
+        ProjectWorkspaceContainer::ProjectStatus status = ProjectWorkspaceContainer::ProjectStatus::None;
+        qlonglong agentProcessId = 0;
+        bool clearsOnTerminalDecision = false;
+    };
+    QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
+    QTimer _projectStatusProcessTimer;
 
     KActionCollection *_actionCollection;
 

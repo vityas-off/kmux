@@ -27,6 +27,8 @@ private Q_SLOTS:
     void testProjectWorkspaceSummaryTracksActiveTab();
     void testProjectWorkspaceTerminalNotificationMarksInactiveProject();
     void testProjectWorkspaceStatusTracksSessionHooks();
+    void testProjectWorkspaceStatusClearsWhenAgentExits();
+    void testProjectWorkspaceCodexDecisionKeysAreSessionScoped();
     void testProjectWorkspaceNavigationShortcuts();
     void testNoNavigationDisablesProjectActions();
     void testProjectWorkspaceDetachActionsDisabled();

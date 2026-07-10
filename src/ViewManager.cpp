@@ -23,8 +23,16 @@
 
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QKeyEvent>
 
 #include <algorithm>
+#include <cerrno>
+#include <limits>
+
+#ifdef Q_OS_UNIX
+#include <signal.h>
+#include <sys/types.h>
+#endif
 
 #if HAVE_DBUS
 #include <QDBusArgument>
@@ -70,6 +78,23 @@ Q_DECLARE_METATYPE(QList<double>);
 
 namespace
 {
+constexpr int ProjectStatusProcessCheckIntervalMs = 2000;
+
+bool projectStatusProcessIsAlive(qlonglong processId)
+{
+#ifdef Q_OS_UNIX
+    if (processId <= 0 || processId > std::numeric_limits<pid_t>::max()) {
+        return false;
+    }
+
+    errno = 0;
+    return ::kill(static_cast<pid_t>(processId), 0) == 0 || errno == EPERM;
+#else
+    Q_UNUSED(processId)
+    return true;
+#endif
+}
+
 ProjectWorkspaceContainer::ProjectStatus projectStatusFromString(const QString &status)
 {
     QString normalized = status.trimmed().toLower();
@@ -138,6 +163,9 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     connect(_workspaceContainer, &ProjectWorkspaceContainer::newProjectRequested, this, &ViewManager::createProject);
     connect(_workspaceContainer, &ProjectWorkspaceContainer::closeProjectRequested, this, &ViewManager::closeProject);
     connect(_workspaceContainer, &ProjectWorkspaceContainer::currentProjectChanged, this, &ViewManager::activeProjectChanged);
+
+    _projectStatusProcessTimer.setInterval(ProjectStatusProcessCheckIntervalMs);
+    connect(&_projectStatusProcessTimer, &QTimer::timeout, this, &ViewManager::clearExitedSessionProjectStatuses);
 
     // setup actions which are related to the views
     setupActions();
@@ -1133,14 +1161,21 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
         markSessionAttention(session, container);
         refreshProjectSummary(container);
     });
-    connect(session, &Konsole::Session::projectStatusChanged, this, [this, session, view](const QString &status) {
-        auto *container = containerForTerminal(view);
-        setSessionProjectStatus(session, container, status);
-        refreshProjectSummary(container);
+    connect(session,
+            &Konsole::Session::projectStatusChanged,
+            this,
+            [this, session, view](const QString &status, qlonglong agentProcessId, const QString &agent, const QString &event) {
+                auto *container = containerForTerminal(view);
+                setSessionProjectStatus(session, container, status, agentProcessId, agent, event);
+                refreshProjectSummary(container);
+            });
+    connect(view, &Konsole::TerminalDisplay::keyPressedSignal, this, [this, session, view](QKeyEvent *keyEvent) {
+        handleSessionTerminalDecisionKey(session, containerForTerminal(view), keyEvent);
     });
     connect(session, &QObject::destroyed, this, [this, session] {
         _sessionsNeedingAttention.remove(session);
         _sessionProjectStatuses.remove(session);
+        updateProjectStatusProcessTimer();
     });
 
     // if this is the first controller created then set it as the active controller
@@ -2587,7 +2622,12 @@ void ViewManager::clearProjectAttention(TabbedViewContainer *container)
     }
 }
 
-void ViewManager::setSessionProjectStatus(Session *session, TabbedViewContainer *container, const QString &status)
+void ViewManager::setSessionProjectStatus(Session *session,
+                                          TabbedViewContainer *container,
+                                          const QString &status,
+                                          qlonglong agentProcessId,
+                                          const QString &agent,
+                                          const QString &event)
 {
     if (session == nullptr) {
         return;
@@ -2597,14 +2637,83 @@ void ViewManager::setSessionProjectStatus(Session *session, TabbedViewContainer 
     if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
         _sessionProjectStatuses.remove(session);
         _sessionsNeedingAttention.remove(session);
+        updateProjectStatusProcessTimer();
         return;
     }
 
-    _sessionProjectStatuses.insert(session, projectStatus);
+    if (agentProcessId <= 0) {
+        agentProcessId = _sessionProjectStatuses.value(session).agentProcessId;
+    }
+    const bool clearsOnTerminalDecision = projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
+        && agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0 && event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
+    _sessionProjectStatuses.insert(session, {projectStatus, agentProcessId, clearsOnTerminalDecision});
     if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);
     } else {
         _sessionsNeedingAttention.remove(session);
+    }
+    updateProjectStatusProcessTimer();
+}
+
+void ViewManager::handleSessionTerminalDecisionKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent)
+{
+    if (session == nullptr || keyEvent == nullptr || keyEvent->type() != QEvent::KeyPress || keyEvent->isAutoRepeat()) {
+        return;
+    }
+
+    const auto commandModifiers = keyEvent->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+    const bool resolvesDecision =
+        commandModifiers == Qt::NoModifier && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Escape);
+    auto status = _sessionProjectStatuses.find(session);
+    if (!resolvesDecision || status == _sessionProjectStatuses.end() || !status->clearsOnTerminalDecision
+        || status->status != ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+        return;
+    }
+
+    status->status = ProjectWorkspaceContainer::ProjectStatus::Running;
+    status->clearsOnTerminalDecision = false;
+    _sessionsNeedingAttention.remove(session);
+    refreshProjectSummary(container);
+}
+
+void ViewManager::clearExitedSessionProjectStatuses()
+{
+    QSet<TabbedViewContainer *> containersToRefresh;
+    for (auto status = _sessionProjectStatuses.begin(); status != _sessionProjectStatuses.end();) {
+        if (status->agentProcessId <= 0 || projectStatusProcessIsAlive(status->agentProcessId)) {
+            ++status;
+            continue;
+        }
+
+        Session *session = status.key();
+        _sessionsNeedingAttention.remove(session);
+        for (auto terminal = _sessionMap.cbegin(); terminal != _sessionMap.cend(); ++terminal) {
+            if (terminal.value() == session) {
+                if (auto *container = containerForTerminal(terminal.key())) {
+                    containersToRefresh.insert(container);
+                }
+            }
+        }
+        status = _sessionProjectStatuses.erase(status);
+    }
+
+    updateProjectStatusProcessTimer();
+    for (TabbedViewContainer *container : std::as_const(containersToRefresh)) {
+        refreshProjectSummary(container);
+    }
+}
+
+void ViewManager::updateProjectStatusProcessTimer()
+{
+    const bool hasTrackedProcess = std::any_of(_sessionProjectStatuses.cbegin(), _sessionProjectStatuses.cend(), [](const SessionProjectStatus &status) {
+        return status.agentProcessId > 0;
+    });
+    if (hasTrackedProcess) {
+        if (!_projectStatusProcessTimer.isActive()) {
+            _projectStatusProcessTimer.start();
+        }
+    } else {
+        _projectStatusProcessTimer.stop();
     }
 }
 
@@ -2713,7 +2822,7 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
 
         seenSessions.insert(session);
         hasActivity = hasActivity || session->activeNotifications() != Session::NoNotification || _sessionsNeedingAttention.contains(session);
-        projectStatus = higherPriorityProjectStatus(projectStatus, _sessionProjectStatuses.value(session, ProjectWorkspaceContainer::ProjectStatus::None));
+        projectStatus = higherPriorityProjectStatus(projectStatus, _sessionProjectStatuses.value(session).status);
         if (!session->isRunning() || !session->isForegroundProcessActive()) {
             continue;
         }

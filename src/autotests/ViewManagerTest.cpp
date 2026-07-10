@@ -11,8 +11,10 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QKeyEvent>
 #include <QMenu>
 #include <QPointer>
+#include <QProcess>
 #include <QScopeGuard>
 #include <QSet>
 #include <QTest>
@@ -362,6 +364,84 @@ void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
 
     firstSession->setProjectStatus(QStringLiteral("unknown"));
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::None);
+}
+
+void ViewManagerTest::testProjectWorkspaceStatusClearsWhenAgentExits()
+{
+#ifndef Q_OS_UNIX
+    QSKIP("Agent process liveness checks are only available on Unix platforms.");
+#else
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    QProcess agentProcess;
+    agentProcess.start(QStringLiteral("sleep"), {QStringLiteral("30")});
+    QVERIFY(agentProcess.waitForStarted());
+
+    session->setProjectStatusWithProcess(QStringLiteral("running"), agentProcess.processId());
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    viewManager->clearExitedSessionProjectStatuses();
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    agentProcess.kill();
+    QVERIFY(agentProcess.waitForFinished());
+    QTRY_COMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
+#endif
+}
+
+void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *firstTerminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    Session *firstSession = firstTerminal->sessionController()->session();
+    QVERIFY(firstSession != nullptr);
+
+    mw.newTab();
+    auto *secondTerminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(secondTerminal != nullptr);
+    QVERIFY(secondTerminal != firstTerminal);
+    Session *secondSession = secondTerminal->sessionController()->session();
+    QVERIFY(secondSession != nullptr);
+    QVERIFY(secondSession != firstSession);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    firstSession->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    secondSession->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+    Q_EMIT firstTerminal->keyPressedSignal(&returnKey);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(firstSession).status, ProjectWorkspaceContainer::ProjectStatus::Running);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(secondSession).status, ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    QKeyEvent escapeKey(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    Q_EMIT secondTerminal->keyPressedSignal(&escapeKey);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(secondSession).status, ProjectWorkspaceContainer::ProjectStatus::Running);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    firstSession->setProjectStatus(QStringLiteral("needsInput"));
+    Q_EMIT firstTerminal->keyPressedSignal(&returnKey);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 }
 
 void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()

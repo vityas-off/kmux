@@ -856,6 +856,19 @@ public Q_SLOTS:
      */
     Q_SCRIPTABLE void setProjectStatus(const QString &status);
 
+    /**
+     * Sets the project-level status and associates it with an agent process.
+     * The process ID lets the workspace clear stale state after an abnormal
+     * agent exit or a missed lifecycle hook.
+     */
+    Q_SCRIPTABLE void setProjectStatusWithProcess(const QString &status, qlonglong processId);
+
+    /**
+     * Sets the project-level status together with the agent lifecycle event
+     * that produced it.
+     */
+    Q_SCRIPTABLE void setProjectStatusForAgentEvent(const QString &status, qlonglong processId, const QString &agent, const QString &event);
+
 Q_SIGNALS:
 
     /** Emitted when the terminal process starts. */
@@ -910,7 +923,7 @@ Q_SIGNALS:
      * Emitted when an external agent hook updates the project-level status
      * associated with this session.
      */
-    void projectStatusChanged(const QString &status);
+    void projectStatusChanged(const QString &status, qlonglong processId, const QString &agent, const QString &event);
 
     /**
      * Requests that the background color of views on this session
