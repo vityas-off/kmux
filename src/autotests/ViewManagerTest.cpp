@@ -6,17 +6,22 @@
 
 #include "ViewManagerTest.h"
 #include <QAction>
+#include <QCoreApplication>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMenu>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QSet>
 #include <QTest>
 
 #include <KActionCollection>
 #include <KConfig>
 #include <KConfigGroup>
+#include <KStandardAction>
+#include <KXMLGUIFactory>
 
 #include "../MainWindow.h"
 #include "../ViewManager.h"
@@ -498,6 +503,51 @@ void ViewManagerTest::testProjectWorkspaceNewWindowActionDisabled()
     QVERIFY(!newWindow->isEnabled());
     QVERIFY(!newWindow->isVisible());
     QVERIFY(newWindow->shortcut().isEmpty());
+}
+
+void ViewManagerTest::testUnsupportedHelpActionsHidden()
+{
+    const QString applicationName = QCoreApplication::applicationName();
+    QCoreApplication::setApplicationName(QStringLiteral("kmux"));
+    const auto restoreApplicationName = qScopeGuard([applicationName] {
+        QCoreApplication::setApplicationName(applicationName);
+    });
+
+    auto mw = MainWindow();
+    auto *helpMenu = qobject_cast<QMenu *>(mw.factory()->container(QStringLiteral("help"), &mw));
+    QVERIFY(helpMenu != nullptr);
+
+    const auto helpAction = [helpMenu](KStandardAction::StandardAction standardAction) {
+        const QString actionName = KStandardAction::name(standardAction);
+        const auto actions = helpMenu->actions();
+        for (QAction *action : actions) {
+            if (action->objectName() == actionName) {
+                return action;
+            }
+        }
+        return static_cast<QAction *>(nullptr);
+    };
+
+    for (const auto standardAction : {
+             KStandardAction::HelpContents,
+             KStandardAction::WhatsThis,
+             KStandardAction::AboutKDE,
+         }) {
+        auto *action = helpAction(standardAction);
+        QVERIFY(action != nullptr);
+        QVERIFY(!action->isVisible());
+    }
+
+    if (auto *reportBugAction = helpAction(KStandardAction::ReportBug)) {
+        QVERIFY(!reportBugAction->isVisible());
+    }
+    if (auto *donateAction = helpAction(KStandardAction::Donate)) {
+        QVERIFY(donateAction->isVisible());
+    }
+
+    auto *aboutApplicationAction = helpAction(KStandardAction::AboutApp);
+    QVERIFY(aboutApplicationAction != nullptr);
+    QVERIFY(aboutApplicationAction->isVisible());
 }
 
 void ViewManagerTest::testMoveTabBetweenProjectWorkspaces()

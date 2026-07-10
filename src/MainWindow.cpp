@@ -157,6 +157,22 @@ MainWindow::MainWindow()
     // The "Create" flag will make it call createGUI()
     setupGUI(guiOpts, xmlFile);
 
+    if (auto *helpMenu = qobject_cast<QMenu *>(factory()->container(QStringLiteral("help"), this))) {
+        // Kmux does not publish a KDE handbook or use KDE's bug reporting
+        // infrastructure, and it is not an official KDE application.
+        const QStringList unsupportedHelpActions = {
+            KStandardAction::name(KStandardAction::HelpContents),
+            KStandardAction::name(KStandardAction::WhatsThis),
+            KStandardAction::name(KStandardAction::ReportBug),
+            KStandardAction::name(KStandardAction::AboutKDE),
+        };
+        for (QAction *action : helpMenu->actions()) {
+            if (unsupportedHelpActions.contains(action->objectName())) {
+                action->setVisible(false);
+            }
+        }
+    }
+
     // Hamburger menu for when the menubar is hidden
     _hamburgerMenu = KStandardAction::hamburgerMenu(nullptr, nullptr, actionCollection());
     _hamburgerMenu->setShowMenuBarAction(_toggleMenuBarAction);
