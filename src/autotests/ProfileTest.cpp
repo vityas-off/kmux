@@ -10,6 +10,7 @@
 // Qt
 #include <QFile>
 #include <QFileInfo>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryFile>
 #include <QTest>
@@ -270,6 +271,27 @@ void ProfileTest::testBuiltinProfile()
     QVERIFY(builtin->isBuiltin());
     QCOMPARE(builtin->untranslatedName(), QStringLiteral("Built-in"));
     QCOMPARE(builtin->path(), QStringLiteral("FALLBACK/"));
+}
+
+void ProfileTest::testBuiltinProfileUsesAccountShellWithoutEnvironment()
+{
+#ifndef Q_OS_WIN
+    const bool shellWasSet = qEnvironmentVariableIsSet("SHELL");
+    const QByteArray shell = qgetenv("SHELL");
+    qunsetenv("SHELL");
+    const auto restoreShell = qScopeGuard([shellWasSet, shell] {
+        if (shellWasSet) {
+            qputenv("SHELL", shell);
+        }
+    });
+
+    Profile::Ptr builtin(new Profile);
+    builtin->useBuiltin();
+
+    QVERIFY(!builtin->command().isEmpty());
+    QVERIFY(QFileInfo(builtin->command()).isExecutable());
+    QCOMPARE(builtin->arguments(), QStringList{builtin->command()});
+#endif
 }
 
 void ProfileTest::testLoadProfileNamedAsBuiltin()

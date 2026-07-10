@@ -23,6 +23,7 @@ private Q_SLOTS:
     void testProfileFileNames();
     void testProfileNameSorting();
     void testBuiltinProfile();
+    void testBuiltinProfileUsesAccountShellWithoutEnvironment();
     void testLoadProfileNamedAsBuiltin();
     void testInvalidParentProfile();
 };

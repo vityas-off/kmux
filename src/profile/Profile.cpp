@@ -24,7 +24,7 @@
 #include "config-konsole.h"
 
 #ifndef Q_OS_WIN
-#ifdef HAVE_GETPWUID
+#if HAVE_GETPWUID
 #include <pwd.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -237,10 +237,22 @@ static QString defaultShell()
 {
 #ifndef Q_OS_WIN
     if (!KSandbox::isFlatpak()) {
-        return QString::fromUtf8(qgetenv("SHELL"));
+        const QString environmentShell = QString::fromUtf8(qgetenv("SHELL"));
+        if (!environmentShell.isEmpty()) {
+            return environmentShell;
+        }
+
+#if HAVE_GETPWUID
+        const auto pw = getpwuid(getuid());
+        if (pw != nullptr && pw->pw_shell != nullptr && pw->pw_shell[0] != '\0') {
+            return QString::fromLocal8Bit(pw->pw_shell);
+        }
+#endif
+
+        return QStringLiteral("/bin/sh");
     }
 
-#ifdef HAVE_GETPWUID
+#if HAVE_GETPWUID
     auto pw = getpwuid(getuid());
     // pw: Do not pass the returned pointer to free.
     if (pw != nullptr) {
@@ -254,8 +266,9 @@ static QString defaultShell()
             return parts.at(6);
         }
     }
-    return {};
 #endif // HAVE_GETPWUID
+
+    return QStringLiteral("/bin/sh");
 
 #else // Q_OS_WIN
     auto shell = GetWindowPowerShell();
