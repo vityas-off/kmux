@@ -41,7 +41,5 @@
     <path d="M59 54 75 68 59 82" fill="none" stroke="#f4f7f8" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/>
     <rect x="81" y="77" width="23" height="7" rx="2" fill="#54c7f3"/>
 
-    <path d="M12 9h96c6.1 0 11 4.9 11 11" fill="none" stroke="#ffffff" stroke-width="2" opacity=".16"/>
   </g>
-  <rect x="8" y="8" width="112" height="112" rx="4" fill="none" stroke="#56636c" stroke-width="2"/>
 </svg>
