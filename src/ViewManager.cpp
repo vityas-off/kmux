@@ -2424,8 +2424,10 @@ bool ViewManager::createSplitWithExisting(int targetSplitterId, QStringList widg
             }
         } else if (type == QLatin1Char('v') && !forbiddenViews.removeOne(id)) {
             if (auto v = findTerminalDisplay(id)) {
-                linearLayout.append(v);
-                continue;
+                if (containerForTerminal(v) == container) {
+                    linearLayout.append(v);
+                    continue;
+                }
             }
         }
 
@@ -2528,10 +2530,11 @@ bool ViewManager::moveSplitter(int splitterId, int targetSplitterId, int idx)
 
 bool ViewManager::moveView(int viewId, int targetSplitterId, int idx)
 {
+    auto *container = activeContainer();
     auto view = findTerminalDisplay(viewId);
-    auto targetSplitter = activeContainer()->findSplitter(targetSplitterId);
+    auto targetSplitter = container->findSplitter(targetSplitterId);
 
-    if (view == nullptr || targetSplitter == nullptr || idx < 0)
+    if (view == nullptr || containerForTerminal(view) != container || targetSplitter == nullptr || idx < 0)
         return false;
 
     targetSplitter->addTerminalDisplay(view, idx);

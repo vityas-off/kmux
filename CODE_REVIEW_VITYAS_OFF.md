@@ -61,7 +61,9 @@ if (!_sessionMap.empty() && containerForTerminal(view) == activeContainer()) {
 
 Исправление: view-specific connections должны иметь `view` как context либо использовать `QPointer`; session-level status нужно подключать ровно один раз на Session и затем обновлять все её живые containers. Нужен тест с двумя views одной Session: одно событие должно учитываться один раз, а удаление одного view не должно приводить к UAF.
 
-### High-3. DBus layout API может перепривязать TerminalDisplay между проектами в обход project transfer
+### High-3. ✅ Исправлено — DBus layout API мог перепривязать TerminalDisplay между проектами в обход project transfer
+
+Статус: исправлено. `moveView()` и `createSplitWithExisting()` теперь принимают только views активного проекта, которому принадлежит target splitter. Добавлен regression test для обоих cross-project DBus layout paths с проверкой неизменности структуры и владельцев views.
 
 Места: `src/ViewManager.cpp:2376-2456`, особенно `2425-2439`; `2528-2538`; последующее падение возможно в `src/widgets/ViewContainer.cpp:661-664`, `818-826`.
 Коммит-интеграция: `001a570dd`.

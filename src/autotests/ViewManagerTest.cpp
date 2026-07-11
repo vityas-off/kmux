@@ -235,6 +235,34 @@ void ViewManagerTest::testSplitsStayInActiveProjectWorkspace()
     QCOMPARE(secondProject->currentTabViewCount(), 2);
 }
 
+void ViewManagerTest::testDbusLayoutOperationsRejectCrossProjectViews()
+{
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+
+    window.newTab();
+    auto *firstProject = manager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    auto *firstProjectTerminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstProjectTerminal != nullptr);
+
+    manager->createProject();
+    auto *secondProject = manager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+    auto *targetSplitter = secondProject->activeViewSplitter();
+    QVERIFY(targetSplitter != nullptr);
+
+    const QStringList firstProjectViewInfo{QStringLiteral("v-%1").arg(firstProjectTerminal->id())};
+    QVERIFY(!manager->createSplitWithExisting(targetSplitter->id(), firstProjectViewInfo, 0, true));
+    QVERIFY(!manager->moveView(firstProjectTerminal->id(), targetSplitter->id(), 0));
+
+    QCOMPARE(manager->activeContainer(), secondProject);
+    QCOMPARE(manager->containerForTerminal(firstProjectTerminal), firstProject);
+    QCOMPARE(firstProject->currentTabViewCount(), 1);
+    QCOMPARE(secondProject->currentTabViewCount(), 1);
+}
+
 void ViewManagerTest::testSessionCountUsesActiveProjectWorkspace()
 {
     auto mw = MainWindow();

@@ -23,6 +23,7 @@ private Q_SLOTS:
     void testProjectWorkspacesKeepIndependentTabs();
     void testFinishedBackgroundSessionIsRemovedFromTabHistory();
     void testSplitsStayInActiveProjectWorkspace();
+    void testDbusLayoutOperationsRejectCrossProjectViews();
     void testSessionCountUsesActiveProjectWorkspace();
     void testSessionsIncludesAllProjectWorkspaces();
     void testProjectWorkspaceSummaryTracksActiveTab();
