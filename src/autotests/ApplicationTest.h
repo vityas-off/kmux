@@ -14,6 +14,8 @@ class ApplicationTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void testInformationalArgumentsHandledLocally_data();
+    void testInformationalArgumentsHandledLocally();
     void testActivationUsesRequestWorkingDirectory();
     void testActivationResolvesRelativeTabsFile();
     void testActivationResolvesRelativeLayoutFile();

@@ -194,7 +194,7 @@ int Application::newInstance()
 
     // check for arguments to print help or other information to the
     // terminal, quit if such an argument was found
-    if (processHelpArgs()) {
+    if (processHelpArgs(*m_parser)) {
         return 0;
     }
 
@@ -513,12 +513,12 @@ Profile::Ptr Application::processProfileSelectArgs()
     return ProfileManager::instance()->defaultProfile();
 }
 
-bool Application::processHelpArgs()
+bool Application::processHelpArgs(const QCommandLineParser &parser)
 {
-    if (m_parser->isSet(QStringLiteral("list-profiles"))) {
+    if (parser.isSet(QStringLiteral("list-profiles"))) {
         listAvailableProfiles();
         return true;
-    } else if (m_parser->isSet(QStringLiteral("list-profile-properties"))) {
+    } else if (parser.isSet(QStringLiteral("list-profile-properties"))) {
         listProfilePropertyInfo();
         return true;
     }

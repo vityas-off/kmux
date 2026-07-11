@@ -47,6 +47,32 @@ Session *activeSession(MainWindow *window)
 }
 }
 
+void ApplicationTest::testInformationalArgumentsHandledLocally_data()
+{
+    QTest::addColumn<QString>("option");
+    QTest::addColumn<bool>("handled");
+
+    QTest::newRow("profiles") << QStringLiteral("--list-profiles") << true;
+    QTest::newRow("profile-properties") << QStringLiteral("--list-profile-properties") << true;
+    QTest::newRow("regular-launch") << QString() << false;
+}
+
+void ApplicationTest::testInformationalArgumentsHandledLocally()
+{
+    QFETCH(QString, option);
+    QFETCH(bool, handled);
+
+    QCommandLineParser parser;
+    Application::populateCommandLineParser(&parser);
+    QStringList args{QStringLiteral("kmux")};
+    if (!option.isEmpty()) {
+        args.append(option);
+    }
+    QVERIFY(parser.parse(args));
+
+    QCOMPARE(Application::processHelpArgs(parser), handled);
+}
+
 void ApplicationTest::testActivationUsesRequestWorkingDirectory()
 {
     auto parser = QSharedPointer<QCommandLineParser>::create();

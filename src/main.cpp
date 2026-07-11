@@ -197,6 +197,13 @@ int main(int argc, char *argv[])
     parser->process(args);
     about.processCommandLine(parser.data());
 
+    // Keep read-only commands in the invoking process so their output is
+    // written to its stdout even when another Kmux instance is running.
+    if (Application::processHelpArgs(*parser)) {
+        delete app;
+        return 0;
+    }
+
 #if HAVE_DBUS
     // on wayland: init token if we are launched by Kmux and have none
     if (KWindowSystem::isPlatformWayland() && qEnvironmentVariable("XDG_ACTIVATION_TOKEN").isEmpty() && QDBusConnection::sessionBus().interface()) {

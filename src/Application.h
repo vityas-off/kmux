@@ -45,6 +45,7 @@ public:
 
     static void populateCommandLineParser(QCommandLineParser *parser);
     static QStringList getCustomCommand(QStringList &args);
+    static bool processHelpArgs(const QCommandLineParser &parser);
 
     ~Application() override;
 
@@ -67,10 +68,9 @@ public Q_SLOTS:
 private:
     Q_DISABLE_COPY(Application)
 
-    void listAvailableProfiles();
-    void listProfilePropertyInfo();
+    static void listAvailableProfiles();
+    static void listProfilePropertyInfo();
     void startBackgroundMode(MainWindow *window);
-    bool processHelpArgs();
     MainWindow *processWindowArgs(bool &createdNewMainWindow);
     QExplicitlySharedDataPointer<Profile> processProfileSelectArgs();
     QExplicitlySharedDataPointer<Profile> processProfileChangeArgs(QExplicitlySharedDataPointer<Profile> baseProfile);

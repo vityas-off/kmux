@@ -203,7 +203,7 @@ Always-Unique routing передаёт primary process только args и cwd.
 
 Удалённый upstream `shouldUseNewProcess()` специально сохранял новый процесс при controlling TTY ради environment propagation. Для single-window модели нужен явный безопасный transport environment/session requests.
 
-### Medium-8. `--list-profiles` и `--list-profile-properties` ломаются при запущенном Kmux
+### Medium-8. ✅ Исправлено — read-only CLI-команды выполняются локально до регистрации DBus
 
 Места: `src/main.cpp:228-245`; `src/Application.cpp:355-378`, `516-545`, `633-654`; потребитель — `completions/kmux.zsh:7-25`.
 Коммит: `4a0c386ab`.
