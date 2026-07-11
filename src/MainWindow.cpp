@@ -401,15 +401,11 @@ void MainWindow::updateWindowCaption()
 
 void MainWindow::updateWindowIcon()
 {
+    const bool hasProjectNeedingInput = _viewManager != nullptr && _viewManager->hasProjectNeedingInput();
+    qGuiApp->setBadgeNumber(hasProjectNeedingInput ? 1 : 0);
+
     if ((!_pluggedController.isNull()) && !_pluggedController->icon().isNull()) {
-        QIcon icon = _pluggedController->icon();
-        if (_viewManager != nullptr && _viewManager->hasProjectNeedingInput()) {
-            const QIcon attentionIcon = QIcon::fromTheme(QStringLiteral("emblem-important"), QIcon::fromTheme(QStringLiteral("dialog-warning")));
-            if (!attentionIcon.isNull()) {
-                icon = KIconUtils::addOverlay(icon, attentionIcon, Qt::BottomRightCorner);
-            }
-        }
-        setWindowIcon(icon);
+        setWindowIcon(_pluggedController->icon());
     }
 }
 
