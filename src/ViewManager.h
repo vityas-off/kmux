@@ -171,6 +171,8 @@ public:
 
     int managerId() const;
 
+    bool hasProjectNeedingInput() const;
+
     /** Returns a list of sessions in this ViewManager */
     QList<Session *> sessions()
     {
@@ -550,6 +552,7 @@ private:
     void handleSessionTerminalDecisionKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent);
     void clearExitedSessionProjectStatuses();
     void updateProjectStatusProcessTimer();
+    void updateProjectInputRequirement();
     QList<SessionController *> sessionControllersForContainer(TabbedViewContainer *container) const;
     void addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex);
     void moveTabToProject(TabbedViewContainer *sourceContainer, int tabIndex, TabbedViewContainer *targetContainer);
@@ -572,6 +575,7 @@ private:
     };
     QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
     QTimer _projectStatusProcessTimer;
+    bool _hasProjectNeedingInput = false;
 
     KActionCollection *_actionCollection;
 

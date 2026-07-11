@@ -163,6 +163,8 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     connect(_workspaceContainer, &ProjectWorkspaceContainer::newProjectRequested, this, &ViewManager::createProject);
     connect(_workspaceContainer, &ProjectWorkspaceContainer::closeProjectRequested, this, &ViewManager::closeProject);
     connect(_workspaceContainer, &ProjectWorkspaceContainer::currentProjectChanged, this, &ViewManager::activeProjectChanged);
+    connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectChanged, this, &ViewManager::updateProjectInputRequirement);
+    connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectRemoved, this, &ViewManager::updateProjectInputRequirement);
 
     _projectStatusProcessTimer.setInterval(ProjectStatusProcessCheckIntervalMs);
     connect(&_projectStatusProcessTimer, &QTimer::timeout, this, &ViewManager::clearExitedSessionProjectStatuses);
@@ -188,6 +190,11 @@ ViewManager::~ViewManager() = default;
 int ViewManager::managerId() const
 {
     return _managerId;
+}
+
+bool ViewManager::hasProjectNeedingInput() const
+{
+    return _hasProjectNeedingInput;
 }
 
 QWidget *ViewManager::activeView() const
@@ -2729,6 +2736,17 @@ void ViewManager::updateProjectStatusProcessTimer()
     } else {
         _projectStatusProcessTimer.stop();
     }
+}
+
+void ViewManager::updateProjectInputRequirement()
+{
+    const bool hasProjectNeedingInput = !_workspaceContainer.isNull() && _workspaceContainer->projectModel()->hasProjectNeedingInput();
+    if (_hasProjectNeedingInput == hasProjectNeedingInput) {
+        return;
+    }
+
+    _hasProjectNeedingInput = hasProjectNeedingInput;
+    Q_EMIT updateWindowIcon();
 }
 
 void ViewManager::addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex)

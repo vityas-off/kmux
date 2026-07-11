@@ -352,6 +352,7 @@ void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
     firstSession->setProjectStatus(QStringLiteral("needsInput"));
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
     QVERIFY(workspaces->projectHasActivity(firstProject));
+    QVERIFY(viewManager->hasProjectNeedingInput());
 
     workspaces->activateProject(firstProject);
     QVERIFY(!workspaces->projectHasActivity(firstProject));
@@ -359,6 +360,7 @@ void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
 
     firstSession->setProjectStatus(QStringLiteral("running"));
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(!viewManager->hasProjectNeedingInput());
 
     firstSession->setProjectStatus(QStringLiteral("idle"));
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);

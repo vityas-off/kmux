@@ -402,7 +402,14 @@ void MainWindow::updateWindowCaption()
 void MainWindow::updateWindowIcon()
 {
     if ((!_pluggedController.isNull()) && !_pluggedController->icon().isNull()) {
-        setWindowIcon(_pluggedController->icon());
+        QIcon icon = _pluggedController->icon();
+        if (_viewManager != nullptr && _viewManager->hasProjectNeedingInput()) {
+            const QIcon attentionIcon = QIcon::fromTheme(QStringLiteral("emblem-important"), QIcon::fromTheme(QStringLiteral("dialog-warning")));
+            if (!attentionIcon.isNull()) {
+                icon = KIconUtils::addOverlay(icon, attentionIcon, Qt::BottomRightCorner);
+            }
+        }
+        setWindowIcon(icon);
     }
 }
 

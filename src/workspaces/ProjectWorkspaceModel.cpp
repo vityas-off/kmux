@@ -153,4 +153,11 @@ bool ProjectWorkspaceModel::hasRunningProject() const
     });
 }
 
+bool ProjectWorkspaceModel::hasProjectNeedingInput() const
+{
+    return std::any_of(_projects.cbegin(), _projects.cend(), [](const ProjectData &project) {
+        return project.status == ProjectStatus::NeedsInput;
+    });
+}
+
 #include "moc_ProjectWorkspaceModel.cpp"

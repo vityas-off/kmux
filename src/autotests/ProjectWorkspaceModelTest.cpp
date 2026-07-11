@@ -44,6 +44,10 @@ void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
     QVERIFY(project.hasActivity);
     QCOMPARE(project.status, ProjectWorkspaceModel::ProjectStatus::Running);
     QVERIFY(model.hasRunningProject());
+    QVERIFY(!model.hasProjectNeedingInput());
+
+    QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("waiting"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::NeedsInput));
+    QVERIFY(model.hasProjectNeedingInput());
 
     QVERIFY(model.reorderProjects({secondProject, firstProject}));
     QCOMPARE(model.projectIds(), QList<ProjectWorkspaceModel::ProjectId>({secondProject, firstProject}));

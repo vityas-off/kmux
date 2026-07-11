@@ -66,6 +66,7 @@ public:
 
     int nextProjectNumber() const;
     bool hasRunningProject() const;
+    bool hasProjectNeedingInput() const;
 
 Q_SIGNALS:
     void projectAdded(const Konsole::ProjectWorkspaceModel::ProjectId &id, int index);
