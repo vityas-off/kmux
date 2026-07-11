@@ -15,6 +15,8 @@ class ApplicationTest : public QObject
 
 private Q_SLOTS:
     void testActivationUsesRequestWorkingDirectory();
+    void testActivationResolvesRelativeTabsFile();
+    void testActivationResolvesRelativeLayoutFile();
     void testProfilePropertySkipsInitialWorkspaceRestore();
     void testProfilePropertyCreatesTabOnActivation();
 };

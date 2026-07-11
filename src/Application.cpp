@@ -219,7 +219,7 @@ int Application::newInstance()
     // if layout file is enable load it and create session from definitions,
     // else create new session
     if (m_parser->isSet(QStringLiteral("layout"))) {
-        window->viewManager()->loadLayout(m_parser->value(QStringLiteral("layout")));
+        window->viewManager()->loadLayout(resolveActivationPath(m_parser->value(QStringLiteral("layout"))));
     } else if (!restoredLastWorkspaceState && !m_parser->isSet(QStringLiteral("tabs-from-file"))) {
         Session *session = window->createSession(newProfile, QString());
 
@@ -283,7 +283,7 @@ profile: Shell
 bool Application::processTabsFromFileArgs(MainWindow *window)
 {
     // Open tab configuration file
-    const QString tabsFileName(m_parser->value(QStringLiteral("tabs-from-file")));
+    const QString tabsFileName = resolveActivationPath(m_parser->value(QStringLiteral("tabs-from-file")));
     QFile tabsFile(tabsFileName);
     if (!tabsFile.open(QFile::ReadOnly)) {
         qWarning() << "ERROR: Cannot open tabs file " << tabsFileName.toLocal8Bit().data();
@@ -592,10 +592,15 @@ QString Application::initialWorkingDirectory(const QString &requestedDirectory) 
     if (requestedDirectory.isEmpty()) {
         return m_activationWorkingDirectory;
     }
-    if (QFileInfo(requestedDirectory).isAbsolute()) {
-        return QDir::cleanPath(requestedDirectory);
+    return resolveActivationPath(requestedDirectory);
+}
+
+QString Application::resolveActivationPath(const QString &path) const
+{
+    if (QFileInfo(path).isAbsolute()) {
+        return QDir::cleanPath(path);
     }
-    return QDir::cleanPath(QDir(m_activationWorkingDirectory).absoluteFilePath(requestedDirectory));
+    return QDir::cleanPath(QDir(m_activationWorkingDirectory).absoluteFilePath(path));
 }
 
 void Application::startBackgroundMode(MainWindow *window)

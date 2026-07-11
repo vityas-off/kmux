@@ -17,6 +17,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QFile>
 #include <QSharedPointer>
 #include <QTemporaryDir>
 #include <QTest>
@@ -74,6 +75,57 @@ void ApplicationTest::testActivationUsesRequestWorkingDirectory()
     Session *commandSession = terminal->sessionController()->session();
     QCOMPARE(commandSession->initialWorkingDirectory(), QDir::cleanPath(callingDirectory.path()));
     QCOMPARE(commandSession->program(), callingDirectory.filePath(QStringLiteral("script")));
+
+    delete window;
+}
+
+void ApplicationTest::testActivationResolvesRelativeTabsFile()
+{
+    auto parser = QSharedPointer<QCommandLineParser>::create();
+    Application::populateCommandLineParser(parser.get());
+    parser->parse({QStringLiteral("kmux")});
+    Application application(parser, {});
+
+    QTemporaryDir callingDirectory;
+    QVERIFY(callingDirectory.isValid());
+    QFile tabsFile(callingDirectory.filePath(QStringLiteral("tabs.conf")));
+    QVERIFY(tabsFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray tabs = "profile: __application_test_missing_profile__\n";
+    QCOMPARE(tabsFile.write(tabs), tabs.size());
+    tabsFile.close();
+
+    application.slotActivateRequested({QStringLiteral("--tabs-from-file"), QStringLiteral("tabs.conf")}, callingDirectory.path());
+
+    auto *window = mainWindow();
+    QVERIFY(window != nullptr);
+    QCOMPARE(window->viewManager()->activeContainer()->count(), 1);
+
+    delete window;
+}
+
+void ApplicationTest::testActivationResolvesRelativeLayoutFile()
+{
+    auto parser = QSharedPointer<QCommandLineParser>::create();
+    Application::populateCommandLineParser(parser.get());
+    parser->parse({QStringLiteral("kmux")});
+    Application application(parser, {});
+
+    QTemporaryDir callingDirectory;
+    QVERIFY(callingDirectory.isValid());
+    QFile layoutFile(callingDirectory.filePath(QStringLiteral("layout.json")));
+    QVERIFY(layoutFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray layout = R"({
+        "Orientation": "Horizontal",
+        "Widgets": [{"SessionRestoreId": 0}]
+    })";
+    QCOMPARE(layoutFile.write(layout), layout.size());
+    layoutFile.close();
+
+    application.slotActivateRequested({QStringLiteral("--layout"), QStringLiteral("layout.json")}, callingDirectory.path());
+
+    auto *window = mainWindow();
+    QVERIFY(window != nullptr);
+    QCOMPARE(window->viewManager()->activeContainer()->count(), 1);
 
     delete window;
 }
