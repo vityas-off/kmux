@@ -361,7 +361,8 @@ QString joinTomlLines(const QStringList &lines)
 
 bool lineStartsTable(const QString &line, const QString &table)
 {
-    return QRegularExpression(QStringLiteral(R"(^\s*\[\s*%1\s*\]\s*(#.*)?$)").arg(QRegularExpression::escape(table))).match(line).hasMatch();
+    const QString key = QRegularExpression::escape(table);
+    return QRegularExpression(QStringLiteral(R"(^\s*\[\s*(?:%1|"%1"|'%1')\s*\]\s*(#.*)?$)").arg(key)).match(line).hasMatch();
 }
 
 bool lineStartsAnyTable(const QString &line)
@@ -371,12 +372,18 @@ bool lineStartsAnyTable(const QString &line)
 
 bool lineDefinesKey(const QString &line, const QString &key)
 {
-    return QRegularExpression(QStringLiteral(R"(^\s*%1\s*=)").arg(QRegularExpression::escape(key))).match(line).hasMatch();
+    const QString escapedKey = QRegularExpression::escape(key);
+    return QRegularExpression(QStringLiteral(R"(^\s*(?:%1|"%1"|'%1')\s*=)").arg(escapedKey)).match(line).hasMatch();
 }
 
 bool lineDefinesDottedFeatureHooks(const QString &line)
 {
-    return QRegularExpression(QStringLiteral(R"(^\s*features\s*\.\s*hooks\s*=)")).match(line).hasMatch();
+    return QRegularExpression(QStringLiteral(R"(^\s*(?:features|"features"|'features')\s*\.\s*(?:hooks|"hooks"|'hooks')\s*=)")).match(line).hasMatch();
+}
+
+bool lineDefinesDottedFeature(const QString &line)
+{
+    return QRegularExpression(QStringLiteral(R"(^\s*(?:features|"features"|'features')\s*\.)")).match(line).hasMatch();
 }
 
 bool lineDefinesTrueValue(const QString &line, const QString &keyPattern)
@@ -384,8 +391,107 @@ bool lineDefinesTrueValue(const QString &line, const QString &keyPattern)
     return QRegularExpression(QStringLiteral(R"(^\s*%1\s*=\s*true\s*(#.*)?$)").arg(keyPattern)).match(line).hasMatch();
 }
 
-void removeKonsoleBlocks(QStringList *lines)
+QString inlineTableWithHooksEnabled(const QString &line)
 {
+    const QRegularExpression assignmentPattern(QStringLiteral(R"(^\s*(?:features|"features"|'features')\s*=\s*\{)"));
+    const QRegularExpressionMatch assignment = assignmentPattern.match(line);
+    if (!assignment.hasMatch()) {
+        return {};
+    }
+
+    const int openingBrace = line.indexOf(QLatin1Char('{'), assignment.capturedStart());
+    int closingBrace = -1;
+    QChar quote;
+    bool escaped = false;
+    int nestedBraces = 0;
+    int nestedBrackets = 0;
+    for (int i = openingBrace + 1; i < line.size(); ++i) {
+        const QChar ch = line.at(i);
+        if (!quote.isNull()) {
+            if (quote == QLatin1Char('"') && ch == QLatin1Char('\\') && !escaped) {
+                escaped = true;
+                continue;
+            }
+            if (ch == quote && !escaped) {
+                quote = QChar();
+            }
+            escaped = false;
+            continue;
+        }
+        if (ch == QLatin1Char('"') || ch == QLatin1Char('\'')) {
+            quote = ch;
+        } else if (ch == QLatin1Char('{')) {
+            ++nestedBraces;
+        } else if (ch == QLatin1Char('}')) {
+            if (nestedBraces == 0 && nestedBrackets == 0) {
+                closingBrace = i;
+                break;
+            }
+            --nestedBraces;
+        } else if (ch == QLatin1Char('[')) {
+            ++nestedBrackets;
+        } else if (ch == QLatin1Char(']')) {
+            --nestedBrackets;
+        }
+    }
+    if (closingBrace < 0) {
+        return {};
+    }
+
+    const QString contents = line.mid(openingBrace + 1, closingBrace - openingBrace - 1);
+    const QString hooksKeyPattern = QStringLiteral(R"((?:hooks|"hooks"|'hooks'))");
+    const QRegularExpression hooksPattern(QStringLiteral(R"(^\s*%1\s*=)").arg(hooksKeyPattern));
+    const QRegularExpression hooksTruePattern(QStringLiteral(R"(^\s*%1\s*=\s*true\s*$)").arg(hooksKeyPattern));
+    int entryStart = 0;
+    quote = QChar();
+    escaped = false;
+    nestedBraces = 0;
+    nestedBrackets = 0;
+    for (int i = 0; i <= contents.size(); ++i) {
+        const QChar ch = i < contents.size() ? contents.at(i) : QLatin1Char(',');
+        if (!quote.isNull()) {
+            if (quote == QLatin1Char('"') && ch == QLatin1Char('\\') && !escaped) {
+                escaped = true;
+                continue;
+            }
+            if (ch == quote && !escaped) {
+                quote = QChar();
+            }
+            escaped = false;
+            continue;
+        }
+        if (ch == QLatin1Char('"') || ch == QLatin1Char('\'')) {
+            quote = ch;
+        } else if (ch == QLatin1Char('{')) {
+            ++nestedBraces;
+        } else if (ch == QLatin1Char('}')) {
+            --nestedBraces;
+        } else if (ch == QLatin1Char('[')) {
+            ++nestedBrackets;
+        } else if (ch == QLatin1Char(']')) {
+            --nestedBrackets;
+        } else if (ch == QLatin1Char(',') && nestedBraces == 0 && nestedBrackets == 0) {
+            const QString entry = contents.mid(entryStart, i - entryStart);
+            if (hooksPattern.match(entry).hasMatch()) {
+                if (hooksTruePattern.match(entry).hasMatch()) {
+                    return line;
+                }
+                QString rewrittenContents = contents;
+                rewrittenContents.replace(entryStart, i - entryStart, QStringLiteral(" hooks = true"));
+                return line.left(openingBrace + 1) + rewrittenContents + line.mid(closingBrace);
+            }
+            entryStart = i + 1;
+        }
+    }
+
+    const QString rewrittenContents =
+        contents.trimmed().isEmpty() ? QStringLiteral(" hooks = true ") : QStringLiteral(" %1, hooks = true ").arg(contents.trimmed());
+    return line.left(openingBrace + 1) + rewrittenContents + line.mid(closingBrace);
+}
+
+bool removeKonsoleBlocks(QStringList *lines)
+{
+    bool removedFeatureBlock = false;
     for (int i = 0; i < lines->size();) {
         const QString line = lines->at(i);
         const bool legacyFeatureBlock = line == QString::fromLatin1(LegacyHooksFeatureBegin);
@@ -396,6 +502,7 @@ void removeKonsoleBlocks(QStringList *lines)
             ++i;
             continue;
         }
+        removedFeatureBlock = removedFeatureBlock || featureBlock;
 
         const QString endMarker = legacyFeatureBlock ? QString::fromLatin1(LegacyHooksFeatureEnd)
             : legacyTrustBlock                       ? QString::fromLatin1(LegacyHookTrustEnd)
@@ -424,6 +531,7 @@ void removeKonsoleBlocks(QStringList *lines)
         }
         i += replacements.size();
     }
+    return removedFeatureBlock;
 }
 
 int tableEnd(const QStringList &lines, int tableStart)
@@ -466,8 +574,8 @@ QString installHooksFeature(const QString &content)
     QStringList lines = splitTomlLines(content);
     removeKonsoleBlocks(&lines);
 
-    const QString hooksPattern = QStringLiteral(R"(hooks)");
-    const QString dottedHooksPattern = QStringLiteral(R"(features\s*\.\s*hooks)");
+    const QString hooksPattern = QStringLiteral(R"((?:hooks|"hooks"|'hooks'))");
+    const QString dottedHooksPattern = QStringLiteral(R"((?:features|"features"|'features')\s*\.\s*(?:hooks|"hooks"|'hooks'))");
 
     for (int i = 0; i < lines.size(); ++i) {
         if (lineStartsTable(lines.at(i), QStringLiteral("features"))) {
@@ -500,7 +608,15 @@ QString installHooksFeature(const QString &content)
         }
     }
 
+    int firstTable = lines.size();
     for (int i = 0; i < lines.size(); ++i) {
+        if (lineStartsAnyTable(lines.at(i))) {
+            firstTable = i;
+            break;
+        }
+    }
+
+    for (int i = 0; i < firstTable; ++i) {
         if (!lineDefinesDottedFeatureHooks(lines.at(i))) {
             continue;
         }
@@ -521,11 +637,44 @@ QString installHooksFeature(const QString &content)
         return joinTomlLines(lines);
     }
 
-    if (!lines.isEmpty() && !lines.last().isEmpty()) {
+    for (int i = 0; i < firstTable; ++i) {
+        const QString rewrittenInlineTable = inlineTableWithHooksEnabled(lines.at(i));
+        if (rewrittenInlineTable.isEmpty()) {
+            continue;
+        }
+        if (rewrittenInlineTable == lines.at(i)) {
+            return joinTomlLines(lines);
+        }
+        lines.replace(i,
+                      QStringList{QString::fromLatin1(HooksFeatureBegin),
+                                  QString::fromLatin1(HooksFeaturePreviousLinePrefix) + lines.at(i),
+                                  rewrittenInlineTable,
+                                  QString::fromLatin1(HooksFeatureEnd)}
+                          .join(QLatin1Char('\n')));
+        const QString block = lines.takeAt(i);
+        const QStringList blockLines = block.split(QLatin1Char('\n'));
+        for (int k = 0; k < blockLines.size(); ++k) {
+            lines.insert(i + k, blockLines.at(k));
+        }
+        return joinTomlLines(lines);
+    }
+
+    for (int i = 0; i < firstTable; ++i) {
+        if (!lineDefinesDottedFeature(lines.at(i))) {
+            continue;
+        }
+        lines.insert(i + 1, QString::fromLatin1(HooksFeatureEnd));
+        lines.insert(i + 1, QStringLiteral("features.hooks = true"));
+        lines.insert(i + 1, QString::fromLatin1(HooksFeatureBegin));
+        return joinTomlLines(lines);
+    }
+
+    const bool addFeatureSeparator = !lines.isEmpty() && !lines.last().isEmpty();
+    lines.append(QString::fromLatin1(HooksFeatureBegin));
+    if (addFeatureSeparator) {
         lines.append(QString());
     }
     lines.append(QStringLiteral("[features]"));
-    lines.append(QString::fromLatin1(HooksFeatureBegin));
     lines.append(QStringLiteral("hooks = true"));
     lines.append(QString::fromLatin1(HooksFeatureEnd));
     return joinTomlLines(lines);
@@ -534,7 +683,9 @@ QString installHooksFeature(const QString &content)
 QString installHookTrust(const QString &content, const QString &hooksJsonPath, const QJsonObject &hooks)
 {
     QStringList lines = splitTomlLines(content);
-    removeKonsoleBlocks(&lines);
+    if (removeKonsoleBlocks(&lines)) {
+        removeEmptyFeaturesTable(&lines);
+    }
     lines = splitTomlLines(installHooksFeature(joinTomlLines(lines)));
 
     QStringList trustLines;
@@ -556,10 +707,11 @@ QString installHookTrust(const QString &content, const QString &hooksJsonPath, c
     }
 
     if (!trustLines.isEmpty()) {
-        if (!lines.isEmpty() && !lines.last().isEmpty()) {
+        const bool addTrustSeparator = !lines.isEmpty() && !lines.last().isEmpty();
+        lines.append(QString::fromLatin1(HookTrustBegin));
+        if (addTrustSeparator) {
             lines.append(QString());
         }
-        lines.append(QString::fromLatin1(HookTrustBegin));
         lines.append(trustLines);
         lines.append(QString::fromLatin1(HookTrustEnd));
     }

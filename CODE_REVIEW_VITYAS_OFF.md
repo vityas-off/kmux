@@ -111,7 +111,9 @@ Fallback намеренно читает `~/.local/share/konsole`, но `is*Dele
 
 Исправление: legacy paths должны быть read-only; edit/delete следует делать через copy-on-write в `kmux/`. Нужны tests с отдельными writable roots `konsole/` и `kmux/`, проверяющие, что Kmux никогда не изменяет legacy-файл.
 
-### High-7. Hook installer превращает валидный Codex TOML в невалидный
+### High-7. ✅ Исправлено — hook installer превращал валидный Codex TOML в невалидный
+
+Статус: исправлено. Редактор теперь распознаёт любой root dotted key `features.*`, quoted-варианты таблицы и ключей, а также inline table; форма `hooks = true` выбирается без повторного объявления уже созданной таблицы. Install стал идемпотентным, uninstall точно восстанавливает исходные строки. Добавлена integration-матрица для dotted, quoted и inline форм, включая nested inline keys и повторный install/uninstall.
 
 Места: `src/konsole-agent-hooks.cpp:464-531`, особенно `503-530`.
 Коммит: `acb7af7d9`.

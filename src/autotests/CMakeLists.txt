@@ -1,5 +1,9 @@
 include(ECMAddTests)
 
+if(HAVE_DBUS)
+    ecm_add_test(AgentHooksTest.cpp LINK_LIBRARIES Qt::Test Qt::Core)
+endif()
+
 if(KONSOLE_HAVE_XKBCOMMON)
     add_compile_definitions(HAVE_XKBCOMMON)
 

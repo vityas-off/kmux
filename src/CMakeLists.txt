@@ -425,6 +425,11 @@ if(HAVE_DBUS)
     ecm_mark_nongui_executable(kmux-agent-hooks)
     target_link_libraries(kmux-agent-hooks Qt::Core)
     install(TARGETS kmux-agent-hooks ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+
+    if(BUILD_TESTING)
+        add_dependencies(AgentHooksTest kmux-agent-hooks)
+        target_compile_definitions(AgentHooksTest PRIVATE KMUX_AGENT_HOOKS_EXECUTABLE="$<TARGET_FILE:kmux-agent-hooks>")
+    endif()
 endif()
 
 ### Embedded Konsole KPart
