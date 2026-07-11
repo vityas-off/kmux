@@ -751,7 +751,12 @@ void ViewManagerTest::testMoveTabBetweenProjectWorkspaces()
     auto *firstProject = viewManager->activeContainer();
     QVERIFY(firstProject != nullptr);
     mw.newTab();
-    QCOMPARE(firstProject->count(), 2);
+    mw.newTab();
+    QCOMPARE(firstProject->count(), 3);
+
+    auto *sourceCurrentSplitter = firstProject->viewSplitterAt(2);
+    QVERIFY(sourceCurrentSplitter != nullptr);
+    QCOMPARE(firstProject->currentWidget(), sourceCurrentSplitter);
 
     auto *movedSplitter = firstProject->viewSplitterAt(0);
     QVERIFY(movedSplitter != nullptr);
@@ -767,11 +772,16 @@ void ViewManagerTest::testMoveTabBetweenProjectWorkspaces()
     viewManager->moveTabToProject(firstProject, 0, secondProject);
 
     QCOMPARE(workspaces->projectCount(), 2);
-    QCOMPARE(firstProject->count(), 1);
+    QCOMPARE(firstProject->count(), 2);
     QCOMPARE(secondProject->count(), 2);
     QCOMPARE(viewManager->activeContainer(), secondProject);
     QCOMPARE(secondProject->currentWidget(), movedSplitter);
     QCOMPARE(viewManager->containerForTerminal(movedTerminal), secondProject);
+
+    workspaces->activateProject(firstProject);
+    QCOMPARE(viewManager->activeContainer(), firstProject);
+    QCOMPARE(firstProject->currentWidget(), sourceCurrentSplitter);
+    workspaces->activateProject(secondProject);
 
     auto *remainingSplitter = firstProject->viewSplitterAt(0);
     QVERIFY(remainingSplitter != nullptr);

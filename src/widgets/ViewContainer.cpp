@@ -257,6 +257,9 @@ void TabbedViewContainer::moveTabToContainer(int index, TabbedViewContainer *tar
         return;
     }
 
+    auto *sourceCurrentWidget = currentWidget();
+    const bool movingCurrentTab = sourceCurrentWidget == splitter;
+
     disconnect(splitter, &ViewSplitter::destroyed, this, &TabbedViewContainer::viewDestroyed);
     disconnect(splitter, &ViewSplitter::terminalDisplayDropped, this, &TabbedViewContainer::terminalDisplayDropped);
 
@@ -268,7 +271,11 @@ void TabbedViewContainer::moveTabToContainer(int index, TabbedViewContainer *tar
 
     removeTab(index);
     if (count() > 0) {
-        setCurrentIndex(qBound(0, index, count() - 1));
+        if (movingCurrentTab) {
+            setCurrentIndex(qBound(0, index, count() - 1));
+        } else {
+            setCurrentWidget(sourceCurrentWidget);
+        }
     }
     Q_EMIT viewRemoved();
     forgetView();
