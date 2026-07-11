@@ -929,6 +929,8 @@ void ViewManager::sessionFinished(Session *session)
 
     auto view = _sessionMap.key(session);
     _sessionMap.remove(view);
+    const bool viewWasInActiveContainer = containerForTerminal(view) == activeContainer();
+    updateTerminalDisplayHistory(view, true);
 
     if (SessionManager::instance()->isClosingAllSessions()) {
         return;
@@ -955,8 +957,7 @@ void ViewManager::sessionFinished(Session *session)
         Q_EMIT unplugController(_pluggedController);
     }
 
-    if (!_sessionMap.empty() && containerForTerminal(view) == activeContainer()) {
-        updateTerminalDisplayHistory(view, true);
+    if (!_sessionMap.empty() && viewWasInActiveContainer) {
         focusAnotherTerminal(splitter->getToplevelSplitter());
     }
 }

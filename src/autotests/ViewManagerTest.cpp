@@ -170,6 +170,40 @@ void ViewManagerTest::testProjectWorkspacesKeepIndependentTabs()
     QCOMPARE(secondProject->count(), 2);
 }
 
+void ViewManagerTest::testFinishedBackgroundSessionIsRemovedFromTabHistory()
+{
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *projects = manager->_workspaceContainer.data();
+    QVERIFY(projects != nullptr);
+
+    Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+    profile->setProperty(Profile::Command, QStringLiteral("/bin/true"));
+    profile->setProperty(Profile::Arguments, QStringList{QStringLiteral("/bin/true")});
+    Session *backgroundSession = window.createSession(profile, m_testDir->path());
+    QVERIFY(backgroundSession != nullptr);
+
+    auto *backgroundProject = manager->activeContainer();
+    auto *backgroundTerminal = backgroundProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(backgroundTerminal != nullptr);
+
+    manager->createProject();
+    auto *activeProject = manager->activeContainer();
+    QVERIFY(activeProject != nullptr);
+    QVERIFY(activeProject != backgroundProject);
+    window.newTab();
+    QCOMPARE(activeProject->count(), 2);
+    QVERIFY(manager->_terminalDisplayHistory.contains(backgroundTerminal));
+
+    QPointer<TerminalDisplay> deletedTerminal = backgroundTerminal;
+    backgroundSession->run();
+    QTRY_VERIFY(deletedTerminal.isNull());
+
+    QVERIFY(!manager->_terminalDisplayHistory.contains(backgroundTerminal));
+    manager->lastUsedView();
+    QCOMPARE(manager->activeContainer(), activeProject);
+}
+
 void ViewManagerTest::testSplitsStayInActiveProjectWorkspace()
 {
     auto mw = MainWindow();
