@@ -22,6 +22,12 @@ using namespace Konsole;
 
 namespace
 {
+QStringList kmuxTranslatorPaths(const QString &name)
+{
+    const QString path = QStringLiteral("kmux/") + name + QStringLiteral(".keytab");
+    return QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, path);
+}
+
 QStringList translatorPaths(const QString &name)
 {
     const QStringList searchPaths = {
@@ -78,8 +84,8 @@ bool KeyboardTranslatorManager::deleteTranslator(const QString &name)
 {
     Q_ASSERT(_translators.contains(name));
 
-    // locate and delete
-    QString path = findTranslatorPath(name);
+    const QStringList paths = kmuxTranslatorPaths(name);
+    const QString path = paths.isEmpty() ? QString() : paths.constFirst();
     if (QFile::remove(path)) {
         _translators.remove(name);
         return true;
@@ -90,14 +96,20 @@ bool KeyboardTranslatorManager::deleteTranslator(const QString &name)
 
 bool KeyboardTranslatorManager::isTranslatorDeletable(const QString &name) const
 {
-    const QString &dir = QFileInfo(findTranslatorPath(name)).path();
+    const QStringList paths = kmuxTranslatorPaths(name);
+    if (paths.isEmpty()) {
+        return false;
+    }
+
+    const QString &dir = QFileInfo(paths.constFirst()).path();
     return QFileInfo(dir).isWritable();
 }
 
 bool KeyboardTranslatorManager::isTranslatorResettable(const QString &name) const
 {
     const QStringList paths = translatorPaths(name);
-    return paths.count() > 1 && QFileInfo(paths.constFirst()).isWritable();
+    const QStringList kmuxPaths = kmuxTranslatorPaths(name);
+    return paths.count() > 1 && !kmuxPaths.isEmpty() && paths.constFirst() == kmuxPaths.constFirst() && QFileInfo(paths.constFirst()).isWritable();
 }
 
 const QString KeyboardTranslatorManager::findTranslatorPath(const QString &name) const

@@ -98,7 +98,9 @@ if (!_sessionMap.empty() && containerForTerminal(view) == activeContainer()) {
 
 Исправление: при создании первого окна восстанавливать canonical workspace, а explicit request добавлять в активный проект; для действительно ephemeral запусков не перезаписывать canonical state. Нужны тесты cold start с каждым explicit option и предварительно сохранёнными несколькими проектами.
 
-### High-6. Удаление legacy scheme/keytab из Kmux удаляет файл соседнего Konsole
+### High-6. ✅ Исправлено — удаление legacy scheme/keytab из Kmux удаляло файл соседнего Konsole
+
+Статус: исправлено. Legacy-ресурсы из `konsole/` остаются доступными для чтения, но delete/reset теперь работают только с файлами в namespace `kmux/`. Редактирование создаёт собственную Kmux-копию, а regression tests для color schemes и keytabs проверяют, что legacy-файл не изменяется и не удаляется.
 
 Места: `src/colorscheme/ColorSchemeManager.cpp:28-48`, `178-189`, `224-248`; `src/keyboardtranslator/KeyboardTranslatorManager.cpp:25-44`, `77-106`.
 Коммиты: `7ad0c6909`, `085b37367`.

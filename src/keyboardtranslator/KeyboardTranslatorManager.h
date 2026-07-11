@@ -56,25 +56,15 @@ public:
     bool deleteTranslator(const QString &name);
 
     /**
-     * Checks whether a translator can be deleted or not (by checking if
-     * the directory containing the .keytab file is writable, because one
-     * can still delete a file owned by a different user if the directory
-     * containing it is writable for the current user).
+     * Checks whether a translator belongs to Kmux and can be deleted from
+     * its writable data directory. Legacy Konsole translators are read-only.
      */
     bool isTranslatorDeletable(const QString &name) const;
 
     /**
-     * Checks whether a translator can be reset to its default values.
-     * This is only applicable for translators that exist in two different
-     * locations:
-     *  - system-wide location which is read-only for the user (typically
-     *    /usr/share/konsole/ on Linux)
-     *  - writable user-specific location under the user's home directory
-     *    (typically ~/.local/share/konsole on Linux)
-     *
-     * Resetting here basically means it deletes the translator from the
-     * location under the user's home directory, then "reloads" it from
-     * the system-wide location.
+     * Checks whether a writable Kmux translator overrides another translator
+     * with the same name. Resetting deletes the Kmux-owned translator, then
+     * reloads the fallback.
      */
     bool isTranslatorResettable(const QString &name) const;
 

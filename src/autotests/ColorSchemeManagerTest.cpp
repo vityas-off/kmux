@@ -6,6 +6,7 @@
 
 #include "colorscheme/ColorSchemeManager.h"
 
+#include <QDir>
 #include <QFile>
 #include <QStandardPaths>
 #include <QTest>
@@ -19,6 +20,7 @@ class ColorSchemeManagerTest : public QObject
 private Q_SLOTS:
     void initTestCase();
     void testCustomSchemeReloadsFromKmuxDataDirectory();
+    void testLegacySchemeIsReadOnly();
 };
 
 void ColorSchemeManagerTest::initTestCase()
@@ -46,6 +48,44 @@ void ColorSchemeManagerTest::testCustomSchemeReloadsFromKmuxDataDirectory()
     QCOMPARE(reloadedScheme->name(), name);
 
     QVERIFY(QFile::remove(path));
+}
+
+void ColorSchemeManagerTest::testLegacySchemeIsReadOnly()
+{
+    const QString name = QStringLiteral("KmuxLegacyReadOnlyTest");
+    const QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString kmuxPath = dataLocation + QStringLiteral("/kmux/") + name + QStringLiteral(".colorscheme");
+    const QString legacyPath = dataLocation + QStringLiteral("/konsole/") + name + QStringLiteral(".colorscheme");
+    QFile::remove(kmuxPath);
+    QFile::remove(legacyPath);
+    QVERIFY(QDir().mkpath(QFileInfo(legacyPath).path()));
+
+    QFile legacyFile(legacyPath);
+    QVERIFY(legacyFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    QCOMPARE(legacyFile.write("[General]\nDescription=Legacy scheme\n"), 36);
+    legacyFile.close();
+
+    ColorSchemeManager manager;
+    const auto legacyScheme = manager.findColorScheme(name);
+    QVERIFY(legacyScheme != nullptr);
+    QVERIFY(!manager.isColorSchemeDeletable(name));
+    QVERIFY(!manager.canResetColorScheme(name));
+    QVERIFY(!manager.deleteColorScheme(name));
+    QVERIFY(QFile::exists(legacyPath));
+
+    auto kmuxScheme = std::make_shared<ColorScheme>();
+    kmuxScheme->setName(name);
+    manager.addColorScheme(kmuxScheme);
+    QVERIFY(QFile::exists(kmuxPath));
+    QVERIFY(QFile::exists(legacyPath));
+    QVERIFY(manager.isColorSchemeDeletable(name));
+    QVERIFY(manager.canResetColorScheme(name));
+    QVERIFY(manager.deleteColorScheme(name));
+    QVERIFY(!QFile::exists(kmuxPath));
+    QVERIFY(QFile::exists(legacyPath));
+    QVERIFY(manager.findColorScheme(name) != nullptr);
+
+    QVERIFY(QFile::remove(legacyPath));
 }
 
 QTEST_GUILESS_MAIN(ColorSchemeManagerTest)

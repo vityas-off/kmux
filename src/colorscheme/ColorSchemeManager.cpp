@@ -25,6 +25,12 @@ using namespace Konsole;
 
 namespace
 {
+QStringList kmuxColorSchemePaths(const QString &name)
+{
+    const QString path = QStringLiteral("kmux/") + name + QStringLiteral(".colorscheme");
+    return QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, path);
+}
+
 QStringList colorSchemePaths(const QString &name)
 {
     const QStringList searchPaths = {
@@ -179,8 +185,8 @@ bool ColorSchemeManager::deleteColorScheme(const QString &name)
 {
     Q_ASSERT(_colorSchemes.contains(name));
 
-    // look up the path and delete
-    QString path = findColorSchemePath(name);
+    const QStringList paths = kmuxColorSchemePaths(name);
+    const QString path = paths.isEmpty() ? QString() : paths.constFirst();
     if (QFile::remove(path)) {
         _colorSchemes.remove(name);
         return true;
@@ -234,7 +240,12 @@ bool ColorSchemeManager::pathIsColorScheme(const QString &path)
 
 bool ColorSchemeManager::isColorSchemeDeletable(const QString &name)
 {
-    QFileInfo fileInfo(findColorSchemePath(name));
+    const QStringList paths = kmuxColorSchemePaths(name);
+    if (paths.isEmpty()) {
+        return false;
+    }
+
+    QFileInfo fileInfo(paths.constFirst());
     QFileInfo dirInfo(fileInfo.path());
 
     return dirInfo.isWritable();
@@ -243,7 +254,8 @@ bool ColorSchemeManager::isColorSchemeDeletable(const QString &name)
 bool ColorSchemeManager::canResetColorScheme(const QString &name)
 {
     const QStringList paths = colorSchemePaths(name);
+    const QStringList kmuxPaths = kmuxColorSchemePaths(name);
 
     // Resetting removes the preferred writable scheme and reveals a fallback.
-    return paths.count() > 1 && QFileInfo(paths.constFirst()).isWritable();
+    return paths.count() > 1 && !kmuxPaths.isEmpty() && paths.constFirst() == kmuxPaths.constFirst() && QFileInfo(paths.constFirst()).isWritable();
 }

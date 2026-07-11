@@ -22,6 +22,7 @@ private Q_SLOTS:
     void testEntryTextWildcards_data();
     void testHexKeys();
     void testCustomTranslatorReloadsFromKmuxDataDirectory();
+    void testLegacyTranslatorIsReadOnly();
 };
 
 }

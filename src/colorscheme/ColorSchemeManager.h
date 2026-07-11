@@ -74,14 +74,14 @@ public:
     static ColorSchemeManager *instance();
 
     /**
-     * Returns @c true if a colorscheme with @p name exists both under
-     * the user's home dir location, and a system-wide location
+     * Returns @c true if a Kmux-owned colorscheme with @p name can be
+     * removed to reveal another colorscheme with the same name.
      */
     bool canResetColorScheme(const QString &name);
 
     /**
-     * Returns @c true if a colorscheme with @p name exists under the
-     * user's home dir location, and hence can be deleted
+     * Returns @c true if a colorscheme with @p name exists in a writable
+     * Kmux data directory, and hence can be deleted.
      */
     bool isColorSchemeDeletable(const QString &name);
 

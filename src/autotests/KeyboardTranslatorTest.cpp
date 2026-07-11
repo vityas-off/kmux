@@ -11,6 +11,7 @@
 #include "keyboardtranslator/KeyboardTranslatorReader.h"
 
 // KDE
+#include <QDir>
 #include <QFile>
 #include <QStandardPaths>
 #include <QTest>
@@ -181,6 +182,44 @@ void KeyboardTranslatorTest::testCustomTranslatorReloadsFromKmuxDataDirectory()
     QCOMPARE(reloadedTranslator->description(), QStringLiteral("Reload test translator"));
 
     QVERIFY(QFile::remove(path));
+}
+
+void KeyboardTranslatorTest::testLegacyTranslatorIsReadOnly()
+{
+    const QString name = QStringLiteral("KmuxLegacyReadOnlyTest");
+    const QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString kmuxPath = dataLocation + QStringLiteral("/kmux/") + name + QStringLiteral(".keytab");
+    const QString legacyPath = dataLocation + QStringLiteral("/konsole/") + name + QStringLiteral(".keytab");
+    QFile::remove(kmuxPath);
+    QFile::remove(legacyPath);
+    QVERIFY(QDir().mkpath(QFileInfo(legacyPath).path()));
+    QVERIFY(QFile::copy(QFINDTESTDATA(QStringLiteral("data/test.keytab")), legacyPath));
+
+    {
+        KeyboardTranslatorManager manager;
+        QVERIFY(manager.findTranslator(name) != nullptr);
+        QVERIFY(!manager.isTranslatorDeletable(name));
+        QVERIFY(!manager.isTranslatorResettable(name));
+        QVERIFY(!manager.deleteTranslator(name));
+        QVERIFY(QFile::exists(legacyPath));
+    }
+
+    {
+        KeyboardTranslatorManager manager;
+        auto *translator = new KeyboardTranslator(name);
+        translator->setDescription(QStringLiteral("Kmux override"));
+        manager.addTranslator(translator);
+        QVERIFY(QFile::exists(kmuxPath));
+        QVERIFY(QFile::exists(legacyPath));
+        QVERIFY(manager.isTranslatorDeletable(name));
+        QVERIFY(manager.isTranslatorResettable(name));
+        QVERIFY(manager.deleteTranslator(name));
+        QVERIFY(!QFile::exists(kmuxPath));
+        QVERIFY(QFile::exists(legacyPath));
+        QVERIFY(manager.findTranslator(name) != nullptr);
+    }
+
+    QVERIFY(QFile::remove(legacyPath));
 }
 
 QTEST_GUILESS_MAIN(KeyboardTranslatorTest)
