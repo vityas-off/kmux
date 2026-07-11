@@ -360,6 +360,7 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     _projectList->setDropIndicatorShown(true);
     _projectList->setFrameShape(QFrame::NoFrame);
     _projectList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    _projectList->setFocusPolicy(Qt::NoFocus);
     _projectList->setSelectionMode(QAbstractItemView::SingleSelection);
     _projectList->setContextMenuPolicy(Qt::CustomContextMenu);
     _projectList->setItemDelegate(new ProjectItemDelegate(_projectList));

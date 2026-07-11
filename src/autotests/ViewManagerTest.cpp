@@ -12,6 +12,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QListWidget>
 #include <QMenu>
 #include <QPointer>
 #include <QProcess>
@@ -577,6 +578,15 @@ void ViewManagerTest::testProjectWorkspaceDetachActionsDisabled()
     QVERIFY(!detachView->isEnabled());
     QVERIFY(!detachView->isVisible());
     QVERIFY(detachView->shortcut().isEmpty());
+}
+
+void ViewManagerTest::testProjectWorkspaceRailDoesNotAcceptFocus()
+{
+    ProjectWorkspaceContainer workspaces;
+    auto *projectList = workspaces.findChild<QListWidget *>(QStringLiteral("projectList"));
+
+    QVERIFY(projectList != nullptr);
+    QCOMPARE(projectList->focusPolicy(), Qt::NoFocus);
 }
 
 void ViewManagerTest::testNoNavigationDisablesProjectActions()

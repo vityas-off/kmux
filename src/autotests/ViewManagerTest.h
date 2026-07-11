@@ -31,6 +31,7 @@ private Q_SLOTS:
     void testProjectWorkspaceCodexDecisionKeysAreSessionScoped();
     void testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession();
     void testProjectWorkspaceNavigationShortcuts();
+    void testProjectWorkspaceRailDoesNotAcceptFocus();
     void testNoNavigationDisablesProjectActions();
     void testProjectWorkspaceDetachActionsDisabled();
     void testProjectWorkspaceNewWindowActionDisabled();
