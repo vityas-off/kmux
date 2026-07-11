@@ -1751,9 +1751,12 @@ QJsonObject saveSessionTerminal(TerminalDisplay *terminalDisplay)
     thisTerminal.insert(QStringLiteral("AutoClose"), terminalSession->autoClose());
     thisTerminal.insert(QStringLiteral("LocalTabTitleFormat"), terminalSession->tabTitleFormat(Session::LocalTabTitle));
     thisTerminal.insert(QStringLiteral("RemoteTabTitleFormat"), terminalSession->tabTitleFormat(Session::RemoteTabTitle));
+    thisTerminal.insert(QStringLiteral("TabTitleSetByUser"), terminalSession->isTabTitleSetByUser());
     thisTerminal.insert(QStringLiteral("TabColor"), terminalSession->color().isValid() ? terminalSession->color().name(QColor::HexArgb) : QString());
+    thisTerminal.insert(QStringLiteral("TabColorSetByUser"), terminalSession->isTabColorSetByUser());
     thisTerminal.insert(QStringLiteral("TabActivityColor"),
                         terminalSession->activityColor().isValid() ? terminalSession->activityColor().name(QColor::HexArgb) : QString());
+    thisTerminal.insert(QStringLiteral("TabActivityColorSetByUser"), terminalSession->isTabActivityColorSetByUser());
     thisTerminal.insert(QStringLiteral("Encoding"), QString::fromUtf8(terminalSession->codec()));
     thisTerminal.insert(QStringLiteral("BadgeEnabled"), terminalSession->badgeEnabled());
     thisTerminal.insert(QStringLiteral("BadgeText"), terminalSession->badgeText());
@@ -1941,6 +1944,15 @@ void restoreColdSessionState(Session *session, const QJsonObject &sessionObject)
     }
     if (sessionObject.contains(QStringLiteral("TabActivityColor"))) {
         session->setActivityColor(QColor(sessionObject[QStringLiteral("TabActivityColor")].toString()));
+    }
+    if (sessionObject.contains(QStringLiteral("TabTitleSetByUser"))) {
+        session->tabTitleSetByUser(sessionObject[QStringLiteral("TabTitleSetByUser")].toBool());
+    }
+    if (sessionObject.contains(QStringLiteral("TabColorSetByUser"))) {
+        session->tabColorSetByUser(sessionObject[QStringLiteral("TabColorSetByUser")].toBool());
+    }
+    if (sessionObject.contains(QStringLiteral("TabActivityColorSetByUser"))) {
+        session->tabActivityColorSetByUser(sessionObject[QStringLiteral("TabActivityColorSetByUser")].toBool());
     }
     if (sessionObject.contains(QStringLiteral("Encoding"))) {
         session->setCodec(sessionObject[QStringLiteral("Encoding")].toString().toUtf8());

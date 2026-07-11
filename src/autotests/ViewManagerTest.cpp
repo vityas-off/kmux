@@ -937,6 +937,10 @@ void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
     const QString program = QStringLiteral("/bin/sh");
     const QStringList arguments = {program, QStringLiteral("-c"), QStringLiteral("printf restored")};
     const QStringList environment = {QStringLiteral("TERM=xterm-256color"), QStringLiteral("KMUX_RESTORE_TEST=preserved")};
+    const QString localTabTitle = QStringLiteral("restored local title");
+    const QString remoteTabTitle = QStringLiteral("restored remote title");
+    const QColor tabColor(QStringLiteral("#ff336699"));
+    const QColor tabActivityColor(QStringLiteral("#ffcc8844"));
 
     {
         auto sourceWindow = MainWindow();
@@ -951,8 +955,13 @@ void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
         Session *session = sourceWindow.createSession(profile, m_testDir->path());
         QVERIFY(session != nullptr);
         session->setAutoClose(false);
-        session->setTabTitleFormat(Session::LocalTabTitle, QStringLiteral("restored title"));
-        session->setColor(QColor(QStringLiteral("#ff336699")));
+        session->setTabTitleFormat(Session::LocalTabTitle, localTabTitle);
+        session->setTabTitleFormat(Session::RemoteTabTitle, remoteTabTitle);
+        session->tabTitleSetByUser(true);
+        session->setColor(tabColor);
+        session->tabColorSetByUser(true);
+        session->setActivityColor(tabActivityColor);
+        session->tabActivityColorSetByUser(true);
         session->setBadgeEnabled(true);
         session->setBadgeText(QStringLiteral("restore badge"));
         sourceWindow.viewManager()->saveSessions(group);
@@ -965,6 +974,9 @@ void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
         QCOMPARE(terminal[QStringLiteral("Command")].toString(), program);
         QCOMPARE(terminal[QStringLiteral("Arguments")].toArray(), QJsonArray::fromStringList(arguments));
         QCOMPARE(terminal[QStringLiteral("Environment")].toArray(), QJsonArray::fromStringList(environment));
+        QVERIFY(terminal[QStringLiteral("TabTitleSetByUser")].toBool());
+        QVERIFY(terminal[QStringLiteral("TabColorSetByUser")].toBool());
+        QVERIFY(terminal[QStringLiteral("TabActivityColorSetByUser")].toBool());
     }
 
     auto restoredWindow = MainWindow();
@@ -981,10 +993,27 @@ void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
     QCOMPARE(restoredSession->arguments(), arguments);
     QCOMPARE(restoredProfile->environment(), environment);
     QVERIFY(!restoredSession->autoClose());
-    QCOMPARE(restoredSession->tabTitleFormat(Session::LocalTabTitle), QStringLiteral("restored title"));
-    QCOMPARE(restoredSession->color(), QColor(QStringLiteral("#ff336699")));
+    QCOMPARE(restoredSession->tabTitleFormat(Session::LocalTabTitle), localTabTitle);
+    QCOMPARE(restoredSession->tabTitleFormat(Session::RemoteTabTitle), remoteTabTitle);
+    QCOMPARE(restoredSession->color(), tabColor);
+    QCOMPARE(restoredSession->activityColor(), tabActivityColor);
+    QVERIFY(restoredSession->isTabTitleSetByUser());
+    QVERIFY(restoredSession->isTabColorSetByUser());
+    QVERIFY(restoredSession->isTabActivityColorSetByUser());
     QVERIFY(restoredSession->badgeEnabled());
     QCOMPARE(restoredSession->badgeText(), QStringLiteral("restore badge"));
+
+    Profile::Ptr updatedProfile(new Profile(restoredProfile));
+    updatedProfile->setProperty(Profile::LocalTabTitleFormat, QStringLiteral("profile local title"));
+    updatedProfile->setProperty(Profile::RemoteTabTitleFormat, QStringLiteral("profile remote title"));
+    updatedProfile->setProperty(Profile::TabColor, QColor(QStringLiteral("#ff112233")));
+    updatedProfile->setProperty(Profile::TabActivityColor, QColor(QStringLiteral("#ff445566")));
+    SessionManager::instance()->setSessionProfile(restoredSession, updatedProfile);
+
+    QCOMPARE(restoredSession->tabTitleFormat(Session::LocalTabTitle), localTabTitle);
+    QCOMPARE(restoredSession->tabTitleFormat(Session::RemoteTabTitle), remoteTabTitle);
+    QCOMPARE(restoredSession->color(), tabColor);
+    QCOMPARE(restoredSession->activityColor(), tabActivityColor);
 }
 
 void ViewManagerTest::testInitializeRestoredSessionsPreservesActiveTabs()
