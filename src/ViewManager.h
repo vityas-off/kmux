@@ -422,6 +422,7 @@ private Q_SLOTS:
     // called when the active view in a ViewContainer changes, so
     // that we can plug the appropriate actions into the UI
     void activateView(TerminalDisplay *view);
+    void handleActivationRequest(const QString &xdgActivationToken);
 
     void focusUp();
     void focusDown();

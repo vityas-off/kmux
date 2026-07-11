@@ -18,6 +18,7 @@
 #include <QProcess>
 #include <QScopeGuard>
 #include <QSet>
+#include <QSignalSpy>
 #include <QTest>
 
 #include <KActionCollection>
@@ -372,8 +373,13 @@ void ViewManagerTest::testProjectWorkspaceTerminalNotificationMarksInactiveProje
     QVERIFY(firstProject != nullptr);
     auto *firstTerminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
     QVERIFY(firstTerminal != nullptr);
+    QWidget *notificationTab = firstProject->currentWidget();
+    QVERIFY(notificationTab != nullptr);
     Session *firstSession = firstTerminal->sessionController()->session();
     QVERIFY(firstSession != nullptr);
+
+    mw.newTab();
+    QVERIFY(firstProject->currentWidget() != notificationTab);
 
     viewManager->createProject();
     auto *secondProject = viewManager->activeContainer();
@@ -385,7 +391,15 @@ void ViewManagerTest::testProjectWorkspaceTerminalNotificationMarksInactiveProje
     QVERIFY(workspaces->projectHasActivity(firstProject));
     QCOMPARE(workspaces->projectNotification(firstProject), QStringLiteral("Codex: Turn complete"));
 
-    workspaces->activateProject(firstProject);
+    QSignalSpy activationSpy(viewManager, &ViewManager::activationRequest);
+    firstTerminal->notificationClicked(QStringLiteral("notification-token"));
+
+    QCOMPARE(activationSpy.count(), 1);
+    QCOMPARE(activationSpy.constFirst().constFirst().toString(), QStringLiteral("notification-token"));
+    QCOMPARE(viewManager->activeContainer(), firstProject);
+    QCOMPARE(firstProject->currentWidget(), notificationTab);
+    QCOMPARE(firstProject->activeViewSplitter()->activeTerminalDisplay(), firstTerminal);
+    QCOMPARE(viewManager->currentSession(), firstSession->sessionId());
     QVERIFY(!workspaces->projectHasActivity(firstProject));
     QCOMPARE(workspaces->projectNotification(firstProject), QStringLiteral("Codex: Turn complete"));
 }

@@ -1332,6 +1332,14 @@ void ViewManager::setCurrentView(TerminalDisplay *view)
     setCurrentSession(_sessionMap[view]->sessionId());
 }
 
+void ViewManager::handleActivationRequest(const QString &xdgActivationToken)
+{
+    if (auto *display = qobject_cast<TerminalDisplay *>(sender())) {
+        setCurrentView(display);
+    }
+    Q_EMIT activationRequest(xdgActivationToken);
+}
+
 TerminalDisplay *ViewManager::createView(Session *session)
 {
     // notify this view manager when the session finishes so that its view
@@ -1358,7 +1366,7 @@ TerminalDisplay *ViewManager::createView(Session *session)
     session->setDarkBackground(colorSchemeForProfile(profile)->hasDarkBackground());
     display->setFocus(Qt::OtherFocusReason);
     //     updateDetachViewState();
-    connect(display, &TerminalDisplay::activationRequest, this, &Konsole::ViewManager::activationRequest);
+    connect(display, &TerminalDisplay::activationRequest, this, &Konsole::ViewManager::handleActivationRequest);
 
     return display;
 }
