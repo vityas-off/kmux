@@ -47,11 +47,15 @@ struct HookEvent {
 // Codex SessionStart describes the agent process, not an active turn. Its
 // PermissionRequest hook has no matching approval-resolved event, so Kmux
 // clears that needs-input state when the terminal receives the decision key.
+// Manual compaction is a standalone turn; automatic compaction inherits the
+// running state of the turn that triggered it.
 const QList<HookEvent> CodexHookEvents = {
     {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("idle"), 5, QString()},
     {QStringLiteral("UserPromptSubmit"), QStringLiteral("user_prompt_submit"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PreToolUse"), QStringLiteral("pre_tool_use"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PostToolUse"), QStringLiteral("post_tool_use"), QStringLiteral("running"), 5, QString()},
+    {QStringLiteral("PreCompact"), QStringLiteral("pre_compact"), QStringLiteral("running"), 5, QStringLiteral("manual")},
+    {QStringLiteral("PostCompact"), QStringLiteral("post_compact"), QStringLiteral("idle"), 5, QStringLiteral("manual")},
     {QStringLiteral("PermissionRequest"), QStringLiteral("permission_request"), QStringLiteral("needsInput"), 5, QString()},
     {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
 };
