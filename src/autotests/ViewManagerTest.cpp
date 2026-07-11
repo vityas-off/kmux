@@ -264,7 +264,7 @@ void ViewManagerTest::testDbusLayoutOperationsRejectCrossProjectViews()
     QCOMPARE(secondProject->currentTabViewCount(), 1);
 }
 
-void ViewManagerTest::testSessionCountUsesActiveProjectWorkspace()
+void ViewManagerTest::testSessionCountIncludesAllProjectWorkspaces()
 {
     auto mw = MainWindow();
     auto *viewManager = mw.viewManager();
@@ -284,13 +284,23 @@ void ViewManagerTest::testSessionCountUsesActiveProjectWorkspace()
     QVERIFY(secondProject != nullptr);
     QVERIFY(secondProject != firstProject);
     QCOMPARE(secondProject->count(), 1);
-    QCOMPARE(viewManager->sessionList().count(), 1);
-    QCOMPARE(viewManager->sessionCount(), 1);
+    QCOMPARE(viewManager->sessionList().count(), 3);
+    QCOMPARE(viewManager->sessionCount(), 3);
+
+    QSet<QString> expectedSessionIds;
+    const QList<Session *> sessions = viewManager->sessions();
+    for (const Session *session : sessions) {
+        expectedSessionIds.insert(QString::number(session->sessionId()));
+    }
+    const QStringList sessionIds = viewManager->sessionList();
+    QCOMPARE(QSet<QString>(sessionIds.begin(), sessionIds.end()), expectedSessionIds);
 
     workspaces->activateProject(firstProject);
     QCOMPARE(viewManager->activeContainer(), firstProject);
-    QCOMPARE(viewManager->sessionList().count(), 2);
-    QCOMPARE(viewManager->sessionCount(), 2);
+    QCOMPARE(viewManager->sessionList().count(), 3);
+    QCOMPARE(viewManager->sessionCount(), 3);
+    const QStringList sessionIdsAfterProjectSwitch = viewManager->sessionList();
+    QCOMPARE(QSet<QString>(sessionIdsAfterProjectSwitch.begin(), sessionIdsAfterProjectSwitch.end()), expectedSessionIds);
 }
 
 void ViewManagerTest::testSessionsIncludesAllProjectWorkspaces()
@@ -310,13 +320,13 @@ void ViewManagerTest::testSessionsIncludesAllProjectWorkspaces()
     QVERIFY(secondProject != nullptr);
     QVERIFY(secondProject != firstProject);
 
-    QCOMPARE(viewManager->sessionList().count(), 1);
+    QCOMPARE(viewManager->sessionList().count(), 3);
     QCOMPARE(viewManager->viewProperties().count(), 1);
     QList<Session *> sessions = viewManager->sessions();
     QCOMPARE(QSet<Session *>(sessions.begin(), sessions.end()).count(), 3);
 
     workspaces->activateProject(firstProject);
-    QCOMPARE(viewManager->sessionList().count(), 2);
+    QCOMPARE(viewManager->sessionList().count(), 3);
     QCOMPARE(viewManager->viewProperties().count(), 2);
     sessions = viewManager->sessions();
     QCOMPARE(QSet<Session *>(sessions.begin(), sessions.end()).count(), 3);
@@ -924,7 +934,7 @@ void ViewManagerTest::testRestoreSessionsCreatesProjectWorkspacesWithoutSessionI
     QCOMPARE(restoredProjects.at(1)->count(), 2);
     QCOMPARE(restoredProjects.at(1)->currentIndex(), 1);
     QCOMPARE(restoredManager->activeContainer(), restoredProjects.at(1));
-    QCOMPARE(restoredManager->sessionList().count(), 2);
+    QCOMPARE(restoredManager->sessionList().count(), 4);
 }
 
 void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()

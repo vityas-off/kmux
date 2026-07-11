@@ -221,7 +221,7 @@ Secondary instance передаёт запрос primary раньше `processHe
 
 Это вывод из текущих KAboutData values; runtime DBus test в данном build не собран. Нужно явно согласовать well-known service с desktop ID и добавить его проверку в CI.
 
-### Medium-10. DBus `sessionList()`/`sessionCount()` скрывают неактивные проекты
+### Medium-10. ✅ Исправлено — DBus `sessionList()`/`sessionCount()` включают все проекты окна
 
 Места: `src/ViewManager.cpp:2200-2218`; контраст — `2229-2246`.
 Коммиты: `001a570dd`, `a4f4159d5`.

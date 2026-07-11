@@ -2227,11 +2227,17 @@ QStringList ViewManager::sessionList()
 {
     QStringList ids;
 
-    auto *container = activeContainer();
-    for (int i = 0; container != nullptr && i < container->count(); i++) {
-        const auto terminaldisplayList = container->widget(i)->findChildren<TerminalDisplay *>();
-        for (auto *terminaldisplay : terminaldisplayList) {
-            ids.append(QString::number(terminaldisplay->sessionController()->session()->sessionId()));
+    if (_workspaceContainer.isNull()) {
+        return ids;
+    }
+
+    const QList<TabbedViewContainer *> containers = _workspaceContainer->containers();
+    for (auto *container : containers) {
+        for (int i = 0; container != nullptr && i < container->count(); i++) {
+            const auto terminaldisplayList = container->widget(i)->findChildren<TerminalDisplay *>();
+            for (auto *terminaldisplay : terminaldisplayList) {
+                ids.append(QString::number(terminaldisplay->sessionController()->session()->sessionId()));
+            }
         }
     }
 

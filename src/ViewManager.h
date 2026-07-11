@@ -255,12 +255,12 @@ Q_SIGNALS:
     void contextMenuAdditionalActionsChanged(const QList<QAction *> &extension);
 
 public Q_SLOTS:
-    /** DBus slot that returns the number of sessions in the current view. */
+    /** DBus slot that returns the number of sessions in this window. */
     Q_SCRIPTABLE int sessionCount();
 
     /**
      * DBus slot that returns the unique ids of the sessions in the
-     * current view.  The returned list is ordered by tab.
+     * window.  The returned list is ordered by project and then by tab.
      * QList<int> is not printable by qdbus so we use QStringList
      * Example:
      *  A) create tab, create tab 2, create tab 3, go to tab 2, split view

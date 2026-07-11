@@ -24,7 +24,7 @@ private Q_SLOTS:
     void testFinishedBackgroundSessionIsRemovedFromTabHistory();
     void testSplitsStayInActiveProjectWorkspace();
     void testDbusLayoutOperationsRejectCrossProjectViews();
-    void testSessionCountUsesActiveProjectWorkspace();
+    void testSessionCountIncludesAllProjectWorkspaces();
     void testSessionsIncludesAllProjectWorkspaces();
     void testProjectWorkspaceSummaryTracksActiveTab();
     void testProjectWorkspaceTerminalNotificationMarksInactiveProject();
