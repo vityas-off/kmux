@@ -260,7 +260,7 @@ public:
         }
         if (!statusBadge.isEmpty()) {
             statusIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), statusIndicatorWidth, indicatorsRect.height());
-        } else if (hasActivity) {
+        } else if (hasActivity && processBadge.isEmpty()) {
             activityRect = QRect(indicatorLeft, indicatorsRect.center().y() - 3, 7, 7);
         }
 
