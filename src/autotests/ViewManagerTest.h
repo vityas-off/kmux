@@ -29,6 +29,7 @@ private Q_SLOTS:
     void testProjectWorkspaceStatusTracksSessionHooks();
     void testProjectWorkspaceStatusClearsWhenAgentExits();
     void testProjectWorkspaceCodexDecisionKeysAreSessionScoped();
+    void testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession();
     void testProjectWorkspaceNavigationShortcuts();
     void testNoNavigationDisablesProjectActions();
     void testProjectWorkspaceDetachActionsDisabled();

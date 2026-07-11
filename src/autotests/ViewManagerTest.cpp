@@ -444,6 +444,42 @@ void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 }
 
+void ViewManagerTest::testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 2);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PostToolUse"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 2);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    QKeyEvent firstReturnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+    Q_EMIT terminal->keyPressedSignal(&firstReturnKey);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    QKeyEvent secondReturnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+    Q_EMIT terminal->keyPressedSignal(&secondReturnKey);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+}
+
 void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
 {
     auto mw = MainWindow();

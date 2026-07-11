@@ -568,7 +568,7 @@ private:
     struct SessionProjectStatus {
         ProjectWorkspaceContainer::ProjectStatus status = ProjectWorkspaceContainer::ProjectStatus::None;
         qlonglong agentProcessId = 0;
-        bool clearsOnTerminalDecision = false;
+        int pendingTerminalDecisions = 0;
     };
     QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
     QTimer _projectStatusProcessTimer;

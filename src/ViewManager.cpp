@@ -2641,13 +2641,25 @@ void ViewManager::setSessionProjectStatus(Session *session,
         return;
     }
 
+    const auto previousStatus = _sessionProjectStatuses.value(session);
+    const bool agentProcessChanged = agentProcessId > 0 && previousStatus.agentProcessId > 0 && agentProcessId != previousStatus.agentProcessId;
     if (agentProcessId <= 0) {
-        agentProcessId = _sessionProjectStatuses.value(session).agentProcessId;
+        agentProcessId = previousStatus.agentProcessId;
     }
-    const bool clearsOnTerminalDecision = projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
-        && agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0 && event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
-    _sessionProjectStatuses.insert(session, {projectStatus, agentProcessId, clearsOnTerminalDecision});
-    if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+
+    const bool isCodexEvent = agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0;
+    const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
+    const bool resetsPendingDecisions = event.compare(QLatin1String("SessionStart"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
+
+    int pendingTerminalDecisions = agentProcessChanged || !isCodexEvent || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
+    if (isCodexEvent && isPermissionRequest) {
+        ++pendingTerminalDecisions;
+    }
+
+    const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
+    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions});
+    if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);
     } else {
         _sessionsNeedingAttention.remove(session);
@@ -2665,14 +2677,16 @@ void ViewManager::handleSessionTerminalDecisionKey(Session *session, TabbedViewC
     const bool resolvesDecision =
         commandModifiers == Qt::NoModifier && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Escape);
     auto status = _sessionProjectStatuses.find(session);
-    if (!resolvesDecision || status == _sessionProjectStatuses.end() || !status->clearsOnTerminalDecision
+    if (!resolvesDecision || status == _sessionProjectStatuses.end() || status->pendingTerminalDecisions <= 0
         || status->status != ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         return;
     }
 
-    status->status = ProjectWorkspaceContainer::ProjectStatus::Running;
-    status->clearsOnTerminalDecision = false;
-    _sessionsNeedingAttention.remove(session);
+    --status->pendingTerminalDecisions;
+    if (status->pendingTerminalDecisions == 0) {
+        status->status = ProjectWorkspaceContainer::ProjectStatus::Running;
+        _sessionsNeedingAttention.remove(session);
+    }
     refreshProjectSummary(container);
 }
 
