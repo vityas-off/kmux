@@ -601,7 +601,20 @@ int ProjectWorkspaceContainer::projectCount() const
 
 QString ProjectWorkspaceContainer::nextDefaultProjectTitle() const
 {
-    return i18nc("@title", "Project %1", _model->nextProjectNumber());
+    int projectNumber = _model->nextProjectNumber();
+    QString title;
+    bool titleInUse = false;
+    do {
+        title = i18nc("@title", "Project %1", projectNumber++);
+        titleInUse = false;
+        for (int projectIndex = 0; projectIndex < _model->projectCount(); ++projectIndex) {
+            if (_model->projectAt(projectIndex).title == title) {
+                titleInUse = true;
+                break;
+            }
+        }
+    } while (titleInUse);
+    return title;
 }
 
 ProjectWorkspaceModel *ProjectWorkspaceContainer::projectModel() const

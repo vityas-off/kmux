@@ -281,7 +281,7 @@ Scripts общие для всех configs и лежат в одном `$XDG_DAT
 
 ## Дополнительные замечания
 
-- `src/workspaces/ProjectWorkspaceModel.cpp:18-25` и restore reuse в `src/ViewManager.cpp:2085-2098`: после восстановления непоследовательной нумерации следующий default title может дублироваться. Пример: сохранить единственный `Project 2`, восстановить, добавить проект — получится второй `Project 2`.
+- ✅ Исправлено — после восстановления непоследовательной нумерации следующий default title больше не дублируется. `nextDefaultProjectTitle()` пропускает уже занятые стандартные названия; regression test сохраняет единственный `Project 2`, восстанавливает его и проверяет, что следующий проект называется `Project 3`.
 - `src/config-konsole.h.cmake:1`, `src/session/SessionManager.cpp:187-198`: Kmux 0.1.0 экспортирует `KONSOLE_VERSION=000100`. Upstream shell integrations могут принять современную Konsole-базу за древнюю. Product version лучше экспортировать отдельно от compatibility version.
 - `CMakeLists.txt:77-93`, `src/main.cpp:200-236`: single-workspace invariant целиком зависит от DBus, который по умолчанию выключен на Windows/macOS; несколько процессов будут сохранять один state по принципу last-writer-wins.
 - `src/konsole-agent-hooks.cpp:623-655`, `674-717`, `774-832`: read-modify-write двух config-файлов и общих scripts не защищён `QLockFile`; параллельные auto-install/uninstall могут потерять внешнюю правку или оставить частично согласованное состояние.

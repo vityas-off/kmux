@@ -1090,6 +1090,26 @@ void ViewManagerTest::testRestoreSessionsCreatesProjectWorkspacesWithoutSessionI
     QCOMPARE(restoredManager->sessionList().count(), 4);
 }
 
+void ViewManagerTest::testRestoredProjectTitlesDoNotDuplicateDefaultTitle()
+{
+    KConfig config(m_testDir->filePath(QStringLiteral("restored-project-title-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+    const QJsonObject restoredProject{{QStringLiteral("Title"), QStringLiteral("Project 2")}, {QStringLiteral("Tabs"), QJsonArray{}}};
+    group.writeEntry("Projects", QJsonDocument(QJsonArray{restoredProject}).toJson(QJsonDocument::Compact));
+
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *workspaces = manager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    manager->restoreSessions(group, false);
+    QCOMPARE(workspaces->projectTitle(workspaces->containers().constFirst()), QStringLiteral("Project 2"));
+
+    manager->createProject();
+    QCOMPARE(workspaces->projectCount(), 2);
+    QCOMPARE(workspaces->projectTitle(workspaces->containers().constLast()), QStringLiteral("Project 3"));
+}
+
 void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
 {
     KConfig config(m_testDir->filePath(QStringLiteral("cold-restore-state-testrc")), KConfig::SimpleConfig);

@@ -45,6 +45,7 @@ private Q_SLOTS:
     void testSaveSessionsStoresProjectWorkspaces();
     void testProjectWorkspaceRailWidthPersists();
     void testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds();
+    void testRestoredProjectTitlesDoNotDuplicateDefaultTitle();
     void testColdRestorePreservesSessionProfileAndState();
     void testFinishedAutoCloseCommandIsNotColdRestored();
     void testInitializeRestoredSessionsPreservesActiveTabs();
