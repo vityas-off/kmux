@@ -44,6 +44,7 @@ private Q_SLOTS:
     void testProjectWorkspaceRailWidthPersists();
     void testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds();
     void testColdRestorePreservesSessionProfileAndState();
+    void testFinishedAutoCloseCommandIsNotColdRestored();
     void testInitializeRestoredSessionsPreservesActiveTabs();
     void testRemovingBackgroundProjectPreservesActiveProject();
     void testClosedProjectsDeleteViewContainers();

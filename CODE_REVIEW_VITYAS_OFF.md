@@ -78,7 +78,9 @@ if (!_sessionMap.empty() && containerForTerminal(view) == activeContainer()) {
 
 Исправление: либо отклонять source вне active container, либо выполнять полный transfer с теми же disconnect/reconnect-инвариантами, что и `moveTabToProject()`. Нужны cross-project DBus tests для `moveView()` и `createSplitWithExisting()`.
 
-### High-4. Завершившаяся одноразовая команда автоматически запускается снова при следующем старте
+### High-4. ✅ Исправлено — завершившаяся одноразовая команда не восстанавливается
+
+Статус: исправлено. Persistence теперь отбрасывает завершившиеся auto-close сессии и пустые после фильтрации splitter/tab entries. При следующем cold start пустой проект получает обычную сессию профиля, а завершившаяся команда не запускается повторно. Regression test использует команду с побочным эффектом в temp-файле и проверяет, что restore не увеличивает счётчик.
 
 Места: `src/ViewManager.cpp:919-925`, `1727-1756`, `1874-1997`; `src/MainWindow.cpp:135`, `834-872`, `934-954`.
 Коммиты: `11ec4a220`, `b60b11e53`.

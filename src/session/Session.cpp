@@ -254,6 +254,11 @@ bool Session::isRunning() const
 #endif
 }
 
+bool Session::hasProcessExited() const
+{
+    return _processExited;
+}
+
 bool Session::hasFocus() const
 {
     return std::any_of(_views.constBegin(), _views.constEnd(), [](const TerminalDisplay *display) {
@@ -496,6 +501,7 @@ void Session::run()
         qCDebug(KonsoleDebug) << "Attempted to re-run an already running session (" << processId() << ")";
         return;
     }
+    _processExited = false;
 
     // check that everything is in place to run the session
     if (_program.isEmpty()) {
@@ -1125,6 +1131,8 @@ void Session::sendMouseEvent(int buttons, int column, int line, int eventType)
 
 void Session::done(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    _processExited = true;
+
 #ifndef Q_OS_WIN
     // This slot should be triggered only one time
     disconnect(_shellProcess, &Konsole::Pty::finished, this, &Konsole::Session::done);

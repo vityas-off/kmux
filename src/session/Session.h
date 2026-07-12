@@ -120,6 +120,11 @@ public:
     bool isRunning() const;
 
     /**
+     * Returns true after the session process has exited.
+     */
+    bool hasProcessExited() const;
+
+    /**
      * Returns true if the tab holding this session is currently selected
      * and Konsole is the foreground window.
      */
@@ -1084,6 +1089,7 @@ private:
 
     bool _autoClose = true;
     bool _closePerUserRequest = false;
+    bool _processExited = false;
 
     QString _nameTitle = QString();
     QString _displayTitle = QString();

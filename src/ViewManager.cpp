@@ -1707,6 +1707,10 @@ QJsonObject saveSessionTerminal(TerminalDisplay *terminalDisplay)
 {
     QJsonObject thisTerminal;
     auto terminalSession = terminalDisplay->sessionController()->session();
+    if (terminalSession == nullptr || (terminalSession->autoClose() && terminalSession->hasProcessExited())) {
+        return thisTerminal;
+    }
+
     const Profile::Ptr profile = SessionManager::instance()->sessionProfile(terminalSession);
     const int sessionRestoreId = SessionManager::instance()->getRestoreId(terminalSession);
     thisTerminal.insert(QStringLiteral("SessionRestoreId"), sessionRestoreId);
@@ -1751,11 +1755,21 @@ QJsonObject saveSessionsRecurse(QSplitter *splitter)
         auto *maybeTerminalDisplay = ViewSplitter::terminalDisplayForWidget(widget);
 
         if (maybeSplitter != nullptr) {
-            internalWidgets.append(saveSessionsRecurse(maybeSplitter));
+            const QJsonObject savedSplitter = saveSessionsRecurse(maybeSplitter);
+            if (!savedSplitter.isEmpty()) {
+                internalWidgets.append(savedSplitter);
+            }
         } else if (maybeTerminalDisplay != nullptr) {
-            internalWidgets.append(saveSessionTerminal(maybeTerminalDisplay));
+            const QJsonObject savedTerminal = saveSessionTerminal(maybeTerminalDisplay);
+            if (!savedTerminal.isEmpty()) {
+                internalWidgets.append(savedTerminal);
+            }
         }
     }
+    if (internalWidgets.isEmpty()) {
+        return {};
+    }
+
     thisSplitter.insert(QStringLiteral("Widgets"), internalWidgets);
     return thisSplitter;
 }
@@ -1766,7 +1780,10 @@ QJsonArray saveContainerSessions(TabbedViewContainer *container)
     for (int i = 0; container != nullptr && i < container->count(); i++) {
         auto *splitter = qobject_cast<QSplitter *>(container->widget(i));
         if (splitter != nullptr) {
-            rootArray.append(saveSessionsRecurse(splitter));
+            const QJsonObject savedSplitter = saveSessionsRecurse(splitter);
+            if (!savedSplitter.isEmpty()) {
+                rootArray.append(savedSplitter);
+            }
         }
     }
 
