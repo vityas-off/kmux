@@ -33,6 +33,7 @@ private Q_SLOTS:
     void testProjectWorkspaceStatusClearsWhenAgentExits();
     void testProjectWorkspaceAgentSessionDoesNotInheritAnotherAgentPid();
     void testProjectWorkspaceCodexDecisionKeysAreSessionScoped();
+    void testProjectWorkspaceClaudeDecisionClearsOnTerminalInput();
     void testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession();
     void testSessionSignalsAreHandledOnceAcrossMultipleViews();
     void testProjectWorkspaceNavigationShortcuts();

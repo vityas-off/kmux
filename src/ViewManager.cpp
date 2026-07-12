@@ -2772,13 +2772,21 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
 
     const bool isCodexEvent = agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0;
+    const bool isClaudeEvent = agent.compare(QLatin1String("claude"), Qt::CaseInsensitive) == 0;
     const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
+    const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
     const bool resetsPendingDecisions = isSessionStart || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0
         || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
 
-    int pendingTerminalDecisions = agentProcessChanged || !isCodexEvent || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
+    int pendingTerminalDecisions = agentProcessChanged || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
     if (isCodexEvent && isPermissionRequest) {
         ++pendingTerminalDecisions;
+    } else if (isClaudeEvent && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput && (isPermissionRequest || isNotification)) {
+        // Claude can emit both events for one prompt. One terminal decision
+        // resolves the prompt, so coalesce them instead of requiring two keys.
+        pendingTerminalDecisions = 1;
+    } else if (!isCodexEvent) {
+        pendingTerminalDecisions = 0;
     }
 
     const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;

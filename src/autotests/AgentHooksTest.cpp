@@ -52,7 +52,17 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     const QJsonObject hooks = QJsonDocument::fromJson(settings.readAll()).object().value(QStringLiteral("hooks")).toObject();
     const QJsonArray notifications = hooks.value(QStringLiteral("Notification")).toArray();
     QCOMPARE(notifications.size(), 1);
-    QCOMPARE(notifications.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("permission_prompt"));
+    QCOMPARE(notifications.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("permission_prompt|elicitation_dialog"));
+
+    const QJsonArray elicitationResults = hooks.value(QStringLiteral("ElicitationResult")).toArray();
+    QCOMPARE(elicitationResults.size(), 1);
+    const QString elicitationResultCommand =
+        elicitationResults.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile elicitationResultScript(elicitationResultCommand);
+    QVERIFY(elicitationResultScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString elicitationResultScriptText = QString::fromUtf8(elicitationResultScript.readAll());
+    QVERIFY(elicitationResultScriptText.contains(QStringLiteral("--event 'ElicitationResult'")));
+    QVERIFY(elicitationResultScriptText.contains(QStringLiteral("\"$@\" running")));
 
     const QJsonArray sessionStarts = hooks.value(QStringLiteral("SessionStart")).toArray();
     QCOMPARE(sessionStarts.size(), 1);
@@ -244,7 +254,7 @@ void AgentHooksTest::testHomeScopedScripts_data()
     QTest::addColumn<int>("handlerCount");
 
     QTest::newRow("codex") << QStringLiteral("codex") << QStringLiteral("--codex-home") << QStringLiteral("hooks.json") << 8;
-    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json") << 10;
+    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json") << 11;
 }
 
 void AgentHooksTest::testHomeScopedScripts()

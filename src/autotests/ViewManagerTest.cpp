@@ -645,6 +645,33 @@ void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 }
 
+void ViewManagerTest::testProjectWorkspaceClaudeDecisionClearsOnTerminalInput()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("PermissionRequest"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("Notification"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+    Q_EMIT terminal->keyPressedSignal(&returnKey);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+}
+
 void ViewManagerTest::testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession()
 {
     auto mw = MainWindow();
