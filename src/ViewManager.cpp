@@ -717,27 +717,28 @@ void ViewManager::lastView()
 
 void ViewManager::activateLastUsedView(bool reverse)
 {
-    if (_terminalDisplayHistory.count() <= 1) {
+    const auto history = terminalDisplayHistoryForContainer(activeContainer());
+    if (history.count() <= 1) {
         return;
     }
 
     if (_terminalDisplayHistoryIndex == -1) {
-        _terminalDisplayHistoryIndex = reverse ? _terminalDisplayHistory.count() - 1 : 1;
+        _terminalDisplayHistoryIndex = reverse ? history.count() - 1 : 1;
     } else if (reverse) {
         if (_terminalDisplayHistoryIndex == 0) {
-            _terminalDisplayHistoryIndex = _terminalDisplayHistory.count() - 1;
+            _terminalDisplayHistoryIndex = history.count() - 1;
         } else {
             _terminalDisplayHistoryIndex--;
         }
     } else {
-        if (_terminalDisplayHistoryIndex >= _terminalDisplayHistory.count() - 1) {
+        if (_terminalDisplayHistoryIndex >= history.count() - 1) {
             _terminalDisplayHistoryIndex = 0;
         } else {
             _terminalDisplayHistoryIndex++;
         }
     }
 
-    switchToTerminalDisplay(_terminalDisplayHistory[_terminalDisplayHistoryIndex]);
+    switchToTerminalDisplay(history[_terminalDisplayHistoryIndex]);
 }
 
 void ViewManager::lastUsedView()
@@ -752,11 +753,12 @@ void ViewManager::lastUsedViewReverse()
 
 void ViewManager::toggleTwoViews()
 {
-    if (_terminalDisplayHistory.count() <= 1) {
+    const auto history = terminalDisplayHistoryForContainer(activeContainer());
+    if (history.count() <= 1) {
         return;
     }
 
-    switchToTerminalDisplay(_terminalDisplayHistory.at(1));
+    switchToTerminalDisplay(history.at(1));
 }
 
 void ViewManager::detachActiveView()
@@ -981,9 +983,10 @@ void ViewManager::focusAnotherTerminal(ViewSplitter *toplevelSplitter)
         }
     }
 
-    if (_terminalDisplayHistory.count() >= 1) {
+    const auto history = terminalDisplayHistoryForContainer(activeContainer());
+    if (!history.isEmpty()) {
         // Give focus to the last used terminal tab
-        switchToTerminalDisplay(_terminalDisplayHistory[0]);
+        switchToTerminalDisplay(history[0]);
     }
 }
 
@@ -1509,6 +1512,7 @@ void ViewManager::activeProjectChanged(TabbedViewContainer *container)
     }
 
     _viewContainer = container;
+    _terminalDisplayHistoryIndex = -1;
 
     if (auto *splitter = container->activeViewSplitter()) {
         if (auto *terminal = splitter->activeTerminalDisplay()) {
@@ -2571,8 +2575,14 @@ void ViewManager::updateTerminalDisplayHistory(TerminalDisplay *terminalDisplay,
         if (_terminalDisplayHistoryIndex >= 0) {
             // This is the case when we finished walking through the history
             // (i.e. when Ctrl-Tab has been released)
-            terminalDisplay = _terminalDisplayHistory[_terminalDisplayHistoryIndex];
+            const auto history = terminalDisplayHistoryForContainer(activeContainer());
+            if (_terminalDisplayHistoryIndex < history.count()) {
+                terminalDisplay = history[_terminalDisplayHistoryIndex];
+            }
             _terminalDisplayHistoryIndex = -1;
+            if (terminalDisplay == nullptr) {
+                return;
+            }
         } else {
             return;
         }
@@ -2592,6 +2602,21 @@ void ViewManager::updateTerminalDisplayHistory(TerminalDisplay *terminalDisplay,
             break;
         }
     }
+}
+
+QList<TerminalDisplay *> ViewManager::terminalDisplayHistoryForContainer(TabbedViewContainer *container) const
+{
+    QList<TerminalDisplay *> history;
+    if (container == nullptr) {
+        return history;
+    }
+
+    for (auto *terminalDisplay : _terminalDisplayHistory) {
+        if (containerForTerminal(terminalDisplay) == container) {
+            history.append(terminalDisplay);
+        }
+    }
+    return history;
 }
 
 TabbedViewContainer *ViewManager::containerForTerminal(TerminalDisplay *terminal) const

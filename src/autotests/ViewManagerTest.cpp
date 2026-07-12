@@ -171,6 +171,73 @@ void ViewManagerTest::testProjectWorkspacesKeepIndependentTabs()
     QCOMPARE(secondProject->count(), 2);
 }
 
+void ViewManagerTest::testTabHistoryShortcutsStayInActiveProject()
+{
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *projects = manager->_workspaceContainer.data();
+    QVERIFY(projects != nullptr);
+
+    window.newTab();
+    auto *firstProject = manager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    window.newTab();
+    QCOMPARE(firstProject->count(), 2);
+
+    auto *firstSplitter = firstProject->viewSplitterAt(0);
+    auto *secondSplitter = firstProject->viewSplitterAt(1);
+    QVERIFY(firstSplitter != nullptr);
+    QVERIFY(secondSplitter != nullptr);
+    auto *firstTerminal = firstSplitter->activeTerminalDisplay();
+    auto *secondTerminal = secondSplitter->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    QVERIFY(secondTerminal != nullptr);
+
+    manager->createProject();
+    auto *backgroundProject = manager->activeContainer();
+    QVERIFY(backgroundProject != nullptr);
+    QVERIFY(backgroundProject != firstProject);
+    auto *backgroundTerminal = backgroundProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(backgroundTerminal != nullptr);
+
+    auto activateFirstTab = [&]() {
+        projects->activateProject(firstProject);
+        firstProject->setCurrentWidget(firstSplitter);
+        firstTerminal->setFocus();
+        QCOMPARE(manager->activeContainer(), firstProject);
+        QCOMPARE(firstProject->currentWidget(), firstSplitter);
+    };
+    auto verifySecondTabActivated = [&]() {
+        QCOMPARE(manager->activeContainer(), firstProject);
+        QCOMPARE(firstProject->currentWidget(), secondSplitter);
+    };
+
+    auto *lastUsedAction = window.actionCollection()->action(QStringLiteral("last-used-tab"));
+    auto *lastUsedReverseAction = window.actionCollection()->action(QStringLiteral("last-used-tab-reverse"));
+    auto *toggleTwoTabsAction = window.actionCollection()->action(QStringLiteral("toggle-two-tabs"));
+    QVERIFY(lastUsedAction != nullptr);
+    QVERIFY(lastUsedReverseAction != nullptr);
+    QVERIFY(toggleTwoTabsAction != nullptr);
+
+    activateFirstTab();
+    manager->_terminalDisplayHistory = {firstTerminal, backgroundTerminal, secondTerminal};
+    manager->_terminalDisplayHistoryIndex = -1;
+    lastUsedAction->trigger();
+    verifySecondTabActivated();
+
+    activateFirstTab();
+    manager->_terminalDisplayHistory = {firstTerminal, secondTerminal, backgroundTerminal};
+    manager->_terminalDisplayHistoryIndex = -1;
+    lastUsedReverseAction->trigger();
+    verifySecondTabActivated();
+
+    activateFirstTab();
+    manager->_terminalDisplayHistory = {firstTerminal, backgroundTerminal, secondTerminal};
+    manager->_terminalDisplayHistoryIndex = -1;
+    toggleTwoTabsAction->trigger();
+    verifySecondTabActivated();
+}
+
 void ViewManagerTest::testFinishedBackgroundSessionIsRemovedFromTabHistory()
 {
     auto window = MainWindow();

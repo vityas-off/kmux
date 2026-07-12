@@ -539,6 +539,7 @@ private:
     void focusAnotherTerminal(ViewSplitter *toplevelSplitter);
 
     void activateLastUsedView(bool reverse);
+    QList<TerminalDisplay *> terminalDisplayHistoryForContainer(TabbedViewContainer *container) const;
 
     void registerTerminal(TerminalDisplay *terminal, TabbedViewContainer *container = nullptr);
     void unregisterTerminal(TerminalDisplay *terminal);

@@ -21,6 +21,7 @@ private Q_SLOTS:
     void testSaveLayout();
     void testLoadLayout();
     void testProjectWorkspacesKeepIndependentTabs();
+    void testTabHistoryShortcutsStayInActiveProject();
     void testFinishedBackgroundSessionIsRemovedFromTabHistory();
     void testSplitsStayInActiveProjectWorkspace();
     void testDbusLayoutOperationsRejectCrossProjectViews();
