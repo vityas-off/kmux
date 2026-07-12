@@ -62,13 +62,13 @@ const QList<HookEvent> CodexHookEvents = {
 };
 
 const QList<HookEvent> ClaudeHookEvents = {
-    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("running"), 5, QString()},
+    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("idle"), 5, QString()},
     {QStringLiteral("UserPromptSubmit"), QStringLiteral("user_prompt_submit"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PreToolUse"), QStringLiteral("pre_tool_use"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PostToolUse"), QStringLiteral("post_tool_use"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PostToolUseFailure"), QStringLiteral("post_tool_use_failure"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PermissionRequest"), QStringLiteral("permission_request"), QStringLiteral("needsInput"), 5, QString()},
-    {QStringLiteral("Notification"), QStringLiteral("notification"), QStringLiteral("needsInput"), 5, QStringLiteral("permission_prompt|idle_prompt")},
+    {QStringLiteral("Notification"), QStringLiteral("notification"), QStringLiteral("needsInput"), 5, QStringLiteral("permission_prompt")},
     {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
     {QStringLiteral("StopFailure"), QStringLiteral("stop_failure"), QStringLiteral("idle"), 5, QString()},
     {QStringLiteral("SessionEnd"), QStringLiteral("session_end"), QStringLiteral("idle"), 5, QString()},

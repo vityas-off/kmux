@@ -23,11 +23,47 @@ private Q_SLOTS:
     void testCodexFeatureToml_data();
     void testCodexFeatureToml();
     void testCodexRepairsPreviousDottedInstall();
+    void testClaudeLifecycleConfiguration();
     void testHookOperationsWaitForTransactionLock_data();
     void testHookOperationsWaitForTransactionLock();
     void testHomeScopedScripts_data();
     void testHomeScopedScripts();
 };
+
+void AgentHooksTest::testClaudeLifecycleConfiguration()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString configHome = temporaryDir.filePath(QStringLiteral("claude-home"));
+
+    QProcess process;
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    process.setProcessEnvironment(environment);
+    process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE),
+                  {QStringLiteral("--claude-home"), configHome, QStringLiteral("install"), QStringLiteral("claude"), QStringLiteral("--quiet")});
+    QVERIFY(process.waitForStarted());
+    QVERIFY(process.waitForFinished());
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+
+    QFile settings(QDir(configHome).filePath(QStringLiteral("settings.json")));
+    QVERIFY(settings.open(QIODevice::ReadOnly));
+    const QJsonObject hooks = QJsonDocument::fromJson(settings.readAll()).object().value(QStringLiteral("hooks")).toObject();
+    const QJsonArray notifications = hooks.value(QStringLiteral("Notification")).toArray();
+    QCOMPARE(notifications.size(), 1);
+    QCOMPARE(notifications.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("permission_prompt"));
+
+    const QJsonArray sessionStarts = hooks.value(QStringLiteral("SessionStart")).toArray();
+    QCOMPARE(sessionStarts.size(), 1);
+    const QString sessionStartCommand =
+        sessionStarts.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile sessionStartScript(sessionStartCommand);
+    QVERIFY(sessionStartScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString sessionStartScriptText = QString::fromUtf8(sessionStartScript.readAll());
+    QVERIFY(sessionStartScriptText.contains(QStringLiteral("--event 'SessionStart'")));
+    QVERIFY(sessionStartScriptText.contains(QStringLiteral("\"$@\" idle")));
+}
 
 void AgentHooksTest::testCodexFeatureToml_data()
 {
