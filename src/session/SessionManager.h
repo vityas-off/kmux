@@ -65,6 +65,10 @@ public:
      */
     Session *createSession(QExplicitlySharedDataPointer<Profile> profile = QExplicitlySharedDataPointer<Profile>());
 
+    /** Sets the inherited environment for sessions created by the current request. */
+    void setProcessEnvironmentForNewSessions(const QStringList &environment);
+    void clearProcessEnvironmentForNewSessions();
+
     /** Sets the profile associated with a session. */
     void setSessionProfile(Session *session, QExplicitlySharedDataPointer<Profile> profile);
 
@@ -123,6 +127,8 @@ private:
     QHash<Session *, QExplicitlySharedDataPointer<Profile>> _sessionProfiles;
     QHash<Session *, QExplicitlySharedDataPointer<Profile>> _sessionRuntimeProfiles;
     QHash<Session *, int> _restoreMapping;
+    QStringList _processEnvironmentForNewSessions;
+    bool _hasProcessEnvironmentForNewSessions = false;
     bool _isClosingAllSessions = false;
 };
 

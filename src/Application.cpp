@@ -624,6 +624,20 @@ void Application::toggleBackgroundInstance()
 
 void Application::slotActivateRequested(QStringList args, const QString &workingDir)
 {
+    handleActivationRequest(std::move(args), workingDir);
+}
+
+int Application::requestActivation(const QStringList &args, const QString &workingDir, const QStringList &environment)
+{
+    SessionManager *sessionManager = SessionManager::instance();
+    sessionManager->setProcessEnvironmentForNewSessions(environment);
+    const bool handled = handleActivationRequest(args, workingDir);
+    sessionManager->clearProcessEnvironmentForNewSessions();
+    return handled ? 0 : 1;
+}
+
+bool Application::handleActivationRequest(QStringList args, const QString &workingDir)
+{
     // QCommandLineParser expects the first argument to be the executable name
     // In the current version it just strips it away
     args.prepend(qApp->applicationFilePath());
@@ -640,10 +654,10 @@ void Application::slotActivateRequested(QStringList args, const QString &working
 
     if (!hasExplicitSessionRequest()) {
         showAndActivateWindow(existingMainWindow());
-        return;
+        return true;
     }
 
-    newInstance();
+    return newInstance() != 0;
 }
 
 #include "moc_Application.cpp"

@@ -96,6 +96,9 @@ Session *SessionManager::createSession(Profile::Ptr profile)
     auto session = new Session();
     Q_ASSERT(session);
     applyProfile(session, profile, false);
+    if (_hasProcessEnvironmentForNewSessions) {
+        session->setProcessEnvironment(_processEnvironmentForNewSessions);
+    }
 
     connect(session, &Konsole::Session::profileChangeCommandReceived, this, [this, session](const QString &text) {
         sessionProfileCommandReceived(session, text);
@@ -109,6 +112,18 @@ Session *SessionManager::createSession(Profile::Ptr profile)
     _sessionProfiles.insert(session, profile);
 
     return session;
+}
+
+void SessionManager::setProcessEnvironmentForNewSessions(const QStringList &environment)
+{
+    _processEnvironmentForNewSessions = environment;
+    _hasProcessEnvironmentForNewSessions = true;
+}
+
+void SessionManager::clearProcessEnvironmentForNewSessions()
+{
+    _processEnvironmentForNewSessions.clear();
+    _hasProcessEnvironmentForNewSessions = false;
 }
 
 void SessionManager::profileChanged(const Profile::Ptr &profile)
@@ -196,10 +211,6 @@ void SessionManager::applyProfile(Session *session, const Profile::Ptr &profile,
         QStringList environment = profile->environment();
         environment << QStringLiteral("PROFILEHOME=%1").arg(profile->defaultWorkingDirectory());
         environment << QStringLiteral("KONSOLE_VERSION=%1").arg(numericVersion);
-#ifdef Q_OS_WIN
-        // Needed on windows otherwise powershell will refuse to start
-        environment += QProcess::systemEnvironment();
-#endif
         session->setEnvironment(environment);
     }
 

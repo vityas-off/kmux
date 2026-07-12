@@ -145,6 +145,39 @@ void ApplicationTest::testActivationUsesRequestWorkingDirectory()
     delete window;
 }
 
+void ApplicationTest::testActivationUsesRequestEnvironment()
+{
+    auto parser = QSharedPointer<QCommandLineParser>::create();
+    Application::populateCommandLineParser(parser.get());
+    parser->parse({QStringLiteral("kmux")});
+    Application application(parser, {});
+
+    const QString inheritedEntry = QStringLiteral("KMUX_APPLICATION_TEST_CALLER=secondary");
+    const QString profileEntry = QStringLiteral("KMUX_APPLICATION_TEST_CALLER=profile");
+    const QString secretEntry = QStringLiteral("KMUX_APPLICATION_TEST_TOKEN=not-persisted");
+    const QStringList environment{inheritedEntry, secretEntry};
+    QCOMPARE(application.requestActivation({QStringLiteral("--new-tab"), QStringLiteral("-p"), QStringLiteral("Environment=%1").arg(profileEntry)},
+                                           QDir::currentPath(),
+                                           environment),
+             0);
+
+    auto *window = mainWindow();
+    QVERIFY(window != nullptr);
+    Session *session = activeSession(window);
+    QVERIFY(session != nullptr);
+    QVERIFY(session->hasProcessEnvironment());
+    QCOMPARE(session->processEnvironment(), environment);
+    QVERIFY(session->environment().contains(profileEntry));
+    QVERIFY(!session->environment().contains(secretEntry));
+
+    application.slotActivateRequested({QStringLiteral("--new-tab")}, QDir::currentPath());
+    session = activeSession(window);
+    QVERIFY(session != nullptr);
+    QVERIFY(!session->hasProcessEnvironment());
+
+    delete window;
+}
+
 void ApplicationTest::testProfileDirectoryPrecedence()
 {
     QTemporaryDir profileDirectory;

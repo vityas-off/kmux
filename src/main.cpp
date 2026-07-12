@@ -15,10 +15,16 @@
 #include "config-konsole.h"
 #include "widgets/ViewContainer.h"
 
+#include <algorithm>
+
 // OS specific
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDir>
+#include <QLockFile>
+#include <QProcessEnvironment>
 #include <QProxyStyle>
+#include <QStandardPaths>
 
 // KDE
 #include <KAboutData>
@@ -32,7 +38,9 @@
 #if HAVE_DBUS
 #include <KDBusService>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
+#include <QDBusReply>
 #endif
 
 #define HAVE_STYLE_MANAGER __has_include(<KStyleManager>)
@@ -53,6 +61,16 @@ void fillAboutData(KAboutData &aboutData);
 
 // restore sessions saved by KDE.
 void restoreSession(Application &app);
+
+#if HAVE_DBUS
+QString applicationDBusServiceName()
+{
+    QStringList domainParts = QCoreApplication::organizationDomain().split(QLatin1Char('.'), Qt::SkipEmptyParts);
+    std::reverse(domainParts.begin(), domainParts.end());
+    domainParts.append(QCoreApplication::applicationName());
+    return domainParts.join(QLatin1Char('.'));
+}
+#endif
 
 #if HAVE_DBUS
 // Workaround for a bug in KDBusService: https://bugs.kde.org/show_bug.cgi?id=355545
@@ -232,6 +250,41 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Keep the lock until the primary exports its request object. This makes
+    // service discovery and environment delivery atomic for concurrent starts.
+    const QString runtimeDirectory = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    QLockFile startupLock(QDir(runtimeDirectory).filePath(QStringLiteral("kmux-startup.lock")));
+    if (!startupLock.tryLock(30000)) {
+        qWarning() << "Unable to coordinate Kmux startup:" << startupLock.error();
+        delete app;
+        return 1;
+    }
+
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    const QString serviceName = applicationDBusServiceName();
+    bool hasExistingService = false;
+    if (QDBusConnectionInterface *interface = sessionBus.interface()) {
+        const QDBusReply<bool> serviceRegistered = interface->isServiceRegistered(serviceName);
+        hasExistingService = serviceRegistered.isValid() && serviceRegistered.value();
+    }
+    if (hasExistingService) {
+        startupLock.unlock();
+        QDBusMessage activation = QDBusMessage::createMethodCall(serviceName,
+                                                                 QStringLiteral("/KmuxApplication"),
+                                                                 QStringLiteral("io.github.kmux_project.kmux.Application"),
+                                                                 QStringLiteral("requestActivation"));
+        activation.setArguments({app->arguments().mid(1), QDir::currentPath(), QProcessEnvironment::systemEnvironment().toStringList()});
+        const QDBusReply<int> reply = sessionBus.call(activation);
+        if (reply.isValid()) {
+            delete app;
+            return reply.value();
+        }
+
+        qWarning() << "Unable to activate the existing Kmux instance:" << reply.error().message();
+        delete app;
+        return 1;
+    }
+
     needToDeleteQApplication = true;
     atexit(deleteQApplication);
     // Project workspaces are persisted as one global workspace tree. Always
@@ -247,6 +300,11 @@ int main(int argc, char *argv[])
     Application konsoleApp(parser, customCommand);
 
 #if HAVE_DBUS
+    if (!sessionBus.registerObject(QStringLiteral("/KmuxApplication"), &konsoleApp, QDBusConnection::ExportScriptableInvokables)) {
+        qWarning() << "Unable to register the Kmux activation object on DBus:" << sessionBus.lastError().message();
+    }
+    startupLock.unlock();
+
     // The activateRequested() signal is emitted when a second instance
     // of Konsole is started.
     QObject::connect(&dbusService, &KDBusService::activateRequested, &konsoleApp, &Application::slotActivateRequested);

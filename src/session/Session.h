@@ -525,6 +525,15 @@ public:
     // returns the binary name if available or an empty string otherwise
     static QString checkProgram(const QString &program);
 
+    /**
+     * Sets the environment inherited by the session process before profile
+     * entries are applied. This is kept separate from environment() so caller
+     * secrets are neither exposed over DBus nor persisted as profile state.
+     */
+    void setProcessEnvironment(const QStringList &environment);
+    QStringList processEnvironment() const;
+    bool hasProcessEnvironment() const;
+
     /*
      * Same as runCommand but only used when layout is loaded in ViewManager.
      */
@@ -1122,6 +1131,8 @@ private:
     QStringList _arguments;
 
     QStringList _environment;
+    QStringList _processEnvironment;
+    bool _hasProcessEnvironment = false;
     int _sessionId = 0;
 
     QString _initialWorkingDir;

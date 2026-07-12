@@ -631,6 +631,9 @@ void Session::run()
     const QStringList fullEnv = _environment + secretEnv;
 
 #ifndef Q_OS_WIN
+    if (_hasProcessEnvironment) {
+        _shellProcess->setEnvironment(_processEnvironment);
+    }
     const auto originalEnvironment = _shellProcess->environment();
     _shellProcess->setProgram(exec);
     _shellProcess->setEnvironment(originalEnvironment + fullEnv);
@@ -642,7 +645,13 @@ void Session::run()
     const auto size = _emulation->imageSize();
     const int lines = size.height();
     const int cols = size.width();
-    int result = _shellProcess->start(exec, arguments, _initialWorkingDir.isEmpty() ? QDir::currentPath() : _initialWorkingDir, fullEnv, cols, lines);
+    const QStringList processEnvironment = _hasProcessEnvironment ? _processEnvironment : QProcess::systemEnvironment();
+    int result = _shellProcess->start(exec,
+                                      arguments,
+                                      _initialWorkingDir.isEmpty() ? QDir::currentPath() : _initialWorkingDir,
+                                      processEnvironment + fullEnv,
+                                      cols,
+                                      lines);
 #endif
 
     if (result < 0) {
@@ -1191,6 +1200,22 @@ QString Session::keyBindings() const
 QStringList Session::environment() const
 {
     return _environment;
+}
+
+void Session::setProcessEnvironment(const QStringList &environment)
+{
+    _processEnvironment = environment;
+    _hasProcessEnvironment = true;
+}
+
+QStringList Session::processEnvironment() const
+{
+    return _processEnvironment;
+}
+
+bool Session::hasProcessEnvironment() const
+{
+    return _hasProcessEnvironment;
 }
 
 void Session::setEnvironment(const QStringList &environment)

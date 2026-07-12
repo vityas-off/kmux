@@ -38,6 +38,7 @@ class Profile;
 class KONSOLEAPP_EXPORT Application : public QObject
 {
     Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "io.github.kmux_project.kmux.Application")
 
 public:
     /** Constructs a new Konsole application. */
@@ -46,6 +47,8 @@ public:
     static void populateCommandLineParser(QCommandLineParser *parser);
     static QStringList getCustomCommand(QStringList &args);
     static bool processHelpArgs(const QCommandLineParser &parser);
+
+    Q_SCRIPTABLE int requestActivation(const QStringList &args, const QString &workingDir, const QStringList &environment);
 
     ~Application() override;
 
@@ -81,6 +84,7 @@ private:
     QString resolveActivationPath(const QString &path) const;
     QString initialWorkingDirectory(const QString &requestedDirectory = QString()) const;
     void applyInitialWorkingDirectory(Session *session, const Profile::Ptr &profile, const QString &requestedDirectory, bool requestedExplicitly) const;
+    bool handleActivationRequest(QStringList args, const QString &workingDir);
 
     MainWindow *_backgroundInstance;
     QSharedPointer<QCommandLineParser> m_parser;

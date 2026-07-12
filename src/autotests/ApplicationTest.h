@@ -20,6 +20,7 @@ private Q_SLOTS:
     void testInformationalArgumentsHandledLocally_data();
     void testInformationalArgumentsHandledLocally();
     void testActivationUsesRequestWorkingDirectory();
+    void testActivationUsesRequestEnvironment();
     void testProfileDirectoryPrecedence();
     void testActivationResolvesRelativeTabsFile();
     void testActivationResolvesRelativeLayoutFile();

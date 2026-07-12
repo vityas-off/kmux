@@ -204,7 +204,9 @@ KDBus activation передаёт cwd вызывающего процесса и
 
 Сценарий: Kmux запущен из `$HOME`; из `/work/project` вызвать `kmux --layout layout.json`. Ищется `$HOME/layout.json`, а не `/work/project/layout.json`.
 
-### Medium-7. Environment второго CLI-запуска не доходит до новой сессии
+### Medium-7. ✅ Исправлено — environment второго CLI-запуска доходит до новой сессии
+
+Статус: исправлено. Secondary process теперь отправляет args, cwd и полный environment отдельным DBus request после сериализованной регистрации primary; `QLockFile` закрывает startup race без двойной KDBus activation. Environment хранится в `Session` как отдельная базовая среда: profile entries применяются поверх неё, а caller tokens не попадают в scriptable `environment()` и persisted profile state. Regression test проверяет передачу, изоляцию секретов и сброс среды для следующих локальных вкладок; двухпроцессный DBus smoke test подтверждает значение внутри дочернего shell.
 
 Места: `src/main.cpp:228-245`; `src/Application.cpp:633-654`; `src/session/Session.cpp:573-628`.
 Коммит: `4a0c386ab`.
