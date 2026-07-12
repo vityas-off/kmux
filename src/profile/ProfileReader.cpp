@@ -12,6 +12,8 @@
 // Qt
 #include <QDir>
 #include <QFile>
+#include <QSet>
+#include <QStandardPaths>
 
 // KDE
 #include <KConfig>
@@ -34,12 +36,18 @@ ProfileReader::~ProfileReader() = default;
 QStringList ProfileReader::findProfiles()
 {
     QStringList profiles;
-    const QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
+    QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
+    dirs.append(QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole"), QStandardPaths::LocateDirectory));
     profiles.reserve(dirs.size());
+    QSet<QString> profileNames;
 
     for (const QString &dir : dirs) {
         const QStringList fileNames = QDir(dir).entryList(QStringList() << QStringLiteral("*.profile"));
         for (const QString &file : fileNames) {
+            if (profileNames.contains(file)) {
+                continue;
+            }
+            profileNames.insert(file);
             profiles.append(dir + QLatin1Char('/') + file);
         }
     }

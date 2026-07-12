@@ -335,6 +335,55 @@ void ProfileTest::testInvalidParentProfile()
     QCOMPARE(parent->property<QString>(Profile::Name), QStringLiteral("Built-in"));
 }
 
+void ProfileTest::testLegacyProfileFallbackIsReadOnly()
+{
+    const QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString legacyDirectory = dataLocation + QStringLiteral("/konsole");
+    const QString kmuxDirectory = dataLocation + QStringLiteral("/kmux");
+    const QString originalName = QStringLiteral("KmuxLegacyFallbackTest");
+    const QString renamedName = QStringLiteral("KmuxLegacyFallbackRenamed");
+    const QString legacyPath = legacyDirectory + QLatin1Char('/') + originalName + QStringLiteral(".profile");
+    const QString copiedPath = kmuxDirectory + QLatin1Char('/') + renamedName + QStringLiteral(".profile");
+    QFile::remove(legacyPath);
+    QFile::remove(copiedPath);
+    const auto cleanup = qScopeGuard([&]() {
+        QFile::remove(legacyPath);
+        QFile::remove(copiedPath);
+    });
+
+    QVERIFY(QDir().mkpath(legacyDirectory));
+    QFile legacyFile(legacyPath);
+    QVERIFY(legacyFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray originalContent = QStringLiteral("[General]\nName=%1\nHistorySize=1234\n").arg(originalName).toUtf8();
+    QCOMPARE(legacyFile.write(originalContent), originalContent.size());
+    legacyFile.close();
+
+    ProfileReader reader;
+    QVERIFY(reader.findProfiles().contains(legacyPath));
+
+    auto *manager = ProfileManager::instance();
+    Profile::Ptr profile = manager->loadProfile(originalName);
+    QVERIFY(profile);
+    QCOMPARE(profile->path(), legacyPath);
+    QVERIFY(!profile->isDeletable());
+
+    const Profile::PropertyMap changes = {
+        {Profile::Name, renamedName},
+        {Profile::UntranslatedName, renamedName},
+    };
+    manager->changeProfile(profile, changes, true);
+    QCOMPARE(profile->path(), copiedPath);
+    QVERIFY(QFile::exists(copiedPath));
+    QVERIFY(QFile::exists(legacyPath));
+    QVERIFY(legacyFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    QCOMPARE(legacyFile.readAll(), originalContent);
+    legacyFile.close();
+
+    QVERIFY(manager->deleteProfile(profile));
+    QVERIFY(!QFile::exists(copiedPath));
+    QVERIFY(QFile::exists(legacyPath));
+}
+
 QTEST_GUILESS_MAIN(ProfileTest)
 
 #include "moc_ProfileTest.cpp"

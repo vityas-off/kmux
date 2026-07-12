@@ -10,6 +10,9 @@
 #include "ProfileWriter.h"
 
 // Qt
+#include <QDir>
+#include <QFileInfo>
+#include <QStandardPaths>
 
 // KDE
 #include <KConfig>
@@ -17,6 +20,8 @@
 
 // Konsole
 #include "ShellCommand.h"
+
+#include <algorithm>
 
 using namespace Konsole;
 
@@ -34,6 +39,15 @@ QString ProfileWriter::getPath(const Profile::Ptr &profile)
     static const QString localDataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QLatin1String("/kmux");
 
     return localDataLocation + QLatin1Char('/') + profile->untranslatedName() + QLatin1String(".profile");
+}
+
+bool ProfileWriter::isOwnedProfilePath(const QString &path)
+{
+    const QString profileDirectory = QDir::cleanPath(QFileInfo(path).absolutePath());
+    const QStringList kmuxDirectories = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
+    return std::any_of(kmuxDirectories.cbegin(), kmuxDirectories.cend(), [&profileDirectory](const QString &directory) {
+        return QDir::cleanPath(QFileInfo(directory).absoluteFilePath()) == profileDirectory;
+    });
 }
 
 void ProfileWriter::writeProperties(KConfig &config, const Profile::Ptr &profile)

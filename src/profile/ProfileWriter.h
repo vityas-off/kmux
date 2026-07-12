@@ -28,6 +28,10 @@ public:
      * the corresponding ProfileReader class.
      */
     QString getPath(const Profile::Ptr &profile);
+
+    /** Returns whether @p path belongs to Kmux's profile namespace. */
+    static bool isOwnedProfilePath(const QString &path);
+
     /**
      * Writes the properties and values from @p profile to the file specified
      * by @p path.  This profile should be readable by the corresponding

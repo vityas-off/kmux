@@ -286,7 +286,7 @@ Scripts общие для всех configs и лежат в одном `$XDG_DAT
 - `CMakeLists.txt:77-93`, `src/main.cpp:200-236`: single-workspace invariant целиком зависит от DBus, который по умолчанию выключен на Windows/macOS; несколько процессов будут сохранять один state по принципу last-writer-wins.
 - ✅ Исправлено — install, uninstall и status для каждого agent config home используют общий `QLockFile`, охватывающий весь transaction с config и scripts. Параллельные операции сериализуются, а status не наблюдает промежуточное состояние; regression test удерживает lock, вносит внешнюю JSON-правку и проверяет, что Codex/Claude installer сохраняет её после ожидания.
 - ✅ Исправлено — `kmuxrun.desktop` снова объявляет upstream `X-KDE-AuthorizeAction=shell_access`, поэтому Kiosk policy может скрыть запуск shell action.
-- `src/profile/ProfileReader.cpp:34-46`: в отличие от schemes/keytabs, legacy Konsole profiles не имеют даже read-only fallback. Это может быть намеренной rebrand-изоляцией, но расходится с заявленной совместимостью profiles и требует явного продуктового решения.
+- ✅ Исправлено — legacy profiles из `konsole/` доступны как read-only fallback после `kmux/`. Поиск по короткому имени и listing предпочитают Kmux-копию; rename/edit создаёт copy-on-write в `kmux/`, а delete никогда не удаляет legacy-файл. Regression test покрывает discovery, short-name load, copy-on-write и обе защиты удаления.
 - ✅ Исправлено — документация `--tabs-from-file` теперь соответствует поведению: создаются только перечисленные в файле tabs, без дополнительного default tab. Существующий activation test закрепляет это количеством восстановленных и добавленных tabs.
 
 ## Пробелы тестов

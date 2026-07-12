@@ -143,12 +143,17 @@ Profile::Ptr ProfileManager::loadProfile(const QString &shortPath)
     if (fileInfo.suffix() != QLatin1String("profile")) {
         path.append(QLatin1String(".profile"));
     }
-    if (fileInfo.path().isEmpty() || fileInfo.path() == QLatin1String(".")) {
-        path.prepend(QLatin1String("kmux") + QDir::separator());
-    }
+    const bool hasPath = !fileInfo.path().isEmpty() && fileInfo.path() != QLatin1String(".");
 
-    // if the file is not an absolute path, look it up
-    if (!fileInfo.isAbsolute()) {
+    // If only a profile name was provided, prefer Kmux and then fall back to
+    // the read-only legacy Konsole namespace.
+    if (!hasPath) {
+        const QString fileName = path;
+        path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("kmux/") + fileName);
+        if (path.isEmpty()) {
+            path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + fileName);
+        }
+    } else if (!fileInfo.isAbsolute()) {
         path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, path);
     }
 
@@ -410,7 +415,9 @@ void ProfileManager::changeProfile(Profile::Ptr profile, const Profile::Property
         // origPath is empty when saving a new profile
         if (!origPath.isEmpty()) {
             // Delete the old/redundant .profile from disk
-            QFile::remove(origPath);
+            if (ProfileWriter::isOwnedProfilePath(origPath)) {
+                QFile::remove(origPath);
+            }
 
             // Change the default profile name to the new one
             if (isDefaultProfile) {
@@ -450,7 +457,7 @@ bool ProfileManager::deleteProfile(Profile::Ptr profile)
 
     if (profile) {
         // try to delete the config file
-        if (profile->isPropertySet(Profile::Path) && QFile::exists(profile->path())) {
+        if (profile->isPropertySet(Profile::Path) && ProfileWriter::isOwnedProfilePath(profile->path()) && QFile::exists(profile->path())) {
             if (!QFile::remove(profile->path())) {
                 qCDebug(KonsoleProfileDebug) << "Could not delete profile: " << profile->path() << "The file is most likely in a directory which is read-only.";
 

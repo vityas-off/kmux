@@ -21,6 +21,7 @@
 
 // Konsole
 #include "ProfileGroup.h"
+#include "ProfileWriter.h"
 #include "config-konsole.h"
 
 #ifndef Q_OS_WIN
@@ -352,7 +353,7 @@ bool Profile::isDeletable() const
 {
     // To delete a file, parent dir must be writable
     const QFileInfo fileInfo(path());
-    return !isBuiltin() && fileInfo.exists() && QFileInfo(fileInfo.path()).isWritable();
+    return !isBuiltin() && ProfileWriter::isOwnedProfilePath(path()) && fileInfo.exists() && QFileInfo(fileInfo.path()).isWritable();
 }
 
 bool Profile::isHidden() const
