@@ -34,4 +34,9 @@ inline QString dbusServiceName()
     domainParts.append(componentName());
     return domainParts.join(QLatin1Char('.'));
 }
+
+inline QString localServerName()
+{
+    return desktopFileName() + QStringLiteral(".activation");
+}
 }

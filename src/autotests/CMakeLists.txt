@@ -4,6 +4,13 @@ if(HAVE_DBUS)
     ecm_add_test(AgentHooksTest.cpp LINK_LIBRARIES Qt::Test Qt::Core)
 endif()
 
+ecm_add_test(
+    LocalActivationServerTest.cpp
+    ../LocalActivationServer.cpp
+    TEST_NAME LocalActivationServerTest
+    LINK_LIBRARIES Qt::Test Qt::Core Qt::Network
+)
+
 if(KONSOLE_HAVE_XKBCOMMON)
     add_compile_definitions(HAVE_XKBCOMMON)
 

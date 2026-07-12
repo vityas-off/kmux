@@ -376,6 +376,7 @@ set_target_properties(konsoleapp PROPERTIES
 install(TARGETS konsoleapp ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} LIBRARY NAMELINK_SKIP)
 
 set(konsole_SRCS
+    LocalActivationServer.cpp
     main.cpp
 )
 
@@ -393,6 +394,7 @@ target_link_libraries(kmux
   KF6::KIOWidgets
   KF6::NotifyConfig
   KF6::Crash
+  Qt::Network
 )
 
 if(APPLE)

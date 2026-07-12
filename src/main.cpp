@@ -11,6 +11,7 @@
 // Own
 #include "Application.h"
 #include "ApplicationMetadata.h"
+#include "LocalActivationServer.h"
 #include "MainWindow.h"
 #include "ViewManager.h"
 #include "config-konsole.h"
@@ -238,10 +239,15 @@ int main(int argc, char *argv[])
             }
         }
     }
+#endif
 
     // Keep the lock until the primary exports its request object. This makes
     // service discovery and environment delivery atomic for concurrent starts.
-    const QString runtimeDirectory = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    QString runtimeDirectory = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    if (runtimeDirectory.isEmpty()) {
+        runtimeDirectory = QDir(QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation)).filePath(QStringLiteral("kmux"));
+    }
+    QDir().mkpath(runtimeDirectory);
     QLockFile startupLock(QDir(runtimeDirectory).filePath(QStringLiteral("kmux-startup.lock")));
     if (!startupLock.tryLock(30000)) {
         qWarning() << "Unable to coordinate Kmux startup:" << startupLock.error();
@@ -249,6 +255,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+#if HAVE_DBUS
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     const QString serviceName = Konsole::ApplicationMetadata::dbusServiceName();
     bool hasExistingService = false;
@@ -287,6 +294,26 @@ int main(int argc, char *argv[])
         delete app;
         return 1;
     }
+#else
+    int activationExitCode = 1;
+    QString activationError;
+    const QString localServerName = Konsole::ApplicationMetadata::localServerName();
+    const auto activationResult = Konsole::LocalActivationServer::requestExisting(localServerName,
+                                                                                  app->arguments().mid(1),
+                                                                                  QDir::currentPath(),
+                                                                                  QProcessEnvironment::systemEnvironment().toStringList(),
+                                                                                  &activationExitCode,
+                                                                                  &activationError);
+    if (activationResult == Konsole::LocalActivationServer::RequestResult::Delivered) {
+        startupLock.unlock();
+        delete app;
+        return activationExitCode;
+    }
+    if (activationResult == Konsole::LocalActivationServer::RequestResult::Error) {
+        qWarning() << "Unable to contact the existing Kmux instance:" << activationError;
+        delete app;
+        return 1;
+    }
 #endif
 
     // If we reach this location, there was no existing copy of Kmux
@@ -302,6 +329,17 @@ int main(int argc, char *argv[])
     // The activateRequested() signal is emitted when a second instance
     // of Konsole is started.
     QObject::connect(&dbusService, &KDBusService::activateRequested, &konsoleApp, &Application::slotActivateRequested);
+#else
+    Konsole::LocalActivationServer localActivationServer(
+        localServerName,
+        [&konsoleApp](const QStringList &arguments, const QString &workingDirectory, const QStringList &environment) {
+            return konsoleApp.requestActivation(arguments, workingDirectory, environment);
+        });
+    if (!localActivationServer.listen(&activationError)) {
+        qWarning() << "Unable to publish the Kmux activation server:" << activationError;
+        delete app;
+        return 1;
+    }
 #endif
 
     if (app->isSessionRestored()) {
@@ -316,6 +354,11 @@ int main(int argc, char *argv[])
             return 0;
         }
     }
+
+#if !HAVE_DBUS
+    // The primary is now fully initialized and can safely accept requests.
+    startupLock.unlock();
+#endif
 
 #ifdef PROFILE_STARTUP
     qDebug() << "Construction completed in" << timer.elapsed() << "ms";
