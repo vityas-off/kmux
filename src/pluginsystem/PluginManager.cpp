@@ -9,6 +9,7 @@
 
 #include "IKonsolePlugin.h"
 #include "MainWindow.h"
+#include "config-konsole.h"
 #include "konsoledebug.h"
 
 #include <KLocalizedString>

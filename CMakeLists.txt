@@ -7,6 +7,11 @@ set(KMUX_VERSION_MINOR "1")
 set(KMUX_VERSION_PATCH "0")
 set(KMUX_VERSION "${KMUX_VERSION_MAJOR}.${KMUX_VERSION_MINOR}.${KMUX_VERSION_PATCH}")
 
+# Version of the upstream Konsole base with which shell integrations and
+# terminal clients can expect compatibility. Update this when rebasing onto a
+# newer upstream release; it is intentionally independent of KMUX_VERSION.
+set(KONSOLE_COMPAT_VERSION "26.07.70")
+
 # Do not increase these requirements without a merge-request or/and
 # approval from maintainer(s).
 # minimal requirements

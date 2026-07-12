@@ -179,7 +179,7 @@ int main(int argc, char *argv[])
 
     KAboutData about(Konsole::ApplicationMetadata::componentName(),
                      i18nc("@title", "Kmux"),
-                     QStringLiteral(KONSOLE_VERSION),
+                     QStringLiteral(KMUX_VERSION),
                      i18nc("@title", "Project workspace terminal"),
                      KAboutLicense::GPL_V2,
                      i18nc("@info:credit", "© 1997–2026 The Konsole Developers; © 2026 Kmux contributors"),

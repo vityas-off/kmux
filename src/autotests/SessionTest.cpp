@@ -11,7 +11,10 @@
 
 // Konsole
 #include "../Emulation.h"
+#include "../config-konsole.h"
+#include "../profile/Profile.h"
 #include "../session/Session.h"
+#include "../session/SessionManager.h"
 
 using namespace Konsole;
 
@@ -40,6 +43,21 @@ void SessionTest::testEmulation()
     QCOMPARE(emulation->lineCount(), 40);
 
     delete session;
+}
+
+void SessionTest::testVersionEnvironment()
+{
+    QVERIFY(QLatin1String(KMUX_VERSION) != QLatin1String(KONSOLE_VERSION));
+    QCOMPARE(QLatin1String(KONSOLE_VERSION), QLatin1String("26.07.70"));
+
+    Session session;
+    Profile::Ptr profile(new Profile);
+    profile->setProperty(Profile::Environment, QStringList());
+    SessionManager manager;
+    manager.setSessionProfile(&session, profile);
+
+    QVERIFY(session.environment().contains(QLatin1String("KONSOLE_VERSION=260770")));
+    QVERIFY(!session.environment().contains(QLatin1String("KONSOLE_VERSION=000100")));
 }
 
 QTEST_MAIN(SessionTest)

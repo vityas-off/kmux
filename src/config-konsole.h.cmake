@@ -1,4 +1,5 @@
-#define KONSOLE_VERSION "${KMUX_VERSION}"
+#define KMUX_VERSION "${KMUX_VERSION}"
+#define KONSOLE_VERSION "${KONSOLE_COMPAT_VERSION}"
 
 /* Defined if on DragonFly BSD */
 #cmakedefine01 HAVE_OS_DRAGONFLYBSD

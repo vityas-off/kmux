@@ -357,8 +357,6 @@ add_library(konsoleapp SHARED Application.cpp
 
 generate_export_header(konsoleapp BASE_NAME konsoleapp)
 
-target_compile_definitions(konsoleapp PRIVATE -DKMUX_VERSION="${KMUX_VERSION}")
-
 target_link_libraries(konsoleapp
   konsoleprivate
   KF6::XmlGui

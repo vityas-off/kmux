@@ -18,6 +18,7 @@ class SessionTest : public QObject
 private Q_SLOTS:
     void testNoProfile();
     void testEmulation();
+    void testVersionEnvironment();
 
 private:
 };

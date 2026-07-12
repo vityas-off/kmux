@@ -199,9 +199,9 @@ void SessionManager::applyProfile(Session *session, const Profile::Ptr &profile,
         // add environment variable containing home directory of current profile
         // (if specified)
 
-        // Keep each semantic-version component two digits wide so numeric
-        // comparisons of the exported value remain predictable.
-        // For example, 0.1.0 becomes 000100 and 0.10.0 becomes 001000.
+        // KONSOLE_VERSION describes compatibility with the upstream terminal
+        // base, independently of the Kmux product version. Keep each component
+        // two digits wide for shell integrations that compare it numerically.
         QStringList list = QStringLiteral(KONSOLE_VERSION).split(QLatin1Char('.'));
         for (QString &component : list) {
             component = component.rightJustified(2, QLatin1Char('0'));
