@@ -102,10 +102,19 @@ QString claudeHome(const QString &overridePath)
     return QDir(homePath()).filePath(QStringLiteral(".claude"));
 }
 
-QString hookScriptDirectory()
+QString hookScriptRootDirectory()
 {
     const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     return QDir(dataRoot.isEmpty() ? QDir(homePath()).filePath(QStringLiteral(".local/share")) : dataRoot).filePath(QStringLiteral("kmux/hooks"));
+}
+
+QString hookScriptDirectory(const QString &agentName, const QString &configDir)
+{
+    const QFileInfo configInfo(configDir);
+    const QString canonicalConfigDir = configInfo.canonicalFilePath();
+    const QByteArray identity = (canonicalConfigDir.isEmpty() ? configInfo.absoluteFilePath() : canonicalConfigDir).toUtf8();
+    const QString homeId = QString::fromLatin1(QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex());
+    return QDir(hookScriptRootDirectory()).filePath(QStringLiteral("%1-%2").arg(agentName, homeId));
 }
 
 QString shellQuote(const QString &value)
@@ -132,9 +141,9 @@ QString projectStatusHelperPath()
     return QStringLiteral("kmux-project-status");
 }
 
-QString hookScriptPath(const QString &agentName, const HookEvent &event)
+QString hookScriptPath(const QString &scriptDirectory, const QString &agentName, const HookEvent &event)
 {
-    return QDir(hookScriptDirectory()).filePath(QStringLiteral("%1-%2.sh").arg(agentName, event.eventLabel));
+    return QDir(scriptDirectory).filePath(QStringLiteral("%1-%2.sh").arg(agentName, event.eventLabel));
 }
 
 QString hookScriptContent(const QString &agentName, const HookEvent &event)
@@ -257,11 +266,11 @@ QJsonArray removeKonsoleOwnedHookGroups(QJsonArray groups, const QString &agentN
     return rewrittenGroups;
 }
 
-QJsonObject buildHookGroup(const QString &agentName, const HookEvent &event)
+QJsonObject buildHookGroup(const QString &scriptDirectory, const QString &agentName, const HookEvent &event)
 {
     QJsonObject hook;
     hook.insert(QStringLiteral("type"), QStringLiteral("command"));
-    hook.insert(QStringLiteral("command"), hookScriptPath(agentName, event));
+    hook.insert(QStringLiteral("command"), hookScriptPath(scriptDirectory, agentName, event));
     hook.insert(QStringLiteral("timeout"), event.timeout);
 
     QJsonArray hooks;
@@ -719,9 +728,9 @@ QString installHookTrust(const QString &content, const QString &hooksJsonPath, c
     return joinTomlLines(lines);
 }
 
-bool installHookScripts(const QString &agentName, const QList<HookEvent> &events, QString *error)
+bool installHookScripts(const QString &scriptDirectory, const QString &agentName, const QList<HookEvent> &events, QString *error)
 {
-    QDir dir(hookScriptDirectory());
+    QDir dir(scriptDirectory);
     if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
         if (error != nullptr) {
             *error = QStringLiteral("Could not create %1").arg(dir.path());
@@ -730,22 +739,27 @@ bool installHookScripts(const QString &agentName, const QList<HookEvent> &events
     }
 
     for (const HookEvent &event : events) {
-        const QString path = hookScriptPath(agentName, event);
+        const QString path = hookScriptPath(scriptDirectory, agentName, event);
         if (!writeTextFileAtomically(path, hookScriptContent(agentName, event), error)) {
             return false;
         }
-        QFile::setPermissions(path,
-                              QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner | QFileDevice::ReadGroup | QFileDevice::ExeGroup
-                                  | QFileDevice::ReadOther | QFileDevice::ExeOther);
+        if (!QFile::setPermissions(path,
+                                   QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner | QFileDevice::ReadGroup | QFileDevice::ExeGroup
+                                       | QFileDevice::ReadOther | QFileDevice::ExeOther)) {
+            if (error != nullptr) {
+                *error = QStringLiteral("Could not make %1 executable").arg(path);
+            }
+            return false;
+        }
     }
 
     return true;
 }
 
-bool uninstallHookScripts(const QString &agentName, const QList<HookEvent> &events, QString *error)
+bool uninstallHookScripts(const QString &scriptDirectory, const QString &agentName, const QList<HookEvent> &events, QString *error)
 {
     for (const HookEvent &event : events) {
-        QFile file(hookScriptPath(agentName, event));
+        QFile file(hookScriptPath(scriptDirectory, agentName, event));
         if (file.exists() && !file.remove()) {
             if (error != nullptr) {
                 *error = file.errorString();
@@ -753,7 +767,56 @@ bool uninstallHookScripts(const QString &agentName, const QList<HookEvent> &even
             return false;
         }
     }
+    QDir().rmdir(scriptDirectory);
     return true;
+}
+
+struct HookInstallationStatus {
+    int groups = 0;
+    int handlers = 0;
+    int executableHandlers = 0;
+    QStringList invalidHandlers;
+};
+
+HookInstallationStatus hookInstallationStatus(const QJsonObject &hooks, const QString &agentName)
+{
+    HookInstallationStatus status;
+    for (const QString &eventName : hooks.keys()) {
+        const QJsonArray groups = hooks.value(eventName).toArray();
+        for (const QJsonValue &groupValue : groups) {
+            const QJsonArray hookList = groupValue.toObject().value(QStringLiteral("hooks")).toArray();
+            bool ownedGroup = false;
+            for (const QJsonValue &hookValue : hookList) {
+                const QString command = hookValue.toObject().value(QStringLiteral("command")).toString();
+                if (!commandIsKonsoleOwned(command, agentName)) {
+                    continue;
+                }
+
+                ownedGroup = true;
+                ++status.handlers;
+                const QFileInfo handlerInfo(command);
+                if (handlerInfo.isFile() && handlerInfo.isExecutable()) {
+                    ++status.executableHandlers;
+                } else {
+                    status.invalidHandlers.append(command);
+                }
+            }
+            if (ownedGroup) {
+                ++status.groups;
+            }
+        }
+    }
+    return status;
+}
+
+void printHookInstallationStatus(QTextStream &out, const HookInstallationStatus &status, const QString &scriptDirectory)
+{
+    out << "Kmux hook groups: " << status.groups << '\n';
+    out << "Hook scripts: " << status.executableHandlers << '/' << status.handlers << " executable\n";
+    out << "Managed hook directory: " << scriptDirectory << '\n';
+    for (const QString &handler : status.invalidHandlers) {
+        out << "Invalid hook script: " << handler << '\n';
+    }
 }
 
 int installCodexHooks(const QString &codexHomeOverride, bool quiet)
@@ -767,7 +830,8 @@ int installCodexHooks(const QString &codexHomeOverride, bool quiet)
         err << "Could not create " << configDir << '\n';
         return 1;
     }
-    if (!installHookScripts(QString::fromLatin1(CodexAgentName), CodexHookEvents, &error)) {
+    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(CodexAgentName), configDir);
+    if (!installHookScripts(scriptDirectory, QString::fromLatin1(CodexAgentName), CodexHookEvents, &error)) {
         err << error << '\n';
         return 1;
     }
@@ -782,7 +846,7 @@ int installCodexHooks(const QString &codexHomeOverride, bool quiet)
     QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
     for (const HookEvent &event : CodexHookEvents) {
         QJsonArray groups = removeKonsoleOwnedHookGroups(hooks.value(event.eventName).toArray(), QString::fromLatin1(CodexAgentName));
-        groups.append(buildHookGroup(QString::fromLatin1(CodexAgentName), event));
+        groups.append(buildHookGroup(scriptDirectory, QString::fromLatin1(CodexAgentName), event));
         hooks.insert(event.eventName, groups);
     }
     root.insert(QStringLiteral("hooks"), hooks);
@@ -812,7 +876,7 @@ int installCodexHooks(const QString &codexHomeOverride, bool quiet)
     if (!quiet) {
         out << "Installed Codex hooks at " << hooksPath << '\n';
         out << "Enabled and trusted Codex hooks in " << configPath << '\n';
-        out << "Hook scripts are in " << hookScriptDirectory() << '\n';
+        out << "Hook scripts are in " << scriptDirectory << '\n';
     }
     return 0;
 }
@@ -824,6 +888,7 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
     QString error;
 
     const QString configDir = codexHome(codexHomeOverride);
+    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(CodexAgentName), configDir);
     const QString hooksPath = QDir(configDir).filePath(QStringLiteral("hooks.json"));
     QJsonObject root = readJsonObject(hooksPath, &error);
     if (!error.isEmpty()) {
@@ -866,7 +931,7 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
         }
     }
 
-    if (!uninstallHookScripts(QString::fromLatin1(CodexAgentName), CodexHookEvents, &error)) {
+    if (!uninstallHookScripts(scriptDirectory, QString::fromLatin1(CodexAgentName), CodexHookEvents, &error)) {
         err << error << '\n';
         return 1;
     }
@@ -879,32 +944,26 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
 int statusCodexHooks(const QString &codexHomeOverride)
 {
     QTextStream out(stdout);
+    QTextStream err(stderr);
     const QString configDir = codexHome(codexHomeOverride);
+    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(CodexAgentName), configDir);
     const QString hooksPath = QDir(configDir).filePath(QStringLiteral("hooks.json"));
     const QString configPath = QDir(configDir).filePath(QStringLiteral("config.toml"));
 
     QString error;
     const QJsonObject root = readJsonObject(hooksPath, &error);
-    const QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
-    int installedGroups = 0;
-    for (const QString &eventName : hooks.keys()) {
-        const QJsonArray groups = hooks.value(eventName).toArray();
-        for (const QJsonValue &groupValue : groups) {
-            const QJsonArray hookList = groupValue.toObject().value(QStringLiteral("hooks")).toArray();
-            if (std::any_of(hookList.begin(), hookList.end(), [](const QJsonValue &hookValue) {
-                    return commandIsKonsoleOwned(hookValue.toObject().value(QStringLiteral("command")).toString(), QString::fromLatin1(CodexAgentName));
-                })) {
-                ++installedGroups;
-            }
-        }
+    if (!error.isEmpty()) {
+        err << error << '\n';
+        return 1;
     }
+    const QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
+    const HookInstallationStatus status = hookInstallationStatus(hooks, QString::fromLatin1(CodexAgentName));
 
     out << "Codex home: " << configDir << '\n';
     out << "hooks.json: " << hooksPath << (QFileInfo::exists(hooksPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
     out << "config.toml: " << configPath << (QFileInfo::exists(configPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
-    out << "Kmux hook groups: " << installedGroups << '\n';
-    out << "Hook scripts: " << hookScriptDirectory() << '\n';
-    return 0;
+    printHookInstallationStatus(out, status, scriptDirectory);
+    return status.groups == CodexHookEvents.size() && status.handlers == CodexHookEvents.size() && status.executableHandlers == status.handlers ? 0 : 1;
 }
 
 int installClaudeHooks(const QString &claudeHomeOverride)
@@ -918,7 +977,8 @@ int installClaudeHooks(const QString &claudeHomeOverride)
         err << "Could not create " << configDir << '\n';
         return 1;
     }
-    if (!installHookScripts(QString::fromLatin1(ClaudeAgentName), ClaudeHookEvents, &error)) {
+    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(ClaudeAgentName), configDir);
+    if (!installHookScripts(scriptDirectory, QString::fromLatin1(ClaudeAgentName), ClaudeHookEvents, &error)) {
         err << error << '\n';
         return 1;
     }
@@ -933,7 +993,7 @@ int installClaudeHooks(const QString &claudeHomeOverride)
     QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
     for (const HookEvent &event : ClaudeHookEvents) {
         QJsonArray groups = removeKonsoleOwnedHookGroups(hooks.value(event.eventName).toArray(), QString::fromLatin1(ClaudeAgentName));
-        groups.append(buildHookGroup(QString::fromLatin1(ClaudeAgentName), event));
+        groups.append(buildHookGroup(scriptDirectory, QString::fromLatin1(ClaudeAgentName), event));
         hooks.insert(event.eventName, groups);
     }
     root.insert(QStringLiteral("hooks"), hooks);
@@ -944,7 +1004,7 @@ int installClaudeHooks(const QString &claudeHomeOverride)
     }
 
     out << "Installed Claude Code hooks in " << settingsPath << '\n';
-    out << "Hook scripts are in " << hookScriptDirectory() << '\n';
+    out << "Hook scripts are in " << scriptDirectory << '\n';
     return 0;
 }
 
@@ -955,6 +1015,7 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
     QString error;
 
     const QString configDir = claudeHome(claudeHomeOverride);
+    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(ClaudeAgentName), configDir);
     const QString settingsPath = QDir(configDir).filePath(QStringLiteral("settings.json"));
     QJsonObject root = readJsonObject(settingsPath, &error);
     if (!error.isEmpty()) {
@@ -981,7 +1042,7 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
         return 1;
     }
 
-    if (!uninstallHookScripts(QString::fromLatin1(ClaudeAgentName), ClaudeHookEvents, &error)) {
+    if (!uninstallHookScripts(scriptDirectory, QString::fromLatin1(ClaudeAgentName), ClaudeHookEvents, &error)) {
         err << error << '\n';
         return 1;
     }
@@ -993,30 +1054,24 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
 int statusClaudeHooks(const QString &claudeHomeOverride)
 {
     QTextStream out(stdout);
+    QTextStream err(stderr);
     const QString configDir = claudeHome(claudeHomeOverride);
+    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(ClaudeAgentName), configDir);
     const QString settingsPath = QDir(configDir).filePath(QStringLiteral("settings.json"));
 
     QString error;
     const QJsonObject root = readJsonObject(settingsPath, &error);
-    const QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
-    int installedGroups = 0;
-    for (const QString &eventName : hooks.keys()) {
-        const QJsonArray groups = hooks.value(eventName).toArray();
-        for (const QJsonValue &groupValue : groups) {
-            const QJsonArray hookList = groupValue.toObject().value(QStringLiteral("hooks")).toArray();
-            if (std::any_of(hookList.begin(), hookList.end(), [](const QJsonValue &hookValue) {
-                    return commandIsKonsoleOwned(hookValue.toObject().value(QStringLiteral("command")).toString(), QString::fromLatin1(ClaudeAgentName));
-                })) {
-                ++installedGroups;
-            }
-        }
+    if (!error.isEmpty()) {
+        err << error << '\n';
+        return 1;
     }
+    const QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
+    const HookInstallationStatus status = hookInstallationStatus(hooks, QString::fromLatin1(ClaudeAgentName));
 
     out << "Claude home: " << configDir << '\n';
     out << "settings.json: " << settingsPath << (QFileInfo::exists(settingsPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
-    out << "Kmux hook groups: " << installedGroups << '\n';
-    out << "Hook scripts: " << hookScriptDirectory() << '\n';
-    return 0;
+    printHookInstallationStatus(out, status, scriptDirectory);
+    return status.groups == ClaudeHookEvents.size() && status.handlers == ClaudeHookEvents.size() && status.executableHandlers == status.handlers ? 0 : 1;
 }
 }
 

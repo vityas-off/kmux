@@ -255,7 +255,9 @@ Kmux устанавливает свой `konsolepart.so` в тот же `${KDE_
 
 Compatibility нельзя обеспечивать установкой второго владельца того же plugin path. Нужна отдельная discovery/alias стратегия без подмены upstream module.
 
-### Medium-12. Uninstall одного agent config home ломает hooks остальных homes
+### Medium-12. ✅ Исправлено — hook scripts изолированы по agent config home
+
+Статус: исправлено. Для каждого Codex/Claude config home теперь создаётся отдельный каталог scripts в `$XDG_DATA_HOME/kmux/hooks`, идентифицированный типом агента и каноническим путём home. Uninstall удаляет только scripts этого home. `status` проверяет каждый фактически настроенный handler, требует обычный executable-файл и возвращает ошибку для неполной установки. Multi-home regression test покрывает Codex и Claude с общим data home, независимый uninstall, потерю executable bit и удалённый handler.
 
 Места: `src/konsole-agent-hooks.cpp:105-109`, `135-138`, `570-604`, `674-717`, `789-832`.
 Коммит: `acb7af7d9`.

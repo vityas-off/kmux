@@ -2,9 +2,15 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -16,6 +22,8 @@ private Q_SLOTS:
     void testCodexFeatureToml_data();
     void testCodexFeatureToml();
     void testCodexRepairsPreviousDottedInstall();
+    void testHomeScopedScripts_data();
+    void testHomeScopedScripts();
 };
 
 void AgentHooksTest::testCodexFeatureToml_data()
@@ -138,6 +146,111 @@ void AgentHooksTest::testCodexRepairsPreviousDottedInstall()
     const QString repaired = QString::fromUtf8(configFile.readAll());
     QVERIFY(repaired.contains(QStringLiteral("features.hooks = true")));
     QVERIFY(!repaired.contains(QStringLiteral("\n[features]\n")));
+}
+
+void AgentHooksTest::testHomeScopedScripts_data()
+{
+    QTest::addColumn<QString>("agent");
+    QTest::addColumn<QString>("homeOption");
+    QTest::addColumn<QString>("settingsFile");
+    QTest::addColumn<int>("handlerCount");
+
+    QTest::newRow("codex") << QStringLiteral("codex") << QStringLiteral("--codex-home") << QStringLiteral("hooks.json") << 8;
+    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json") << 10;
+}
+
+void AgentHooksTest::testHomeScopedScripts()
+{
+    QFETCH(QString, agent);
+    QFETCH(QString, homeOption);
+    QFETCH(QString, settingsFile);
+    QFETCH(int, handlerCount);
+
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString dataHome = temporaryDir.filePath(QStringLiteral("data"));
+    const QString firstHome = temporaryDir.filePath(QStringLiteral("home-a"));
+    const QString secondHome = temporaryDir.filePath(QStringLiteral("home-b"));
+
+    const auto runHooks = [&dataHome, &homeOption, &agent](const QString &home, const QString &command) {
+        QProcess process;
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("XDG_DATA_HOME"), dataHome);
+        process.setProcessEnvironment(environment);
+        process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE), {homeOption, home, command, agent, QStringLiteral("--quiet")});
+        if (!process.waitForStarted() || !process.waitForFinished()) {
+            return qMakePair(-1, QStringLiteral("Could not run kmux-agent-hooks: %1").arg(process.errorString()));
+        }
+        const QString output = QString::fromUtf8(process.readAllStandardOutput()) + QString::fromUtf8(process.readAllStandardError());
+        return qMakePair(process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -1, output);
+    };
+    const auto hookCommands = [&settingsFile](const QString &home) {
+        QFile file(QDir(home).filePath(settingsFile));
+        if (!file.open(QIODevice::ReadOnly)) {
+            return QStringList();
+        }
+
+        QStringList commands;
+        const QJsonObject hooks = QJsonDocument::fromJson(file.readAll()).object().value(QStringLiteral("hooks")).toObject();
+        for (const QJsonValue &eventValue : hooks) {
+            for (const QJsonValue &groupValue : eventValue.toArray()) {
+                for (const QJsonValue &hookValue : groupValue.toObject().value(QStringLiteral("hooks")).toArray()) {
+                    const QString command = hookValue.toObject().value(QStringLiteral("command")).toString();
+                    if (command.contains(QStringLiteral("/kmux/hooks/"))) {
+                        commands.append(command);
+                    }
+                }
+            }
+        }
+        return commands;
+    };
+
+    auto result = runHooks(firstHome, QStringLiteral("install"));
+    QVERIFY2(result.first == 0, qPrintable(result.second));
+    result = runHooks(secondHome, QStringLiteral("install"));
+    QVERIFY2(result.first == 0, qPrintable(result.second));
+
+    const QStringList firstCommands = hookCommands(firstHome);
+    const QStringList secondCommands = hookCommands(secondHome);
+    QCOMPARE(firstCommands.size(), handlerCount);
+    QCOMPARE(secondCommands.size(), handlerCount);
+    QCOMPARE(QSet<QString>(firstCommands.begin(), firstCommands.end()).size(), handlerCount);
+    QCOMPARE(QSet<QString>(secondCommands.begin(), secondCommands.end()).size(), handlerCount);
+    QVERIFY(QFileInfo(firstCommands.constFirst()).absolutePath() != QFileInfo(secondCommands.constFirst()).absolutePath());
+    const QString scopedRoot = QDir(dataHome).filePath(QStringLiteral("kmux/hooks/%1-").arg(agent));
+    for (const QString &command : firstCommands) {
+        QVERIFY(command.startsWith(scopedRoot));
+        QVERIFY2(QFileInfo(command).isExecutable(), qPrintable(command));
+    }
+    for (const QString &command : secondCommands) {
+        QVERIFY(command.startsWith(scopedRoot));
+        QVERIFY2(QFileInfo(command).isExecutable(), qPrintable(command));
+    }
+
+    result = runHooks(firstHome, QStringLiteral("uninstall"));
+    QVERIFY2(result.first == 0, qPrintable(result.second));
+    for (const QString &command : firstCommands) {
+        QVERIFY(!QFileInfo::exists(command));
+    }
+    for (const QString &command : secondCommands) {
+        QVERIFY2(QFileInfo(command).isExecutable(), qPrintable(command));
+    }
+
+    result = runHooks(secondHome, QStringLiteral("status"));
+    QVERIFY2(result.first == 0, qPrintable(result.second));
+    QVERIFY(result.second.contains(QStringLiteral("%1/%1 executable").arg(handlerCount)));
+
+    const QString brokenHandler = secondCommands.constFirst();
+    QVERIFY(QFile::setPermissions(brokenHandler, QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+    result = runHooks(secondHome, QStringLiteral("status"));
+    QVERIFY(result.first != 0);
+    QVERIFY(result.second.contains(QStringLiteral("%1/%2 executable").arg(handlerCount - 1).arg(handlerCount)));
+    QVERIFY(result.second.contains(QStringLiteral("Invalid hook script: %1").arg(brokenHandler)));
+
+    QVERIFY(QFile::remove(brokenHandler));
+    result = runHooks(secondHome, QStringLiteral("status"));
+    QVERIFY(result.first != 0);
+    QVERIFY(result.second.contains(QStringLiteral("Invalid hook script: %1").arg(brokenHandler)));
 }
 
 QTEST_GUILESS_MAIN(AgentHooksTest)
