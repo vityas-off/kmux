@@ -60,8 +60,8 @@ kmux-agent-hooks install claude
 
 The commands update the respective agent configuration under `~/.codex` or
 `~/.claude`. Use `status` or `uninstall` in place of `install` to inspect or
-remove the integration. The `kmux-codex` helper installs the trusted Codex hooks
-and then launches Codex.
+remove the integration. The `kmux-codex` and `kmux-claude` helpers install the
+matching hooks, associate status with the agent process, and then launch it.
 
 Agent hooks communicate with the Kmux session through the
 `KMUX_DBUS_*` environment exported inside Kmux terminals. These helpers are
@@ -129,7 +129,7 @@ The public install surface is renamed to avoid conflicts:
 - config file: `kmuxrc`;
 - data directory: `~/.local/share/kmux`;
 - DBus environment variables: `KMUX_DBUS_*`;
-- helper tools: `kmux-project-status`, `kmux-codex`, and `kmux-agent-hooks`;
+- helper tools: `kmux-project-status`, `kmux-codex`, `kmux-claude`, and `kmux-agent-hooks`;
 - plugin namespace: `kmuxplugins`.
 
 The source still contains many internal `Konsole` class, namespace, and file

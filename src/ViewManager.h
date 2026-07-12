@@ -579,6 +579,7 @@ private:
         ProjectWorkspaceContainer::ProjectStatus status = ProjectWorkspaceContainer::ProjectStatus::None;
         qlonglong agentProcessId = 0;
         int pendingTerminalDecisions = 0;
+        QString agent;
     };
     QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
     QTimer _projectStatusProcessTimer;

@@ -268,7 +268,9 @@ Scripts общие для всех configs и лежат в одном `$XDG_DAT
 
 Нужны per-home scripts либо безопасная политика владения/refcount; `status` должен проверять существование и executable каждого handler.
 
-### Medium-13. Claude status не очищается после crash и может унаследовать PID другого agent
+### Medium-13. ✅ Исправлено — Claude status не очищался после crash и мог унаследовать PID другого agent
+
+Статус: исправлено. Добавлен `kmux-claude`, который устанавливает Claude hooks, экспортирует устойчивый PID agent process и запускает Claude через `exec`; сгенерированные Claude hooks передают этот PID в status helper. Состояние сессии теперь хранит identity агента и не наследует PID или pending decisions при смене агента и новом `SessionStart`. Regression test покрывает Codex → Claude в одной terminal session, отсутствие наследования мёртвого Codex PID и очистку Claude status после аварийного завершения процесса.
 
 Места: `src/konsole-agent-hooks.cpp:63-74`, `146-150`; `src/ViewManager.cpp:2632-2671`, `2700-2725`.
 Коммиты: `acb7af7d9`, `a7024ec07`.

@@ -152,11 +152,13 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
     const QString quotedHelper = shellQuote(helper);
     const QString quotedAgentName = shellQuote(agentName);
     const QString quotedEventName = shellQuote(event.eventName);
-    const QString agentProcessArguments = agentName == QLatin1String(CodexAgentName) ? QStringLiteral(
-                                                                                           "if [ -n \"${KMUX_CODEX_PID:-}\" ]; then\n"
-                                                                                           "    set -- \"$@\" --agent-pid \"$KMUX_CODEX_PID\"\n"
-                                                                                           "fi\n")
-                                                                                     : QString();
+    const QString agentPidEnvironment = agentName == QLatin1String(CodexAgentName) ? QStringLiteral("KMUX_CODEX_PID") : QStringLiteral("KMUX_CLAUDE_PID");
+    const QString agentProcessArguments = QStringLiteral(
+                                              "agent_pid=${%1:-}\n"
+                                              "if [ -n \"$agent_pid\" ]; then\n"
+                                              "    set -- \"$@\" --agent-pid \"$agent_pid\"\n"
+                                              "fi\n")
+                                              .arg(agentPidEnvironment);
 
     return QStringLiteral(
                "#!/bin/sh\n"

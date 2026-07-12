@@ -227,6 +227,12 @@ void AgentHooksTest::testHomeScopedScripts()
         QVERIFY2(QFileInfo(command).isExecutable(), qPrintable(command));
     }
 
+    QFile hookScript(secondCommands.constFirst());
+    QVERIFY(hookScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString hookScriptText = QString::fromUtf8(hookScript.readAll());
+    const QString agentPidEnvironment = agent == QLatin1String("codex") ? QStringLiteral("KMUX_CODEX_PID") : QStringLiteral("KMUX_CLAUDE_PID");
+    QVERIFY(hookScriptText.contains(agentPidEnvironment));
+
     result = runHooks(firstHome, QStringLiteral("uninstall"));
     QVERIFY2(result.first == 0, qPrintable(result.second));
     for (const QString &command : firstCommands) {

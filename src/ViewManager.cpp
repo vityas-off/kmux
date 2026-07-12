@@ -2762,15 +2762,19 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
 
     const auto previousStatus = _sessionProjectStatuses.value(session);
-    const bool agentProcessChanged = agentProcessId > 0 && previousStatus.agentProcessId > 0 && agentProcessId != previousStatus.agentProcessId;
-    if (agentProcessId <= 0) {
+    const QString normalizedAgent = agent.trimmed().toLower();
+    const bool isSessionStart = event.compare(QLatin1String("SessionStart"), Qt::CaseInsensitive) == 0;
+    const bool agentChanged = normalizedAgent != previousStatus.agent && (!normalizedAgent.isEmpty() || !previousStatus.agent.isEmpty());
+    const bool agentProcessChanged =
+        agentChanged || isSessionStart || (agentProcessId > 0 && previousStatus.agentProcessId > 0 && agentProcessId != previousStatus.agentProcessId);
+    if (agentProcessId <= 0 && !agentChanged && !isSessionStart) {
         agentProcessId = previousStatus.agentProcessId;
     }
 
     const bool isCodexEvent = agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0;
     const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
-    const bool resetsPendingDecisions = event.compare(QLatin1String("SessionStart"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
+    const bool resetsPendingDecisions = isSessionStart || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
 
     int pendingTerminalDecisions = agentProcessChanged || !isCodexEvent || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
     if (isCodexEvent && isPermissionRequest) {
@@ -2778,7 +2782,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
 
     const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
-    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions});
+    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent});
     if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);
     } else {

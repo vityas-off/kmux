@@ -556,6 +556,51 @@ void ViewManagerTest::testProjectWorkspaceStatusClearsWhenAgentExits()
 #endif
 }
 
+void ViewManagerTest::testProjectWorkspaceAgentSessionDoesNotInheritAnotherAgentPid()
+{
+#ifndef Q_OS_UNIX
+    QSKIP("Agent process liveness checks are only available on Unix platforms.");
+#else
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    QProcess codexProcess;
+    codexProcess.start(QStringLiteral("sleep"), {QStringLiteral("30")});
+    QVERIFY(codexProcess.waitForStarted());
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), codexProcess.processId(), QStringLiteral("codex"), QStringLiteral("SessionStart"));
+
+    codexProcess.kill();
+    QVERIFY(codexProcess.waitForFinished());
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), 0, QStringLiteral("claude"), QStringLiteral("SessionStart"));
+
+    const auto claudeStatusWithoutPid = viewManager->_sessionProjectStatuses.value(session);
+    QCOMPARE(claudeStatusWithoutPid.agent, QStringLiteral("claude"));
+    QCOMPARE(claudeStatusWithoutPid.agentProcessId, 0);
+    viewManager->clearExitedSessionProjectStatuses();
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    QProcess claudeProcess;
+    claudeProcess.start(QStringLiteral("sleep"), {QStringLiteral("30")});
+    QVERIFY(claudeProcess.waitForStarted());
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), claudeProcess.processId(), QStringLiteral("claude"), QStringLiteral("SessionStart"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentProcessId, claudeProcess.processId());
+
+    claudeProcess.kill();
+    QVERIFY(claudeProcess.waitForFinished());
+    QTRY_COMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
+#endif
+}
+
 void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
 {
     auto mw = MainWindow();

@@ -11,6 +11,18 @@
 #include <unistd.h>
 #include <vector>
 
+#ifndef KMUX_AGENT_NAME
+#define KMUX_AGENT_NAME "codex"
+#endif
+
+#ifndef KMUX_AGENT_PID_ENV
+#define KMUX_AGENT_PID_ENV "KMUX_CODEX_PID"
+#endif
+
+#ifndef KMUX_HOOKS_DISABLED_ENV
+#define KMUX_HOOKS_DISABLED_ENV "KONSOLE_CODEX_HOOKS_DISABLED"
+#endif
+
 namespace
 {
 std::string agentHooksExecutable(const char *launcherPath)
@@ -32,7 +44,7 @@ bool installTrustedHooks(const char *launcherPath)
     }
 
     if (installerPid == 0) {
-        execlp(executable.c_str(), executable.c_str(), "--quiet", "install", "codex", nullptr);
+        execlp(executable.c_str(), executable.c_str(), "--quiet", "install", KMUX_AGENT_NAME, nullptr);
         _exit(127);
     }
 
@@ -49,12 +61,12 @@ bool installTrustedHooks(const char *launcherPath)
 int main(int argc, char **argv)
 {
     std::vector<std::string> args;
-    args.emplace_back("codex");
+    args.emplace_back(KMUX_AGENT_NAME);
 
-    const char *disabled = std::getenv("KONSOLE_CODEX_HOOKS_DISABLED");
+    const char *disabled = std::getenv(KMUX_HOOKS_DISABLED_ENV);
     if (disabled == nullptr || std::strcmp(disabled, "1") != 0) {
         if (!installTrustedHooks(argv[0])) {
-            std::cerr << "kmux-codex: failed to install trusted Kmux hooks; continuing without changing Codex hook trust\n";
+            std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to install Kmux hooks; continuing without updating the agent configuration\n";
         }
     }
 
@@ -63,7 +75,7 @@ int main(int argc, char **argv)
     }
 
     const std::string agentPid = std::to_string(getpid());
-    setenv("KMUX_CODEX_PID", agentPid.c_str(), 1);
+    setenv(KMUX_AGENT_PID_ENV, agentPid.c_str(), 1);
 
     std::vector<char *> execArgs;
     execArgs.reserve(args.size() + 1);
@@ -72,7 +84,7 @@ int main(int argc, char **argv)
     }
     execArgs.push_back(nullptr);
 
-    execvp("codex", execArgs.data());
-    std::cerr << "kmux-codex: failed to exec codex: " << std::strerror(errno) << '\n';
+    execvp(KMUX_AGENT_NAME, execArgs.data());
+    std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to exec " KMUX_AGENT_NAME ": " << std::strerror(errno) << '\n';
     return 127;
 }

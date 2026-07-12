@@ -421,6 +421,14 @@ if(HAVE_DBUS)
     ecm_mark_nongui_executable(kmux-codex)
     install(TARGETS kmux-codex ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
+    add_executable(kmux-claude konsole-codex.cpp)
+    target_compile_definitions(
+        kmux-claude
+        PRIVATE KMUX_AGENT_NAME="claude" KMUX_AGENT_PID_ENV="KMUX_CLAUDE_PID" KMUX_HOOKS_DISABLED_ENV="KMUX_CLAUDE_HOOKS_DISABLED"
+    )
+    ecm_mark_nongui_executable(kmux-claude)
+    install(TARGETS kmux-claude ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+
     add_executable(kmux-agent-hooks konsole-agent-hooks.cpp)
     ecm_mark_nongui_executable(kmux-agent-hooks)
     target_link_libraries(kmux-agent-hooks Qt::Core)
