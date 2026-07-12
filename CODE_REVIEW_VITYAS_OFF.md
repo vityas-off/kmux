@@ -285,7 +285,7 @@ Scripts общие для всех configs и лежат в одном `$XDG_DAT
 - `src/config-konsole.h.cmake:1`, `src/session/SessionManager.cpp:187-198`: Kmux 0.1.0 экспортирует `KONSOLE_VERSION=000100`. Upstream shell integrations могут принять современную Konsole-базу за древнюю. Product version лучше экспортировать отдельно от compatibility version.
 - `CMakeLists.txt:77-93`, `src/main.cpp:200-236`: single-workspace invariant целиком зависит от DBus, который по умолчанию выключен на Windows/macOS; несколько процессов будут сохранять один state по принципу last-writer-wins.
 - `src/konsole-agent-hooks.cpp:623-655`, `674-717`, `774-832`: read-modify-write двух config-файлов и общих scripts не защищён `QLockFile`; параллельные auto-install/uninstall могут потерять внешнюю правку или оставить частично согласованное состояние.
-- `desktop/kmuxrun.desktop:1-12`: новый service menu не сохранил upstream `X-KDE-AuthorizeAction=shell_access`, поэтому Kiosk policy не сможет скрыть shell action.
+- ✅ Исправлено — `kmuxrun.desktop` снова объявляет upstream `X-KDE-AuthorizeAction=shell_access`, поэтому Kiosk policy может скрыть запуск shell action.
 - `src/profile/ProfileReader.cpp:34-46`: в отличие от schemes/keytabs, legacy Konsole profiles не имеют даже read-only fallback. Это может быть намеренной rebrand-изоляцией, но расходится с заявленной совместимостью profiles и требует явного продуктового решения.
 - Комментарий `src/Application.cpp:274` обещает дополнительный default tab для `--tabs-from-file`, но ветка `223` его больше не создаёт.
 

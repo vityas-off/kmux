@@ -3,6 +3,7 @@ Type=Service
 MimeType=application/x-executable;application/x-shellscript;
 Actions=runInKmux;
 X-KDE-Priority=TopLevel
+X-KDE-AuthorizeAction=shell_access
 
 [Desktop Action runInKmux]
 TryExec=kmux
