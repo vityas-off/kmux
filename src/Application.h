@@ -80,6 +80,7 @@ private:
     bool hasExplicitSessionRequest() const;
     QString resolveActivationPath(const QString &path) const;
     QString initialWorkingDirectory(const QString &requestedDirectory = QString()) const;
+    void applyInitialWorkingDirectory(Session *session, const Profile::Ptr &profile, const QString &requestedDirectory, bool requestedExplicitly) const;
 
     MainWindow *_backgroundInstance;
     QSharedPointer<QCommandLineParser> m_parser;

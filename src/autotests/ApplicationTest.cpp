@@ -145,6 +145,44 @@ void ApplicationTest::testActivationUsesRequestWorkingDirectory()
     delete window;
 }
 
+void ApplicationTest::testProfileDirectoryPrecedence()
+{
+    QTemporaryDir profileDirectory;
+    QTemporaryDir activationDirectory;
+    QTemporaryDir explicitDirectory;
+    QVERIFY(profileDirectory.isValid());
+    QVERIFY(activationDirectory.isValid());
+    QVERIFY(explicitDirectory.isValid());
+
+    auto parser = QSharedPointer<QCommandLineParser>::create();
+    Application::populateCommandLineParser(parser.get());
+    QVERIFY(parser->parse({QStringLiteral("kmux"), QStringLiteral("-p"), QStringLiteral("Directory=%1").arg(profileDirectory.path())}));
+    Application application(parser, {});
+
+    application.newInstance();
+
+    auto *window = mainWindow();
+    QVERIFY(window != nullptr);
+    QVERIFY(activeSession(window) != nullptr);
+    QCOMPARE(activeSession(window)->initialWorkingDirectory(), QDir::cleanPath(profileDirectory.path()));
+
+    application.slotActivateRequested({QStringLiteral("--new-tab"), QStringLiteral("-p"), QStringLiteral("Directory=%1").arg(profileDirectory.path())},
+                                      activationDirectory.path());
+    QVERIFY(activeSession(window) != nullptr);
+    QCOMPARE(activeSession(window)->initialWorkingDirectory(), QDir::cleanPath(profileDirectory.path()));
+
+    application.slotActivateRequested({QStringLiteral("--new-tab"),
+                                       QStringLiteral("-p"),
+                                       QStringLiteral("Directory=%1").arg(profileDirectory.path()),
+                                       QStringLiteral("--workdir"),
+                                       explicitDirectory.path()},
+                                      activationDirectory.path());
+    QVERIFY(activeSession(window) != nullptr);
+    QCOMPARE(activeSession(window)->initialWorkingDirectory(), QDir::cleanPath(explicitDirectory.path()));
+
+    delete window;
+}
+
 void ApplicationTest::testActivationResolvesRelativeTabsFile()
 {
     writeTwoProjectWorkspace();
@@ -155,10 +193,18 @@ void ApplicationTest::testActivationResolvesRelativeTabsFile()
     Application application(parser, {});
 
     QTemporaryDir callingDirectory;
+    QTemporaryDir profileDirectory;
     QVERIFY(callingDirectory.isValid());
+    QVERIFY(profileDirectory.isValid());
+    QFile profileFile(callingDirectory.filePath(QStringLiteral("application-test.profile")));
+    QVERIFY(profileFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray profile = QStringLiteral("[General]\nName=ApplicationTestDirectory\nDirectory=%1\n").arg(profileDirectory.path()).toUtf8();
+    QCOMPARE(profileFile.write(profile), profile.size());
+    profileFile.close();
+
     QFile tabsFile(callingDirectory.filePath(QStringLiteral("tabs.conf")));
     QVERIFY(tabsFile.open(QIODevice::WriteOnly | QIODevice::Text));
-    const QByteArray tabs = "profile: __application_test_missing_profile__\n";
+    const QByteArray tabs = QStringLiteral("profile: %1\n").arg(profileFile.fileName()).toUtf8();
     QCOMPARE(tabsFile.write(tabs), tabs.size());
     tabsFile.close();
 
@@ -171,6 +217,8 @@ void ApplicationTest::testActivationResolvesRelativeTabsFile()
     QCOMPARE(projects->projectCount(), 2);
     QCOMPARE(projects->containers().at(0)->count(), 1);
     QCOMPARE(projects->containers().at(1)->count(), 2);
+    QVERIFY(activeSession(window) != nullptr);
+    QCOMPARE(activeSession(window)->initialWorkingDirectory(), QDir::cleanPath(profileDirectory.path()));
 
     delete window;
 }

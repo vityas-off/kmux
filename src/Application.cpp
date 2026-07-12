@@ -225,7 +225,8 @@ int Application::newInstance()
     } else if (!m_parser->isSet(QStringLiteral("tabs-from-file")) && (!restoredLastWorkspaceState || explicitSessionRequest)) {
         Session *session = window->createSession(newProfile, QString());
 
-        session->setInitialWorkingDirectory(initialWorkingDirectory(m_parser->value(QStringLiteral("workdir"))));
+        const QString workdirOptionName(QStringLiteral("workdir"));
+        applyInitialWorkingDirectory(session, newProfile, m_parser->value(workdirOptionName), m_parser->isSet(workdirOptionName));
 
         if (m_parser->isSet(QStringLiteral("noclose"))) {
             session->setAutoClose(false);
@@ -410,11 +411,11 @@ void Application::createTabFromArgs(MainWindow *window, const QHash<QString, QSt
 
     const QString wdirOptionName(QStringLiteral("workdir"));
     auto it = tokens.constFind(wdirOptionName);
-    const QString workingDirectory = initialWorkingDirectory(it != tokens.cend() ? it.value() : m_parser->value(wdirOptionName));
-
-    if (!workingDirectory.isEmpty()) {
-        session->setInitialWorkingDirectory(workingDirectory);
-    }
+    const bool tabWorkdirSet = it != tokens.cend();
+    applyInitialWorkingDirectory(session,
+                                 theProfile,
+                                 tabWorkdirSet ? it.value() : m_parser->value(wdirOptionName),
+                                 tabWorkdirSet || m_parser->isSet(wdirOptionName));
 
     if (m_parser->isSet(QStringLiteral("noclose"))) {
         session->setAutoClose(false);
@@ -571,6 +572,14 @@ QString Application::initialWorkingDirectory(const QString &requestedDirectory) 
         return m_activationWorkingDirectory;
     }
     return resolveActivationPath(requestedDirectory);
+}
+
+void Application::applyInitialWorkingDirectory(Session *session, const Profile::Ptr &profile, const QString &requestedDirectory, bool requestedExplicitly) const
+{
+    if (!requestedExplicitly && !profile->defaultWorkingDirectory().isEmpty()) {
+        return;
+    }
+    session->setInitialWorkingDirectory(initialWorkingDirectory(requestedDirectory));
 }
 
 QString Application::resolveActivationPath(const QString &path) const
