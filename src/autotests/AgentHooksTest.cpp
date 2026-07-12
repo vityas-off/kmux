@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QSet>
@@ -22,6 +23,8 @@ private Q_SLOTS:
     void testCodexFeatureToml_data();
     void testCodexFeatureToml();
     void testCodexRepairsPreviousDottedInstall();
+    void testHookOperationsWaitForTransactionLock_data();
+    void testHookOperationsWaitForTransactionLock();
     void testHomeScopedScripts_data();
     void testHomeScopedScripts();
 };
@@ -146,6 +149,55 @@ void AgentHooksTest::testCodexRepairsPreviousDottedInstall()
     const QString repaired = QString::fromUtf8(configFile.readAll());
     QVERIFY(repaired.contains(QStringLiteral("features.hooks = true")));
     QVERIFY(!repaired.contains(QStringLiteral("\n[features]\n")));
+}
+
+void AgentHooksTest::testHookOperationsWaitForTransactionLock_data()
+{
+    QTest::addColumn<QString>("agent");
+    QTest::addColumn<QString>("homeOption");
+    QTest::addColumn<QString>("settingsFile");
+
+    QTest::newRow("codex") << QStringLiteral("codex") << QStringLiteral("--codex-home") << QStringLiteral("hooks.json");
+    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json");
+}
+
+void AgentHooksTest::testHookOperationsWaitForTransactionLock()
+{
+    QFETCH(QString, agent);
+    QFETCH(QString, homeOption);
+    QFETCH(QString, settingsFile);
+
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString configHome = temporaryDir.filePath(QStringLiteral("agent-home"));
+    const QString lockPath = QFileInfo(configHome).absoluteFilePath() + QStringLiteral(".kmux-%1-hooks.lock").arg(agent);
+    QLockFile lock(lockPath);
+    QVERIFY(lock.tryLock());
+
+    QProcess process;
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    process.setProcessEnvironment(environment);
+    process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE), {homeOption, configHome, QStringLiteral("install"), agent, QStringLiteral("--quiet")});
+    QVERIFY(process.waitForStarted());
+    QVERIFY(!process.waitForFinished(200));
+
+    QVERIFY(QDir().mkpath(configHome));
+    QFile settings(QDir(configHome).filePath(settingsFile));
+    QVERIFY(settings.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray externalSettings = QByteArrayLiteral("{\"externalEdit\":true}\n");
+    QCOMPARE(settings.write(externalSettings), externalSettings.size());
+    settings.close();
+
+    lock.unlock();
+    QVERIFY(process.waitForFinished());
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+
+    QVERIFY(settings.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QJsonObject installedSettings = QJsonDocument::fromJson(settings.readAll()).object();
+    QVERIFY(installedSettings.value(QStringLiteral("externalEdit")).toBool());
+    QVERIFY(!installedSettings.value(QStringLiteral("hooks")).toObject().isEmpty());
 }
 
 void AgentHooksTest::testHomeScopedScripts_data()

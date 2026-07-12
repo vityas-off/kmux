@@ -12,6 +12,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
@@ -101,6 +102,38 @@ QString claudeHome(const QString &overridePath)
 
     return QDir(homePath()).filePath(QStringLiteral(".claude"));
 }
+
+class HookTransactionLock
+{
+public:
+    HookTransactionLock(const QString &agentName, const QString &configDir)
+        : _path(QFileInfo(configDir).absoluteFilePath() + QStringLiteral(".kmux-%1-hooks.lock").arg(agentName))
+        , _lock(_path)
+    {
+    }
+
+    bool acquire(QString *error)
+    {
+        QDir parentDirectory = QFileInfo(_path).dir();
+        if (!parentDirectory.exists() && !parentDirectory.mkpath(QStringLiteral("."))) {
+            if (error != nullptr) {
+                *error = QStringLiteral("Could not create lock directory %1").arg(parentDirectory.path());
+            }
+            return false;
+        }
+        if (!_lock.tryLock(30000)) {
+            if (error != nullptr) {
+                *error = QStringLiteral("Could not acquire hook transaction lock %1").arg(_path);
+            }
+            return false;
+        }
+        return true;
+    }
+
+private:
+    const QString _path;
+    QLockFile _lock;
+};
 
 QString hookScriptRootDirectory()
 {
@@ -828,6 +861,11 @@ int installCodexHooks(const QString &codexHomeOverride, bool quiet)
     QString error;
 
     const QString configDir = codexHome(codexHomeOverride);
+    HookTransactionLock transactionLock(QString::fromLatin1(CodexAgentName), configDir);
+    if (!transactionLock.acquire(&error)) {
+        err << error << '\n';
+        return 1;
+    }
     if (!QDir().mkpath(configDir)) {
         err << "Could not create " << configDir << '\n';
         return 1;
@@ -890,6 +928,11 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
     QString error;
 
     const QString configDir = codexHome(codexHomeOverride);
+    HookTransactionLock transactionLock(QString::fromLatin1(CodexAgentName), configDir);
+    if (!transactionLock.acquire(&error)) {
+        err << error << '\n';
+        return 1;
+    }
     const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(CodexAgentName), configDir);
     const QString hooksPath = QDir(configDir).filePath(QStringLiteral("hooks.json"));
     QJsonObject root = readJsonObject(hooksPath, &error);
@@ -953,6 +996,11 @@ int statusCodexHooks(const QString &codexHomeOverride)
     const QString configPath = QDir(configDir).filePath(QStringLiteral("config.toml"));
 
     QString error;
+    HookTransactionLock transactionLock(QString::fromLatin1(CodexAgentName), configDir);
+    if (!transactionLock.acquire(&error)) {
+        err << error << '\n';
+        return 1;
+    }
     const QJsonObject root = readJsonObject(hooksPath, &error);
     if (!error.isEmpty()) {
         err << error << '\n';
@@ -975,6 +1023,11 @@ int installClaudeHooks(const QString &claudeHomeOverride)
     QString error;
 
     const QString configDir = claudeHome(claudeHomeOverride);
+    HookTransactionLock transactionLock(QString::fromLatin1(ClaudeAgentName), configDir);
+    if (!transactionLock.acquire(&error)) {
+        err << error << '\n';
+        return 1;
+    }
     if (!QDir().mkpath(configDir)) {
         err << "Could not create " << configDir << '\n';
         return 1;
@@ -1017,6 +1070,11 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
     QString error;
 
     const QString configDir = claudeHome(claudeHomeOverride);
+    HookTransactionLock transactionLock(QString::fromLatin1(ClaudeAgentName), configDir);
+    if (!transactionLock.acquire(&error)) {
+        err << error << '\n';
+        return 1;
+    }
     const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(ClaudeAgentName), configDir);
     const QString settingsPath = QDir(configDir).filePath(QStringLiteral("settings.json"));
     QJsonObject root = readJsonObject(settingsPath, &error);
@@ -1062,6 +1120,11 @@ int statusClaudeHooks(const QString &claudeHomeOverride)
     const QString settingsPath = QDir(configDir).filePath(QStringLiteral("settings.json"));
 
     QString error;
+    HookTransactionLock transactionLock(QString::fromLatin1(ClaudeAgentName), configDir);
+    if (!transactionLock.acquire(&error)) {
+        err << error << '\n';
+        return 1;
+    }
     const QJsonObject root = readJsonObject(settingsPath, &error);
     if (!error.isEmpty()) {
         err << error << '\n';
