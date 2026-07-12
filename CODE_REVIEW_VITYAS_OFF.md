@@ -224,7 +224,9 @@ Secondary instance передаёт запрос primary раньше `processHe
 
 Эти read-only CLI operations нужно выполнять локально до регистрации `KDBusService`.
 
-### Medium-9. DBus well-known name не совпадает с публичным application ID
+### Medium-9. ✅ Исправлено — DBus well-known name совпадает с публичным application ID
+
+Статус: исправлено. Application metadata теперь задаются централизованно: `organizationDomain=kmux_project.github.io` вместе с `applicationName=kmux` дают `io.github.kmux_project.kmux`, совпадающий с desktop ID и namespace DBus interfaces. Secondary routing использует тот же источник, а runtime guard сверяет фактическое имя `KDBusService`; regression test фиксирует этот инвариант для CI.
 
 Места: `src/main.cpp:173-184`, `228-233`, `275-278`; ожидаемое имя — `src/autotests/DBusTest.cpp:26`.
 Коммит: `bdc242588`.

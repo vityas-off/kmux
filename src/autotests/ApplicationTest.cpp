@@ -5,6 +5,7 @@
 #include "ApplicationTest.h"
 
 #include "../Application.h"
+#include "../ApplicationMetadata.h"
 #include "../MainWindow.h"
 #include "../ViewManager.h"
 #include "../session/Session.h"
@@ -85,6 +86,13 @@ void ApplicationTest::cleanup()
     KConfigGroup group = savedWorkspaceGroup();
     group.deleteGroup();
     group.sync();
+}
+
+void ApplicationTest::testApplicationIdentity()
+{
+    QCOMPARE(ApplicationMetadata::componentName(), QStringLiteral("kmux"));
+    QCOMPARE(ApplicationMetadata::desktopFileName(), QStringLiteral("io.github.kmux_project.kmux"));
+    QCOMPARE(ApplicationMetadata::dbusServiceName(), ApplicationMetadata::desktopFileName());
 }
 
 void ApplicationTest::testInformationalArgumentsHandledLocally_data()

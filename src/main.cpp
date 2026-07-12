@@ -10,12 +10,11 @@
 
 // Own
 #include "Application.h"
+#include "ApplicationMetadata.h"
 #include "MainWindow.h"
 #include "ViewManager.h"
 #include "config-konsole.h"
 #include "widgets/ViewContainer.h"
-
-#include <algorithm>
 
 // OS specific
 #include <QApplication>
@@ -61,16 +60,6 @@ void fillAboutData(KAboutData &aboutData);
 
 // restore sessions saved by KDE.
 void restoreSession(Application &app);
-
-#if HAVE_DBUS
-QString applicationDBusServiceName()
-{
-    QStringList domainParts = QCoreApplication::organizationDomain().split(QLatin1Char('.'), Qt::SkipEmptyParts);
-    std::reverse(domainParts.begin(), domainParts.end());
-    domainParts.append(QCoreApplication::applicationName());
-    return domainParts.join(QLatin1Char('.'));
-}
-#endif
 
 #if HAVE_DBUS
 // Workaround for a bug in KDBusService: https://bugs.kde.org/show_bug.cgi?id=355545
@@ -162,7 +151,7 @@ int main(int argc, char *argv[])
 #endif
 
     auto app = new QApplication(argc, argv);
-    app->setDesktopFileName(QStringLiteral("io.github.kmux_project.kmux"));
+    app->setDesktopFileName(Konsole::ApplicationMetadata::desktopFileName());
 
 #if HAVE_STYLE_MANAGER
     /**
@@ -188,7 +177,7 @@ int main(int argc, char *argv[])
 
     KLocalizedString::setApplicationDomain("konsole");
 
-    KAboutData about(QStringLiteral("kmux"),
+    KAboutData about(Konsole::ApplicationMetadata::componentName(),
                      i18nc("@title", "Kmux"),
                      QStringLiteral(KONSOLE_VERSION),
                      i18nc("@title", "Project workspace terminal"),
@@ -196,7 +185,7 @@ int main(int argc, char *argv[])
                      i18nc("@info:credit", "© 1997–2026 The Konsole Developers; © 2026 Kmux contributors"),
                      QString(),
                      QStringLiteral("https://github.com/vityas-off/kmux"));
-    about.setDesktopFileName(QStringLiteral("io.github.kmux_project.kmux"));
+    about.setDesktopFileName(Konsole::ApplicationMetadata::desktopFileName());
     fillAboutData(about);
 
     KAboutData::setApplicationData(about);
@@ -261,7 +250,7 @@ int main(int argc, char *argv[])
     }
 
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
-    const QString serviceName = applicationDBusServiceName();
+    const QString serviceName = Konsole::ApplicationMetadata::dbusServiceName();
     bool hasExistingService = false;
     if (QDBusConnectionInterface *interface = sessionBus.interface()) {
         const QDBusReply<bool> serviceRegistered = interface->isServiceRegistered(serviceName);
@@ -293,6 +282,11 @@ int main(int argc, char *argv[])
     KDBusService dbusService(KDBusService::Unique | KDBusService::NoExitOnFailure);
 
     needToDeleteQApplication = false;
+    if (dbusService.serviceName() != serviceName) {
+        qCritical() << "Kmux DBus service name does not match its application ID:" << dbusService.serviceName() << serviceName;
+        delete app;
+        return 1;
+    }
 #endif
 
     // If we reach this location, there was no existing copy of Kmux
@@ -339,7 +333,7 @@ int main(int argc, char *argv[])
 
 void fillAboutData(KAboutData &aboutData)
 {
-    aboutData.setOrganizationDomain("github.com");
+    aboutData.setOrganizationDomain(Konsole::ApplicationMetadata::organizationDomain());
 
     aboutData.addAuthor(i18nc("@info:credit", "Kurt Hindenburg"),
                         i18nc("@info:credit",
