@@ -287,7 +287,7 @@ Scripts общие для всех configs и лежат в одном `$XDG_DAT
 - ✅ Исправлено — install, uninstall и status для каждого agent config home используют общий `QLockFile`, охватывающий весь transaction с config и scripts. Параллельные операции сериализуются, а status не наблюдает промежуточное состояние; regression test удерживает lock, вносит внешнюю JSON-правку и проверяет, что Codex/Claude installer сохраняет её после ожидания.
 - ✅ Исправлено — `kmuxrun.desktop` снова объявляет upstream `X-KDE-AuthorizeAction=shell_access`, поэтому Kiosk policy может скрыть запуск shell action.
 - `src/profile/ProfileReader.cpp:34-46`: в отличие от schemes/keytabs, legacy Konsole profiles не имеют даже read-only fallback. Это может быть намеренной rebrand-изоляцией, но расходится с заявленной совместимостью profiles и требует явного продуктового решения.
-- Комментарий `src/Application.cpp:274` обещает дополнительный default tab для `--tabs-from-file`, но ветка `223` его больше не создаёт.
+- ✅ Исправлено — документация `--tabs-from-file` теперь соответствует поведению: создаются только перечисленные в файле tabs, без дополнительного default tab. Существующий activation test закрепляет это количеством восстановленных и добавленных tabs.
 
 ## Пробелы тестов
 

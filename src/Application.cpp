@@ -274,7 +274,7 @@ int Application::newInstance()
  * Note that the title is static and the tab will close when the
  * command is complete (do not use --noclose).  You can start new tabs.
  *
- * Example below will create 6 tabs as listed and a 7th default tab
+ * Example below will create the 6 tabs listed, without an extra default tab
 title: This is the title;; command: ssh localhost
 title: This is the title;; command: ssh localhost;; profile: Shell
 title: Top this!;; command: top
