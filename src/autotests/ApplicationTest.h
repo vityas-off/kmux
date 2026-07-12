@@ -14,12 +14,16 @@ class ApplicationTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase();
+    void init();
+    void cleanup();
     void testInformationalArgumentsHandledLocally_data();
     void testInformationalArgumentsHandledLocally();
     void testActivationUsesRequestWorkingDirectory();
     void testActivationResolvesRelativeTabsFile();
     void testActivationResolvesRelativeLayoutFile();
-    void testProfilePropertySkipsInitialWorkspaceRestore();
+    void testExplicitSessionRequestPreservesInitialWorkspace_data();
+    void testExplicitSessionRequestPreservesInitialWorkspace();
     void testProfilePropertyCreatesTabOnActivation();
 };
 }

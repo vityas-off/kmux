@@ -91,7 +91,9 @@ if (!_sessionMap.empty() && containerForTerminal(view) == activeContainer()) {
 
 Исправление: не сохранять уже finished/auto-close сессии либо удалить view до закрытия и сохранения. Повторный запуск non-shell команды должен быть только явной opt-in политикой. Нужен integration test с командой, увеличивающей счётчик в temp-файле: после обычного повторного запуска счётчик не должен меняться.
 
-### High-5. Cold start с explicit option перезаписывает сохранённое дерево проектов
+### High-5. ✅ Исправлено — cold start с explicit option сохраняет дерево проектов
+
+Статус: исправлено. Первое окно теперь всегда восстанавливает canonical workspace до обработки явного session request, после чего запрошенная вкладка, layout или tabs file добавляются в активный проект. Повторное сохранение больше не заменяет ранее сохранённое дерево однопроектным состоянием. Regression tests покрывают `--new-tab`, profile options, `--workdir`, hold, background mode, команду, layout и tabs file с двумя предварительно сохранёнными проектами.
 
 Места: `src/Application.cpp:217-226`, `326-353`; `src/MainWindow.cpp:734-749`, `834-954`; `desktop/io.github.kmux_project.kmux.desktop:18-20`.
 Коммит: `11ec4a220`.

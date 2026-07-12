@@ -18,7 +18,11 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSharedPointer>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -45,6 +49,42 @@ Session *activeSession(MainWindow *window)
     auto *splitter = window->viewManager()->activeContainer()->activeViewSplitter();
     return splitter != nullptr && splitter->activeTerminalDisplay() != nullptr ? splitter->activeTerminalDisplay()->sessionController()->session() : nullptr;
 }
+
+KConfigGroup savedWorkspaceGroup()
+{
+    return KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("LastProjectWorkspaceState"));
+}
+
+void writeTwoProjectWorkspace()
+{
+    QJsonArray projects;
+    projects.append(QJsonObject{{QStringLiteral("Title"), QStringLiteral("Saved One")}, {QStringLiteral("Tabs"), QJsonArray{}}, {QStringLiteral("Active"), 0}});
+    projects.append(QJsonObject{{QStringLiteral("Title"), QStringLiteral("Saved Two")}, {QStringLiteral("Tabs"), QJsonArray{}}, {QStringLiteral("Active"), 0}});
+
+    KConfigGroup group = savedWorkspaceGroup();
+    group.writeEntry("Projects", QJsonDocument(projects).toJson(QJsonDocument::Compact));
+    group.writeEntry("ActiveProject", 1);
+    group.sync();
+}
+}
+
+void ApplicationTest::initTestCase()
+{
+    QStandardPaths::setTestModeEnabled(true);
+}
+
+void ApplicationTest::init()
+{
+    KConfigGroup group = savedWorkspaceGroup();
+    group.deleteGroup();
+    group.sync();
+}
+
+void ApplicationTest::cleanup()
+{
+    KConfigGroup group = savedWorkspaceGroup();
+    group.deleteGroup();
+    group.sync();
 }
 
 void ApplicationTest::testInformationalArgumentsHandledLocally_data()
@@ -107,6 +147,8 @@ void ApplicationTest::testActivationUsesRequestWorkingDirectory()
 
 void ApplicationTest::testActivationResolvesRelativeTabsFile()
 {
+    writeTwoProjectWorkspace();
+
     auto parser = QSharedPointer<QCommandLineParser>::create();
     Application::populateCommandLineParser(parser.get());
     parser->parse({QStringLiteral("kmux")});
@@ -124,13 +166,19 @@ void ApplicationTest::testActivationResolvesRelativeTabsFile()
 
     auto *window = mainWindow();
     QVERIFY(window != nullptr);
-    QCOMPARE(window->viewManager()->activeContainer()->count(), 1);
+    auto *projects = qobject_cast<ProjectWorkspaceContainer *>(window->viewManager()->widget());
+    QVERIFY(projects != nullptr);
+    QCOMPARE(projects->projectCount(), 2);
+    QCOMPARE(projects->containers().at(0)->count(), 1);
+    QCOMPARE(projects->containers().at(1)->count(), 2);
 
     delete window;
 }
 
 void ApplicationTest::testActivationResolvesRelativeLayoutFile()
 {
+    writeTwoProjectWorkspace();
+
     auto parser = QSharedPointer<QCommandLineParser>::create();
     Application::populateCommandLineParser(parser.get());
     parser->parse({QStringLiteral("kmux")});
@@ -151,27 +199,42 @@ void ApplicationTest::testActivationResolvesRelativeLayoutFile()
 
     auto *window = mainWindow();
     QVERIFY(window != nullptr);
-    QCOMPARE(window->viewManager()->activeContainer()->count(), 1);
+    auto *projects = qobject_cast<ProjectWorkspaceContainer *>(window->viewManager()->widget());
+    QVERIFY(projects != nullptr);
+    QCOMPARE(projects->projectCount(), 2);
+    QCOMPARE(projects->containers().at(0)->count(), 1);
+    QCOMPARE(projects->containers().at(1)->count(), 2);
 
     delete window;
 }
 
-void ApplicationTest::testProfilePropertySkipsInitialWorkspaceRestore()
+void ApplicationTest::testExplicitSessionRequestPreservesInitialWorkspace_data()
 {
-    KConfigGroup savedWorkspace(KSharedConfig::openStateConfig(), QStringLiteral("LastProjectWorkspaceState"));
-    savedWorkspace.deleteGroup();
-    {
-        auto sourceWindow = MainWindow();
-        sourceWindow.newTab();
-        QVERIFY(QMetaObject::invokeMethod(sourceWindow.viewManager(), "createProject", Qt::DirectConnection));
-        sourceWindow.viewManager()->saveSessions(savedWorkspace);
-        savedWorkspace.sync();
-    }
+    QTest::addColumn<QStringList>("arguments");
+    QTest::addColumn<QStringList>("customCommand");
+
+    QTest::newRow("new-tab") << QStringList{QStringLiteral("kmux"), QStringLiteral("--new-tab")} << QStringList{};
+    QTest::newRow("profile-property") << QStringList{QStringLiteral("kmux"), QStringLiteral("-p"), QStringLiteral("TabColor=#ff336699")} << QStringList{};
+    QTest::newRow("workdir") << QStringList{QStringLiteral("kmux"), QStringLiteral("--workdir"), QDir::tempPath()} << QStringList{};
+    QTest::newRow("profile") << QStringList{QStringLiteral("kmux"), QStringLiteral("--profile"), QStringLiteral("__missing_application_test_profile__")}
+                             << QStringList{};
+    QTest::newRow("builtin-profile") << QStringList{QStringLiteral("kmux"), QStringLiteral("--builtin-profile")} << QStringList{};
+    QTest::newRow("hold") << QStringList{QStringLiteral("kmux"), QStringLiteral("--hold")} << QStringList{};
+    QTest::newRow("background-mode") << QStringList{QStringLiteral("kmux"), QStringLiteral("--background-mode")} << QStringList{};
+    QTest::newRow("command") << QStringList{QStringLiteral("kmux")} << QStringList{QStringLiteral("/bin/sh")};
+}
+
+void ApplicationTest::testExplicitSessionRequestPreservesInitialWorkspace()
+{
+    QFETCH(QStringList, arguments);
+    QFETCH(QStringList, customCommand);
+
+    writeTwoProjectWorkspace();
 
     auto parser = QSharedPointer<QCommandLineParser>::create();
     Application::populateCommandLineParser(parser.get());
-    parser->parse({QStringLiteral("kmux"), QStringLiteral("-p"), QStringLiteral("TabColor=#ff336699")});
-    Application application(parser, {});
+    QVERIFY(parser->parse(arguments));
+    Application application(parser, customCommand);
 
     application.newInstance();
 
@@ -179,13 +242,21 @@ void ApplicationTest::testProfilePropertySkipsInitialWorkspaceRestore()
     QVERIFY(window != nullptr);
     auto *projects = qobject_cast<ProjectWorkspaceContainer *>(window->viewManager()->widget());
     QVERIFY(projects != nullptr);
-    QCOMPARE(projects->projectCount(), 1);
-    QVERIFY(activeSession(window) != nullptr);
-    QCOMPARE(activeSession(window)->color(), QColor(QStringLiteral("#ff336699")));
+    QCOMPARE(projects->projectCount(), 2);
+    QCOMPARE(projects->projectTitle(projects->containers().at(0)), QStringLiteral("Saved One"));
+    QCOMPARE(projects->projectTitle(projects->containers().at(1)), QStringLiteral("Saved Two"));
+    QCOMPARE(projects->containers().at(0)->count(), 1);
+    QCOMPARE(projects->containers().at(1)->count(), 2);
+
+    KConfigGroup savedWorkspace = savedWorkspaceGroup();
+    window->viewManager()->saveSessions(savedWorkspace);
+    savedWorkspace.sync();
+    const QJsonArray savedProjects = QJsonDocument::fromJson(savedWorkspace.readEntry("Projects", QByteArray())).array();
+    QCOMPARE(savedProjects.count(), 2);
+    QCOMPARE(savedProjects.at(0).toObject()[QStringLiteral("Title")].toString(), QStringLiteral("Saved One"));
+    QCOMPARE(savedProjects.at(1).toObject()[QStringLiteral("Title")].toString(), QStringLiteral("Saved Two"));
 
     delete window;
-    savedWorkspace.deleteGroup();
-    savedWorkspace.sync();
 }
 
 void ApplicationTest::testProfilePropertyCreatesTabOnActivation()
