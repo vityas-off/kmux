@@ -50,7 +50,9 @@ if (!_sessionMap.empty() && containerForTerminal(view) == activeContainer()) {
 
 Исправление: удалять `view` из истории всегда; условным должен быть только выбор нового фокуса. Нужен ASan-тест с естественным завершением Session в неактивном проекте и последующей MRU-навигацией.
 
-### High-2. Session-сигналы держат удалённый view и обрабатываются по одному разу на каждый view
+### High-2. ✅ Исправлено — Session-сигналы безопасны для нескольких views и обрабатываются один раз
+
+Статус: исправлено. View-specific connections теперь ограничены lifetime соответствующего `TerminalDisplay`, а session-level события подключаются к именованным обработчикам `ViewManager` через `Qt::UniqueConnection`. Обработчики находят все уникальные живые project-контейнеры Session, поэтому одно событие учитывается один раз и обновляет каждый контейнер без захвата raw view. Regression test создаёт два views одной Session, проверяет одиночный `PermissionRequest`, удаляет один view через deferred delete и повторно проверяет status/notification события.
 
 Места: `src/ViewManager.cpp:1149-1178`, счётчик решений — `2632-2671`.
 Коммиты: `7a619c5bb`, `57a487607`, `acb7af7d9`, `a7024ec07`.

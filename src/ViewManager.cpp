@@ -1132,59 +1132,29 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(controller, &Konsole::SessionController::requestSplitViewLeftRight, this, &Konsole::ViewManager::splitLeftRight);
     connect(controller, &Konsole::SessionController::requestSplitViewTopBottom, this, &Konsole::ViewManager::splitTopBottom);
     connect(this, &Konsole::ViewManager::contextMenuAdditionalActionsChanged, controller, &Konsole::SessionController::setContextMenuAdditionalActions);
-    connect(controller, &Konsole::SessionController::titleChanged, this, [this, view](ViewProperties *) {
+    connect(controller, &Konsole::SessionController::titleChanged, view, [this, view](ViewProperties *) {
         refreshProjectSummary(containerForTerminal(view));
     });
-    connect(controller, &Konsole::SessionController::iconChanged, this, [this, view](ViewProperties *) {
+    connect(controller, &Konsole::SessionController::iconChanged, view, [this, view](ViewProperties *) {
         refreshProjectSummary(containerForTerminal(view));
     });
-    connect(controller, &Konsole::SessionController::activity, this, [this, view](ViewProperties *) {
+    connect(controller, &Konsole::SessionController::activity, view, [this, view](ViewProperties *) {
         refreshProjectSummary(containerForTerminal(view));
     });
-    connect(controller, &Konsole::SessionController::notificationChanged, this, [this, view](ViewProperties *, Session::Notification, bool) {
+    connect(controller, &Konsole::SessionController::notificationChanged, view, [this, view](ViewProperties *, Session::Notification, bool) {
         refreshProjectSummary(containerForTerminal(view));
     });
-    connect(controller, &Konsole::SessionController::currentDirectoryChanged, this, [this, view](const QString &) {
+    connect(controller, &Konsole::SessionController::currentDirectoryChanged, view, [this, view](const QString &) {
         refreshProjectSummary(containerForTerminal(view));
     });
-    connect(session, &Konsole::Session::started, this, [this, view] {
-        refreshProjectSummary(containerForTerminal(view));
-    });
-    connect(session, &Konsole::Session::notificationsChanged, this, [this, view](Session::Notification, bool) {
-        refreshProjectSummary(containerForTerminal(view));
-    });
-    connect(session, &Konsole::Session::terminalNotificationReceived, this, [this, session, view](const QString &title, const QString &body) {
-        auto *container = containerForTerminal(view);
-        if (container != nullptr && !_workspaceContainer.isNull()) {
-            QString notification = body.simplified();
-            if (!title.simplified().isEmpty() && !body.simplified().isEmpty()) {
-                notification = i18nc("@info:project notification title and body", "%1: %2", title.simplified(), body.simplified());
-            } else if (!title.simplified().isEmpty()) {
-                notification = title.simplified();
-            }
-            if (!notification.isEmpty()) {
-                _workspaceContainer->setProjectNotification(container, notification);
-            }
-        }
-        markSessionAttention(session, container);
-        refreshProjectSummary(container);
-    });
-    connect(session,
-            &Konsole::Session::projectStatusChanged,
-            this,
-            [this, session, view](const QString &status, qlonglong agentProcessId, const QString &agent, const QString &event) {
-                auto *container = containerForTerminal(view);
-                setSessionProjectStatus(session, container, status, agentProcessId, agent, event);
-                refreshProjectSummary(container);
-            });
+    connect(session, &Konsole::Session::started, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
+    connect(session, &Konsole::Session::notificationsChanged, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
+    connect(session, &Konsole::Session::terminalNotificationReceived, this, &Konsole::ViewManager::handleSessionTerminalNotification, Qt::UniqueConnection);
+    connect(session, &Konsole::Session::projectStatusChanged, this, &Konsole::ViewManager::handleSessionProjectStatusChanged, Qt::UniqueConnection);
     connect(view, &Konsole::TerminalDisplay::keyPressedSignal, this, [this, session, view](QKeyEvent *keyEvent) {
         handleSessionTerminalDecisionKey(session, containerForTerminal(view), keyEvent);
     });
-    connect(session, &QObject::destroyed, this, [this, session] {
-        _sessionsNeedingAttention.remove(session);
-        _sessionProjectStatuses.remove(session);
-        updateProjectStatusProcessTimer();
-    });
+    connect(session, &QObject::destroyed, this, &Konsole::ViewManager::handleSessionDestroyed, Qt::UniqueConnection);
 
     // if this is the first controller created then set it as the active controller
     if (_pluggedController.isNull()) {
@@ -2638,6 +2608,77 @@ void ViewManager::unregisterTerminal(TerminalDisplay *terminal)
 {
     disconnect(terminal, &TerminalDisplay::requestToggleExpansion, nullptr, nullptr);
     disconnect(terminal, &TerminalDisplay::requestMoveToNewTab, nullptr, nullptr);
+}
+
+QSet<TabbedViewContainer *> ViewManager::containersForSession(Session *session) const
+{
+    QSet<TabbedViewContainer *> containers;
+    for (auto terminal = _sessionMap.cbegin(); terminal != _sessionMap.cend(); ++terminal) {
+        if (terminal.value() == session) {
+            if (auto *container = containerForTerminal(terminal.key())) {
+                containers.insert(container);
+            }
+        }
+    }
+    return containers;
+}
+
+void ViewManager::handleSessionStateChanged()
+{
+    auto *session = qobject_cast<Session *>(sender());
+    const auto containers = containersForSession(session);
+    for (TabbedViewContainer *container : containers) {
+        refreshProjectSummary(container);
+    }
+}
+
+void ViewManager::handleSessionTerminalNotification(const QString &title, const QString &body)
+{
+    auto *session = qobject_cast<Session *>(sender());
+    const auto containers = containersForSession(session);
+    QString notification = body.simplified();
+    if (!title.simplified().isEmpty() && !body.simplified().isEmpty()) {
+        notification = i18nc("@info:project notification title and body", "%1: %2", title.simplified(), body.simplified());
+    } else if (!title.simplified().isEmpty()) {
+        notification = title.simplified();
+    }
+
+    for (TabbedViewContainer *container : containers) {
+        if (!notification.isEmpty() && !_workspaceContainer.isNull()) {
+            _workspaceContainer->setProjectNotification(container, notification);
+        }
+        markSessionAttention(session, container);
+        refreshProjectSummary(container);
+    }
+}
+
+void ViewManager::handleSessionProjectStatusChanged(const QString &status, qlonglong agentProcessId, const QString &agent, const QString &event)
+{
+    auto *session = qobject_cast<Session *>(sender());
+    const auto containers = containersForSession(session);
+    TabbedViewContainer *attentionContainer = nullptr;
+    for (TabbedViewContainer *container : containers) {
+        if (container != activeContainer()) {
+            attentionContainer = container;
+            break;
+        }
+    }
+    if (attentionContainer == nullptr && !containers.isEmpty()) {
+        attentionContainer = *containers.cbegin();
+    }
+
+    setSessionProjectStatus(session, attentionContainer, status, agentProcessId, agent, event);
+    for (TabbedViewContainer *container : containers) {
+        refreshProjectSummary(container);
+    }
+}
+
+void ViewManager::handleSessionDestroyed(QObject *object)
+{
+    auto *session = static_cast<Session *>(object);
+    _sessionsNeedingAttention.remove(session);
+    _sessionProjectStatuses.remove(session);
+    updateProjectStatusProcessTimer();
 }
 
 void ViewManager::markSessionAttention(Session *session, TabbedViewContainer *container)

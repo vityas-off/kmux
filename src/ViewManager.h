@@ -542,6 +542,11 @@ private:
 
     void registerTerminal(TerminalDisplay *terminal, TabbedViewContainer *container = nullptr);
     void unregisterTerminal(TerminalDisplay *terminal);
+    QSet<TabbedViewContainer *> containersForSession(Session *session) const;
+    void handleSessionStateChanged();
+    void handleSessionTerminalNotification(const QString &title, const QString &body);
+    void handleSessionProjectStatusChanged(const QString &status, qlonglong agentProcessId, const QString &agent, const QString &event);
+    void handleSessionDestroyed(QObject *object);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
     void clearProjectAttention(TabbedViewContainer *container);
     void setSessionProjectStatus(Session *session,

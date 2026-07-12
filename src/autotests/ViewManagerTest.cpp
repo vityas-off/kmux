@@ -569,6 +569,47 @@ void ViewManagerTest::testProjectWorkspaceTracksMultipleCodexDecisionsInOneSessi
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
+void ViewManagerTest::testSessionSignalsAreHandledOnceAcrossMultipleViews()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *firstTerminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    Session *session = firstTerminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    auto *secondTerminal = viewManager->createView(session);
+    project->addView(secondTerminal);
+    QCOMPARE(session->views().count(), 2);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
+
+    QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+    Q_EMIT firstTerminal->keyPressedSignal(&returnKey);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+
+    QCOMPARE(viewManager->forgetTerminal(secondTerminal), session);
+    QPointer<TerminalDisplay> deletedTerminal(secondTerminal);
+    secondTerminal->deleteLater();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QVERIFY(deletedTerminal.isNull());
+    QCOMPARE(session->views().count(), 1);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
+
+    Q_EMIT session->terminalNotificationReceived(QStringLiteral("Codex"), QStringLiteral("Turn complete"));
+    QCOMPARE(workspaces->projectNotification(project), QStringLiteral("Codex: Turn complete"));
+}
+
 void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
 {
     auto mw = MainWindow();

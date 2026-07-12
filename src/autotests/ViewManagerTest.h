@@ -32,6 +32,7 @@ private Q_SLOTS:
     void testProjectWorkspaceStatusClearsWhenAgentExits();
     void testProjectWorkspaceCodexDecisionKeysAreSessionScoped();
     void testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession();
+    void testSessionSignalsAreHandledOnceAcrossMultipleViews();
     void testProjectWorkspaceNavigationShortcuts();
     void testProjectWorkspaceRailDoesNotAcceptFocus();
     void testNoNavigationDisablesProjectActions();
