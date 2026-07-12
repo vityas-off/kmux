@@ -434,13 +434,13 @@ endif()
 
 ### Embedded Konsole KPart
 
-set(konsolepart_PART_SRCS Part.cpp
+set(kmuxpart_PART_SRCS Part.cpp
     settings/PartInfo.cpp
     settings/ProfileSettings.cpp
     delegates/ProfileShortcutDelegate.cpp
 )
 
-add_library(kmuxpart MODULE ${konsolepart_PART_SRCS})
+add_library(kmuxpart MODULE ${kmuxpart_PART_SRCS})
 generate_export_header(kmuxpart BASE_NAME konsole)
 set_target_properties(kmuxpart PROPERTIES DEFINE_SYMBOL KONSOLE_PART)
 target_link_libraries(kmuxpart
@@ -449,15 +449,7 @@ target_link_libraries(kmuxpart
     konsoleprivate
 )
 
-add_library(konsolepart MODULE ${konsolepart_PART_SRCS})
-set_target_properties(konsolepart PROPERTIES DEFINE_SYMBOL KONSOLE_PART)
-target_link_libraries(konsolepart
-    KF6::Parts
-    KF6::XmlGui
-    konsoleprivate
-)
-
-install(TARGETS kmuxpart konsolepart DESTINATION ${KDE_INSTALL_PLUGINDIR}/kf6/parts)
+install(TARGETS kmuxpart DESTINATION ${KDE_INSTALL_PLUGINDIR}/kf6/parts)
 
 # Add cmake-options -DBUILD_COVERAGE=ON -DCOVERAGE_GENERATE_HTML=ON
 if(COVERAGE_GENERATE_HTML)

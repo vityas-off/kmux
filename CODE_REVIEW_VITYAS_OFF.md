@@ -244,7 +244,9 @@ Secondary instance передаёт запрос primary раньше `processHe
 
 Для сохранения upstream DBus semantics `sessionList()` должен возвращать все sessions окна; project-scoped API при необходимости следует добавить отдельно.
 
-### Medium-11. Compatibility `konsolepart.so` конфликтует с co-install Konsole
+### Medium-11. ✅ Исправлено — Kmux KPart больше не подменяет системный `konsolepart.so`
+
+Статус: исправлено. Kmux собирает и устанавливает только собственный `kmuxpart` с отдельными plugin ID и metadata. Compatibility target и тест, требовавший discovery через занятое upstream-имя `konsolepart`, удалены; co-install с Konsole больше не создаёт второго владельца того же plugin path.
 
 Места: `src/CMakeLists.txt:447-455`.
 Коммит: `e81232ca4`.

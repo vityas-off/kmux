@@ -57,16 +57,6 @@ void PartTest::testFdStandalone()
     testFd(false);
 }
 
-void PartTest::testCompatibilityPluginId()
-{
-    const KPluginMetaData metaData(QStringLiteral("konsolepart"));
-    QVERIFY(metaData.isValid());
-
-    KPluginFactory::Result<KParts::Part> result = KPluginFactory::instantiatePlugin<KParts::Part>(metaData, this);
-    QVERIFY(result);
-    delete result.plugin;
-}
-
 void PartTest::testFd(bool runShell)
 {
     // find ping
