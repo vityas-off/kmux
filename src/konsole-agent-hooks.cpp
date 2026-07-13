@@ -2,6 +2,8 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
+#include "config-konsole.h"
+
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -1145,7 +1147,7 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kmux-agent-hooks"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(KMUX_VERSION));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Install terminal agent hooks for Kmux project workspaces."));
