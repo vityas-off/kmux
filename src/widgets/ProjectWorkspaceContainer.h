@@ -32,7 +32,7 @@ public:
     using ProjectStatus = ProjectWorkspaceModel::ProjectStatus;
 
     explicit ProjectWorkspaceContainer(QWidget *parent = nullptr);
-    ~ProjectWorkspaceContainer() override = default;
+    ~ProjectWorkspaceContainer() override;
 
     int addProject(TabbedViewContainer *container, const QString &title);
     void removeProject(TabbedViewContainer *container);

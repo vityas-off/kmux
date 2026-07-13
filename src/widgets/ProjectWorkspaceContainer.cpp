@@ -396,6 +396,12 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     applyRailStyle();
 }
 
+ProjectWorkspaceContainer::~ProjectWorkspaceContainer()
+{
+    delete _stack;
+    _stack = nullptr;
+}
+
 int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const QString &title)
 {
     Q_ASSERT(container != nullptr);
@@ -745,6 +751,10 @@ ProjectWorkspaceModel::ProjectId ProjectWorkspaceContainer::projectId(TabbedView
 
 TabbedViewContainer *ProjectWorkspaceContainer::containerAt(int index) const
 {
+    if (_model == nullptr || index < 0 || index >= _model->projectCount()) {
+        return nullptr;
+    }
+
     return _containers.value(_model->projectAt(index).id);
 }
 
