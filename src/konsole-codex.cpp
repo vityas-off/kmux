@@ -20,11 +20,25 @@
 #endif
 
 #ifndef KMUX_HOOKS_DISABLED_ENV
-#define KMUX_HOOKS_DISABLED_ENV "KONSOLE_CODEX_HOOKS_DISABLED"
+#define KMUX_HOOKS_DISABLED_ENV "KMUX_CODEX_HOOKS_DISABLED"
+#endif
+
+#ifndef KMUX_HOOKS_DISABLED_COMPAT_ENV
+#define KMUX_HOOKS_DISABLED_COMPAT_ENV "KONSOLE_CODEX_HOOKS_DISABLED"
 #endif
 
 namespace
 {
+bool environmentDisablesHooks(const char *name)
+{
+    if (name[0] == '\0') {
+        return false;
+    }
+
+    const char *value = std::getenv(name);
+    return value != nullptr && std::strcmp(value, "1") == 0;
+}
+
 std::string agentHooksExecutable(const char *launcherPath)
 {
     const std::string path = launcherPath;
@@ -63,8 +77,7 @@ int main(int argc, char **argv)
     std::vector<std::string> args;
     args.emplace_back(KMUX_AGENT_NAME);
 
-    const char *disabled = std::getenv(KMUX_HOOKS_DISABLED_ENV);
-    if (disabled == nullptr || std::strcmp(disabled, "1") != 0) {
+    if (!environmentDisablesHooks(KMUX_HOOKS_DISABLED_ENV) && !environmentDisablesHooks(KMUX_HOOKS_DISABLED_COMPAT_ENV)) {
         if (!installTrustedHooks(argv[0])) {
             std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to install Kmux hooks; continuing without updating the agent configuration\n";
         }

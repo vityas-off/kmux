@@ -435,7 +435,11 @@ if(HAVE_DBUS)
     add_executable(kmux-claude konsole-codex.cpp)
     target_compile_definitions(
         kmux-claude
-        PRIVATE KMUX_AGENT_NAME="claude" KMUX_AGENT_PID_ENV="KMUX_CLAUDE_PID" KMUX_HOOKS_DISABLED_ENV="KMUX_CLAUDE_HOOKS_DISABLED"
+        PRIVATE
+            KMUX_AGENT_NAME="claude"
+            KMUX_AGENT_PID_ENV="KMUX_CLAUDE_PID"
+            KMUX_HOOKS_DISABLED_ENV="KMUX_CLAUDE_HOOKS_DISABLED"
+            KMUX_HOOKS_DISABLED_COMPAT_ENV=""
     )
     ecm_mark_nongui_executable(kmux-claude)
     install(TARGETS kmux-claude ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
@@ -446,8 +450,13 @@ if(HAVE_DBUS)
     install(TARGETS kmux-agent-hooks ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
     if(BUILD_TESTING)
-        add_dependencies(AgentHooksTest kmux-agent-hooks)
-        target_compile_definitions(AgentHooksTest PRIVATE KMUX_AGENT_HOOKS_EXECUTABLE="$<TARGET_FILE:kmux-agent-hooks>")
+        add_dependencies(AgentHooksTest kmux-agent-hooks kmux-codex)
+        target_compile_definitions(
+            AgentHooksTest
+            PRIVATE
+                KMUX_AGENT_HOOKS_EXECUTABLE="$<TARGET_FILE:kmux-agent-hooks>"
+                KMUX_CODEX_EXECUTABLE="$<TARGET_FILE:kmux-codex>"
+        )
     endif()
 endif()
 

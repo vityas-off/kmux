@@ -23,12 +23,67 @@ private Q_SLOTS:
     void testCodexFeatureToml_data();
     void testCodexFeatureToml();
     void testCodexRepairsPreviousDottedInstall();
+    void testCodexLauncherHookInstallation_data();
+    void testCodexLauncherHookInstallation();
     void testClaudeLifecycleConfiguration();
     void testHookOperationsWaitForTransactionLock_data();
     void testHookOperationsWaitForTransactionLock();
     void testHomeScopedScripts_data();
     void testHomeScopedScripts();
 };
+
+void AgentHooksTest::testCodexLauncherHookInstallation_data()
+{
+    QTest::addColumn<QString>("disabledVariable");
+    QTest::addColumn<bool>("expectHooksInstalled");
+
+    QTest::newRow("enabled") << QString() << true;
+    QTest::newRow("kmux-disabled") << QStringLiteral("KMUX_CODEX_HOOKS_DISABLED") << false;
+    QTest::newRow("konsole-compatibility-disabled") << QStringLiteral("KONSOLE_CODEX_HOOKS_DISABLED") << false;
+}
+
+void AgentHooksTest::testCodexLauncherHookInstallation()
+{
+    QFETCH(QString, disabledVariable);
+    QFETCH(bool, expectHooksInstalled);
+
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString binDir = temporaryDir.filePath(QStringLiteral("bin"));
+    QVERIFY(QDir().mkpath(binDir));
+
+    const QString codexPath = QDir(binDir).filePath(QStringLiteral("codex"));
+    QFile codex(codexPath);
+    QVERIFY(codex.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray script = QByteArrayLiteral("#!/bin/sh\nprintf '%s\\n' \"$KMUX_CODEX_PID\"\n");
+    QCOMPARE(codex.write(script), script.size());
+    codex.close();
+    QVERIFY(QFile::setPermissions(codexPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    const QString configHome = temporaryDir.filePath(QStringLiteral("codex-home"));
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("PATH"), binDir + QDir::listSeparator() + environment.value(QStringLiteral("PATH")));
+    environment.insert(QStringLiteral("CODEX_HOME"), configHome);
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    environment.remove(QStringLiteral("KMUX_CODEX_HOOKS_DISABLED"));
+    environment.remove(QStringLiteral("KONSOLE_CODEX_HOOKS_DISABLED"));
+    if (!disabledVariable.isEmpty()) {
+        environment.insert(disabledVariable, QStringLiteral("1"));
+    }
+
+    QProcess process;
+    process.setProcessEnvironment(environment);
+    process.start(QStringLiteral(KMUX_CODEX_EXECUTABLE));
+    QVERIFY(process.waitForStarted());
+    QVERIFY(process.waitForFinished());
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+
+    bool pidIsValid = false;
+    process.readAllStandardOutput().trimmed().toLongLong(&pidIsValid);
+    QVERIFY(pidIsValid);
+    QCOMPARE(QFileInfo::exists(configHome), expectHooksInstalled);
+}
 
 void AgentHooksTest::testClaudeLifecycleConfiguration()
 {

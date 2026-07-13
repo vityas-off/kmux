@@ -61,7 +61,10 @@ kmux-agent-hooks install claude
 The commands update the respective agent configuration under `~/.codex` or
 `~/.claude`. Use `status` or `uninstall` in place of `install` to inspect or
 remove the integration. The `kmux-codex` and `kmux-claude` helpers install the
-matching hooks, associate status with the agent process, and then launch it.
+matching hooks, associate status with the agent process, and then launch it. Set
+`KMUX_CODEX_HOOKS_DISABLED=1` or `KMUX_CLAUDE_HOOKS_DISABLED=1` to launch the
+agent without installing or updating its hooks. The legacy
+`KONSOLE_CODEX_HOOKS_DISABLED=1` name remains supported for compatibility.
 
 Agent hooks communicate with the Kmux session through the
 `KMUX_DBUS_*` environment exported inside Kmux terminals. These helpers are
