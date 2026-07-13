@@ -380,10 +380,23 @@ set(konsole_SRCS
     main.cpp
 )
 
+set(KMUX_GIT_REVISION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/kmux-git-revision.h")
+add_custom_target(kmux_git_revision_header
+    COMMAND ${CMAKE_COMMAND}
+        "-DGIT_EXECUTABLE=${GIT_EXECUTABLE}"
+        "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DOUTPUT_FILE=${KMUX_GIT_REVISION_HEADER}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/GenerateGitRevision.cmake"
+    BYPRODUCTS "${KMUX_GIT_REVISION_HEADER}"
+    VERBATIM
+)
+set_source_files_properties("${KMUX_GIT_REVISION_HEADER}" PROPERTIES GENERATED TRUE)
+
 # Sets the icon on Windows and OSX
 ecm_add_app_icon(ICONS_SOURCES ICONS ${KMUX_ICON_SVG} ${PLATFORM_ICONS_SRCS})
 
-add_executable(kmux ${konsole_SRCS} ${ICONS_SOURCES})
+add_executable(kmux ${konsole_SRCS} ${ICONS_SOURCES} "${KMUX_GIT_REVISION_HEADER}")
+add_dependencies(kmux kmux_git_revision_header)
 target_link_libraries(kmux
   konsoleprivate
   konsoleapp

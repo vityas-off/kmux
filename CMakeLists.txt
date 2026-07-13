@@ -41,6 +41,7 @@ include(ECMQtDeclareLoggingCategory)
 include(KDEClangFormat)
 include(CheckFunctionExists)
 include(CheckIncludeFiles)
+find_package(Git QUIET)
 
 # Allows passing e.g. -DECM_ENABLE_SANITIZERS='address;undefined' to cmake.
 include(ECMEnableSanitizers)

@@ -15,6 +15,7 @@
 #include "MainWindow.h"
 #include "ViewManager.h"
 #include "config-konsole.h"
+#include "kmux-git-revision.h"
 #include "widgets/ViewContainer.h"
 
 // OS specific
@@ -178,9 +179,11 @@ int main(int argc, char *argv[])
 
     KLocalizedString::setApplicationDomain("konsole");
 
+    const QString version =
+        QStringLiteral(KMUX_GIT_REVISION).isEmpty() ? QStringLiteral(KMUX_VERSION) : QStringLiteral(KMUX_VERSION " (" KMUX_GIT_REVISION ")");
     KAboutData about(Konsole::ApplicationMetadata::componentName(),
                      i18nc("@title", "Kmux"),
-                     QStringLiteral(KMUX_VERSION),
+                     version,
                      i18nc("@title", "Project workspace terminal"),
                      KAboutLicense::GPL_V2,
                      i18nc("@info:credit", "© 1997–2026 The Konsole Developers; © 2026 Kmux contributors"),
