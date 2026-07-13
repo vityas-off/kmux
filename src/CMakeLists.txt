@@ -298,8 +298,6 @@ ki18n_wrap_ui(konsoleprivate_SRCS
 add_library(konsoleprivate ${konsoleprivate_SRCS})
 generate_export_header(konsoleprivate BASE_NAME konsoleprivate)
 
-find_package(ZLIB)
-
 if(KONSOLE_HAVE_XKBCOMMON)
     target_compile_definitions(konsoleprivate PUBLIC HAVE_XKBCOMMON)
     target_include_directories(konsoleprivate PUBLIC ${XKBCOMMON_INCLUDE_DIRS})

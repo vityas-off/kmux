@@ -52,6 +52,7 @@ find_package(Qt6 ${QT_MIN_VERSION} CONFIG REQUIRED
     Network
     PrintSupport
     Widgets
+    Xml
 )
 
 find_package(KF6 ${KF6_DEP_VERSION} REQUIRED
@@ -106,6 +107,7 @@ set_package_properties(KF6DocTools PROPERTIES DESCRIPTION
 )
 
 find_package(ICU 61.0 COMPONENTS uc i18n REQUIRED)
+find_package(ZLIB REQUIRED)
 
 option(WITH_KAPSULE "Build with Kapsule container support" OFF)
 if(WITH_KAPSULE)
