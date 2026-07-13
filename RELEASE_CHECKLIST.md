@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC0-1.0
 
 This document tracks the work required for the first public Kmux release.
 
-Last assessment: 2026-07-13
+Last assessment: 2026-07-14
 
 Target release: `v0.1.0-alpha.1`
 
@@ -103,22 +103,26 @@ All items in this section should be completed before publishing
 
 ### 1. Build and test verification
 
-- [ ] Configure a clean Release build from an empty build directory.
-- [ ] Build the complete project successfully.
-- [ ] Run the complete CTest suite with `--output-on-failure`.
-- [ ] Confirm that all registered tests pass on the release commit.
-- [ ] Reproduce and fix or conclusively explain the previously recorded
+- [x] Configure a clean Release build from an empty build directory.
+- [x] Build the complete project successfully.
+- [x] Run the complete CTest suite with `--output-on-failure`.
+- [x] Confirm that all registered tests pass on the release commit.
+- [x] Reproduce and fix or conclusively explain the previously recorded
       `PartTest` failure.
 - [ ] Reproduce and fix or conclusively explain the previously recorded
       `TerminalInterfaceTest` failure.
-- [ ] Verify that tests find the built `kmuxpart` plugin in a clean build tree.
-- [ ] Run the AppStream validation test.
+- [x] Verify that tests find the built `kmuxpart` plugin in a clean build tree.
+- [x] Run the AppStream validation test.
 - [ ] Run at least one ASan/UBSan build manually or as a scheduled CI job.
 
-Previously recorded failures are listed in
-`build/Testing/Temporary/LastTestsFailed.log`. A later targeted
-`AgentHooksTest` run does not prove that the complete current test suite passes.
-The relevant plugin-loading tests are in:
+A clean Release build in `~/kde/build/kmux` passed all 27 registered tests on
+2026-07-14, including `PartTest`, `TerminalInterfaceTest`, and both registered
+AppStream tests. This confirms that the built `kmuxpart` plugin is discovered
+without relying on stale build-tree state. The first full run had one transient
+`TerminalInterfaceTest` timeout while waiting for `currentDirectoryChanged`;
+the test then passed five consecutive standalone runs and the complete rerun.
+Keep tracking this shell-startup timing failure until its cause is conclusive.
+The relevant tests are in:
 
 - `src/autotests/PartTest.cpp`;
 - `src/autotests/TerminalInterfaceTest.cpp`.
@@ -141,33 +145,36 @@ larger platform matrix can follow before beta.
 
 ### 3. Final application identity
 
-- [ ] Decide the final App ID before any public installation is distributed.
-- [ ] Ensure the App ID corresponds to a namespace controlled by the project.
-- [ ] If the repository remains at `github.com/vityas-off/kmux`, consider using
-      `io.github.vityas_off.kmux`.
-- [ ] Alternatively, move the repository to a controlled organization whose
-      name matches the intended App ID.
-- [ ] Update the desktop filename.
-- [ ] Update the AppStream filename and component ID.
-- [ ] Update `ApplicationMetadata` constants.
-- [ ] Update DBus service and interface identifiers where applicable.
-- [ ] Update the KGlobalAccel desktop filename.
-- [ ] Update the Flatpak ID and future manifest filename.
-- [ ] Update the macOS bundle identifier where applicable.
-- [ ] Verify that all identifiers agree after the rename.
+- [x] Decide the final App ID before any public installation is distributed.
+- [x] Ensure the App ID corresponds to a namespace controlled by the project.
+- [x] Use `io.github.vityas_off.kmux`, matching the controlled
+      `github.com/vityas-off/kmux` repository namespace.
+- [x] Update the desktop filename.
+- [x] Update the AppStream filename and component ID.
+- [x] Update `ApplicationMetadata` constants.
+- [x] Update DBus service and interface identifiers where applicable.
+- [x] Update the KGlobalAccel desktop filename.
+- [x] Update the Flatpak ID and manifest filename.
+- [x] Update the macOS bundle identifier where applicable.
+- [x] Verify that all identifiers agree after the rename.
 
-The current ID is `io.github.kmux_project.kmux`, while the repository is owned
-by `vityas-off`. Changing identity after users have installed the application
-would require migration of desktop integration, settings, DBus names, and
-possibly sandboxed application data.
+The final App ID is `io.github.vityas_off.kmux`. It is used consistently for
+the desktop and AppStream identity, DBus service and interfaces, Flatpak ID,
+macOS bundle identifier, and Qt logging namespace. Changing identity after
+users have installed the application would require migration of desktop
+integration, settings, DBus names, and possibly sandboxed application data.
 
-Current identity locations include:
+Identity locations include:
 
-- `desktop/io.github.kmux_project.kmux.desktop`;
-- `desktop/io.github.kmux_project.kmux.appdata.xml`;
+- `desktop/io.github.vityas_off.kmux.desktop`;
+- `desktop/io.github.vityas_off.kmux.metainfo.xml`;
+- `desktop/kmux.notifyrc`;
 - `src/ApplicationMetadata.h`;
+- `src/Application.h`;
+- `src/ViewManager.h`;
+- `src/session/Session.h`;
 - `src/CMakeLists.txt`;
-- `.flatpak-manifest.json`.
+- `io.github.vityas_off.kmux.json`.
 
 ### 4. Release version and tag
 
@@ -204,19 +211,19 @@ Relevant files:
 
 - `src/main.cpp`;
 - `Mainpage.dox`;
-- `desktop/*.appdata.xml` or the future `*.metainfo.xml`.
+- `desktop/*.metainfo.xml`.
 
 ### 6. AppStream and desktop metadata
 
-- [ ] Rename AppStream metadata to `<app-id>.metainfo.xml` after finalizing the
+- [x] Rename AppStream metadata to `<app-id>.metainfo.xml` after finalizing the
       App ID.
 - [ ] Add a `<releases>` entry for `0.1.0-alpha.1` with the release date.
 - [ ] Add a bug tracker URL.
 - [ ] Add at least one screenshot.
 - [ ] Publish screenshots at a stable or immutable URL.
 - [ ] Resize or prepare the existing screenshot if needed for store guidelines.
-- [ ] Run pedantic AppStream validation.
-- [ ] Validate the main application desktop file.
+- [x] Run pedantic AppStream validation.
+- [x] Validate the main application desktop file.
 - [ ] Treat `kmuxrun.desktop` as a KDE service-menu file rather than passing it
       blindly through the generic desktop-file validator.
 - [ ] Update notification metadata so the application is presented as Kmux,
@@ -246,7 +253,7 @@ libssh when enabled.
 
 ### 8. Staged installation and side-by-side validation
 
-- [ ] Install into a clean `DESTDIR` staging directory.
+- [x] Install into a clean `DESTDIR` staging directory.
 - [ ] Inspect the complete install manifest.
 - [ ] Confirm that no file collides with an installed Konsole package.
 - [ ] Confirm that removing Kmux does not remove Konsole resources.
@@ -379,11 +386,11 @@ Recommended usage:
 - be aware that `include-dependencies: true` may build a substantial part of the
   KDE dependency graph rather than using only distribution packages.
 
-The current checkout is located at `~/kde/src/konsole`, while KDE project
-metadata uses the name `konsole` for the upstream repository. Before running
+The checkout is located at `~/kde/src/kmux`, while KDE project metadata uses
+the name `konsole` for the upstream repository. Before running
 `kde-builder konsole`, define and verify a custom project named `kmux` that
-points to the Kmux repository. Prefer a separate `~/kde/src/kmux` checkout for
-this workflow if practical. Always inspect the proposed actions first:
+points to the Kmux repository. Keep this separate checkout path so the fork is
+not confused with upstream Konsole. Always inspect the proposed actions first:
 
 ```sh
 kde-builder --pretend kmux
@@ -562,12 +569,12 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
 These tasks are not required for the first alpha unless Flatpak is advertised
 as an initial distribution method.
 
-- [ ] Finalize the App ID.
-- [ ] Rename the manifest to `<app-id>.json`.
+- [x] Finalize the App ID.
+- [x] Rename the manifest to `<app-id>.json`.
 - [ ] Replace the local `dir` source with a tagged archive or fixed Git commit.
 - [ ] Add a source checksum where applicable.
 - [ ] Remove the unused `INSTALL_ICONS` CMake argument or implement the option.
-- [ ] Rename AppStream metadata to `<app-id>.metainfo.xml`.
+- [x] Rename AppStream metadata to `<app-id>.metainfo.xml`.
 - [ ] Add AppStream release history.
 - [ ] Add screenshots and store metadata.
 - [ ] Review `--device=all` and reduce it to the narrowest required permission.
@@ -584,7 +591,7 @@ as an initial distribution method.
 
 Current development manifest:
 
-- `.flatpak-manifest.json`.
+- `io.github.vityas_off.kmux.json`.
 
 ## Beta release gate
 
@@ -696,11 +703,11 @@ Packaging and metadata:
 - `CMakeLists.txt`;
 - `src/CMakeLists.txt`;
 - `desktop/CMakeLists.txt`;
-- `desktop/io.github.kmux_project.kmux.desktop`;
-- `desktop/io.github.kmux_project.kmux.appdata.xml`;
+- `desktop/io.github.vityas_off.kmux.desktop`;
+- `desktop/io.github.vityas_off.kmux.metainfo.xml`;
 - `desktop/kmux.notifyrc`;
 - `desktop/kmuxrun.desktop`;
-- `.flatpak-manifest.json`;
+- `io.github.vityas_off.kmux.json`;
 - `REUSE.toml`.
 
 ## Suggested immediate execution order

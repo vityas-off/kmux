@@ -5,7 +5,7 @@ ecm_qt_declare_logging_category(
     extra_sshplugin_SRCS
     HEADER sshmanagerplugindebug.h
     IDENTIFIER SshManagerPluginDebug
-    CATEGORY_NAME io.github.kmux_project.kmux.plugin.sshmanager
+    CATEGORY_NAME io.github.vityas_off.kmux.plugin.sshmanager
     DESCRIPTION "Kmux plugin (SSH Manager)"
     EXPORT KONSOLE
 )

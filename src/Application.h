@@ -38,7 +38,7 @@ class Profile;
 class KONSOLEAPP_EXPORT Application : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "io.github.kmux_project.kmux.Application")
+    Q_CLASSINFO("D-Bus Interface", "io.github.vityas_off.kmux.Application")
 
 public:
     /** Constructs a new Konsole application. */

@@ -122,7 +122,7 @@ int main(int argc, char **argv)
         return finishForHook(hookMode, 2);
     }
 
-    QDBusInterface session(service, objectPath, QStringLiteral("io.github.kmux_project.kmux.Session"), QDBusConnection::sessionBus());
+    QDBusInterface session(service, objectPath, QStringLiteral("io.github.vityas_off.kmux.Session"), QDBusConnection::sessionBus());
     if (!session.isValid()) {
         appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, session.lastError().message());
         printError(hookMode, session.lastError().message());

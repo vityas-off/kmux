@@ -19,12 +19,12 @@ inline QString componentName()
 
 inline QByteArray organizationDomain()
 {
-    return QByteArrayLiteral("kmux_project.github.io");
+    return QByteArrayLiteral("vityas_off.github.io");
 }
 
 inline QString desktopFileName()
 {
-    return QStringLiteral("io.github.kmux_project.kmux");
+    return QStringLiteral("io.github.vityas_off.kmux");
 }
 
 inline QString dbusServiceName()

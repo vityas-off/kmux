@@ -65,7 +65,7 @@ class KONSOLEPRIVATE_EXPORT Session : public QObject
 #endif
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "io.github.kmux_project.kmux.Session")
+    Q_CLASSINFO("D-Bus Interface", "io.github.vityas_off.kmux.Session")
 
 public:
     using Ptr = QPointer<Session>;

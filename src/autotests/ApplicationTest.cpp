@@ -91,8 +91,10 @@ void ApplicationTest::cleanup()
 void ApplicationTest::testApplicationIdentity()
 {
     QCOMPARE(ApplicationMetadata::componentName(), QStringLiteral("kmux"));
-    QCOMPARE(ApplicationMetadata::desktopFileName(), QStringLiteral("io.github.kmux_project.kmux"));
+    QCOMPARE(ApplicationMetadata::organizationDomain(), QByteArrayLiteral("vityas_off.github.io"));
+    QCOMPARE(ApplicationMetadata::desktopFileName(), QStringLiteral("io.github.vityas_off.kmux"));
     QCOMPARE(ApplicationMetadata::dbusServiceName(), ApplicationMetadata::desktopFileName());
+    QCOMPARE(ApplicationMetadata::localServerName(), QStringLiteral("io.github.vityas_off.kmux.activation"));
 }
 
 void ApplicationTest::testInformationalArgumentsHandledLocally_data()

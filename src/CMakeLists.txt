@@ -46,31 +46,31 @@ option(KONSOLE_BUILD_UNI2CHARACTERWIDTH "Konsole: build uni2characterwidth execu
 set(dbus_xml_srcs)
 if(HAVE_DBUS)
     ### Konsole source files shared between embedded terminal and main application
-    # qdbuscpp2xml -m  Session.h -o io.github.kmux_project.kmux.Session.xml
-    # qdbuscpp2xml -M -s ViewManager.h -o io.github.kmux_project.kmux.Window.xml
+    # qdbuscpp2xml -m  Session.h -o io.github.vityas_off.kmux.Session.xml
+    # qdbuscpp2xml -M -s ViewManager.h -o io.github.vityas_off.kmux.Window.xml
 
     # Generate dbus .xml files; do not store .xml in source folder
-    qt_generate_dbus_interface(ViewManager.h io.github.kmux_project.kmux.Window.xml OPTIONS -m)
+    qt_generate_dbus_interface(ViewManager.h io.github.vityas_off.kmux.Window.xml OPTIONS -m)
 
     qt_add_dbus_adaptor(windowadaptors_SRCS
-                        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Window.xml
+                        ${CMAKE_CURRENT_BINARY_DIR}/io.github.vityas_off.kmux.Window.xml
                         ViewManager.h
                         Konsole::ViewManager)
 
-    # qdbuscpp2xml -m  Session.h -o io.github.kmux_project.kmux.Session.xml
+    # qdbuscpp2xml -m  Session.h -o io.github.vityas_off.kmux.Session.xml
     # Generate dbus .xml files; do not store .xml in source folder
-    qt_generate_dbus_interface(session/Session.h io.github.kmux_project.kmux.Session.xml OPTIONS -m)
+    qt_generate_dbus_interface(session/Session.h io.github.vityas_off.kmux.Session.xml OPTIONS -m)
 
     qt_add_dbus_adaptor(
         sessionadaptors_SRCS
-        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Session.xml
+        ${CMAKE_CURRENT_BINARY_DIR}/io.github.vityas_off.kmux.Session.xml
         session/Session.h
         Konsole::Session
     )
 
     set(dbus_xml_srcs
-        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Session.xml
-        ${CMAKE_CURRENT_BINARY_DIR}/io.github.kmux_project.kmux.Window.xml
+        ${CMAKE_CURRENT_BINARY_DIR}/io.github.vityas_off.kmux.Session.xml
+        ${CMAKE_CURRENT_BINARY_DIR}/io.github.vityas_off.kmux.Window.xml
     )
 endif()
 
@@ -123,7 +123,7 @@ ecm_qt_declare_logging_category(
     konsoleprivate_core_SRCS
     HEADER konsoledebug.h
     IDENTIFIER KonsoleDebug
-    CATEGORY_NAME io.github.kmux_project.kmux
+    CATEGORY_NAME io.github.vityas_off.kmux
     DESCRIPTION "Kmux"
     EXPORT KONSOLE
 )
@@ -410,7 +410,7 @@ target_link_libraries(kmux
 
 if(APPLE)
     set_target_properties(kmux PROPERTIES
-        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.kmux_project.kmux"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.vityas_off.kmux"
         MACOSX_BUNDLE_BUNDLE_NAME "Kmux"
         MACOSX_BUNDLE_DISPLAY_NAME "Kmux"
         MACOSX_BUNDLE_INFO_STRING "Kmux, a project workspace terminal"

@@ -128,7 +128,7 @@ required Qt and KDE Frameworks libraries.
 The public install surface is renamed to avoid conflicts:
 
 - binary: `kmux`;
-- desktop/AppStream ID: `io.github.kmux_project.kmux`;
+- desktop/AppStream ID: `io.github.vityas_off.kmux`;
 - config file: `kmuxrc`;
 - data directory: `~/.local/share/kmux`;
 - DBus environment variables: `KMUX_DBUS_*`;

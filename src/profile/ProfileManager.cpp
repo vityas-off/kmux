@@ -31,7 +31,7 @@
 #include "ProfileReader.h"
 #include "ProfileWriter.h"
 
-Q_LOGGING_CATEGORY(KonsoleProfileDebug, "io.github.kmux_project.kmux.profile", QtDebugMsg)
+Q_LOGGING_CATEGORY(KonsoleProfileDebug, "io.github.vityas_off.kmux.profile", QtDebugMsg)
 
 using namespace Konsole;
 

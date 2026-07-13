@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
             // we ask the current shell session
             QDBusMessage m = QDBusMessage::createMethodCall(konsoleService,
                                                             konsoleSession,
-                                                            QStringLiteral("io.github.kmux_project.kmux.Session"),
+                                                            QStringLiteral("io.github.vityas_off.kmux.Session"),
                                                             QStringLiteral("activationToken"));
 
             // use the cookie from the environment
@@ -270,7 +270,7 @@ int main(int argc, char *argv[])
         startupLock.unlock();
         QDBusMessage activation = QDBusMessage::createMethodCall(serviceName,
                                                                  QStringLiteral("/KmuxApplication"),
-                                                                 QStringLiteral("io.github.kmux_project.kmux.Application"),
+                                                                 QStringLiteral("io.github.vityas_off.kmux.Application"),
                                                                  QStringLiteral("requestActivation"));
         activation.setArguments({app->arguments().mid(1), QDir::currentPath(), QProcessEnvironment::systemEnvironment().toStringList()});
         const QDBusReply<int> reply = sessionBus.call(activation);

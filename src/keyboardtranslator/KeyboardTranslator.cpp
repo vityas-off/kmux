@@ -19,7 +19,7 @@
 // KDE
 #include <KLocalizedString>
 
-Q_LOGGING_CATEGORY(KonsoleKeyTrDebug, "io.github.kmux_project.kmux.keytranslator", QtDebugMsg)
+Q_LOGGING_CATEGORY(KonsoleKeyTrDebug, "io.github.vityas_off.kmux.keytranslator", QtDebugMsg)
 
 using namespace Konsole;
 

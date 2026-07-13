@@ -1,6 +1,6 @@
 [Global]
 IconName=kmux
-DesktopEntry=io.github.kmux_project.kmux
+DesktopEntry=io.github.vityas_off.kmux
 Comment=Kmux
 
 [Event/BellVisible]

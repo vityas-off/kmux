@@ -59,7 +59,7 @@ class ViewSplitter;
 class KONSOLEPRIVATE_EXPORT ViewManager : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "io.github.kmux_project.kmux.Window")
+    Q_CLASSINFO("D-Bus Interface", "io.github.vityas_off.kmux.Window")
 
 public:
     /**
@@ -381,8 +381,12 @@ public Q_SLOTS:
         Does not work AFAIK: qdbus6, qdbusviewer6, busctl
         Works: dbus-send, gdbus
          Example:
-            dbus-send --session --print-reply=literal --type=method_call --dest=org.kde.konsole-16710 /Windows/1   org.kde.konsole.Window.resizeSplits int32:0 array:double:40.0,60.0
-            gdbus call --session --dest org.kde.konsole-16710  --object-path /Windows/1 --method org.kde.konsole.Window.resizeSplits 0 "[10.5, 89.5]"
+            dbus-send --session --print-reply=literal --type=method_call \
+                --dest=io.github.vityas_off.kmux /Windows/1 \
+                io.github.vityas_off.kmux.Window.resizeSplits int32:0 array:double:40.0,60.0
+            gdbus call --session --dest io.github.vityas_off.kmux \
+                --object-path /Windows/1 \
+                --method io.github.vityas_off.kmux.Window.resizeSplits 0 "[10.5, 89.5]"
     */
     Q_SCRIPTABLE bool resizeSplits(int splitterId, QList<double> percentages);
 
