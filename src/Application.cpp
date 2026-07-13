@@ -94,7 +94,7 @@ void Application::populateCommandLineParser(QCommandLineParser *parser)
         {{QStringLiteral("hide-toolbars")}, i18nc("@info:shell", "Hide all the toolbars, overriding the default setting")},
         {{QStringLiteral("show-tabbar")}, i18nc("@info:shell", "Show the tabbar, overriding the default setting")},
         {{QStringLiteral("hide-tabbar")}, i18nc("@info:shell", "Hide the tabbar, overriding the default setting")},
-        {{QStringLiteral("fullscreen")}, i18nc("@info:shell", "Start Konsole in fullscreen mode")},
+        {{QStringLiteral("fullscreen")}, i18nc("@info:shell", "Start Kmux in fullscreen mode")},
         {{QStringLiteral("notransparency")}, i18nc("@info:shell", "Disable transparent backgrounds, even if the system supports them.")},
         {{QStringLiteral("list-profiles")}, i18nc("@info:shell", "List the available profiles")},
         {{QStringLiteral("list-profile-properties")}, i18nc("@info:shell", "List all the profile properties names and their type (for use with -p)")},

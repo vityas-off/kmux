@@ -1801,7 +1801,7 @@ void ViewManager::saveLayoutFile()
     saveLayout(QFileDialog::getSaveFileName(this->widget(),
                                             i18nc("@title:window", "Save Tab Layout"),
                                             QStringLiteral("~/"),
-                                            i18nc("@item:inlistbox", "Konsole View Layout (*.json)")));
+                                            i18nc("@item:inlistbox", "Kmux View Layout (*.json)")));
 }
 
 void ViewManager::saveLayout(QString fileName)
@@ -2074,7 +2074,7 @@ void ViewManager::loadLayoutFile()
     loadLayout(QFileDialog::getOpenFileName(this->widget(),
                                             i18nc("@title:window", "Load Tab Layout"),
                                             QStringLiteral("~/"),
-                                            i18nc("@item:inlistbox", "Konsole View Layout (*.json)")));
+                                            i18nc("@item:inlistbox", "Kmux View Layout (*.json)")));
 }
 
 void ViewManager::restoreSessions(const KConfigGroup &group)
