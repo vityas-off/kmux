@@ -837,6 +837,7 @@ bool MainWindow::queryClose()
     // TODO: rework the dealing of this case to make it has its own confirmation
     // dialog.
     if (qApp->isSavingSession()) {
+        saveLastWorkspaceState();
         return true;
     }
 
