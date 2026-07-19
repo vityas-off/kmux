@@ -28,6 +28,8 @@ private Q_SLOTS:
     void testClaudeLifecycleConfiguration();
     void testHookOperationsWaitForTransactionLock_data();
     void testHookOperationsWaitForTransactionLock();
+    void testUnrelatedHooksArePreserved_data();
+    void testUnrelatedHooksArePreserved();
     void testHomeScopedScripts_data();
     void testHomeScopedScripts();
 };
@@ -299,6 +301,77 @@ void AgentHooksTest::testHookOperationsWaitForTransactionLock()
     const QJsonObject installedSettings = QJsonDocument::fromJson(settings.readAll()).object();
     QVERIFY(installedSettings.value(QStringLiteral("externalEdit")).toBool());
     QVERIFY(!installedSettings.value(QStringLiteral("hooks")).toObject().isEmpty());
+}
+
+void AgentHooksTest::testUnrelatedHooksArePreserved_data()
+{
+    QTest::addColumn<QString>("agent");
+    QTest::addColumn<QString>("homeOption");
+    QTest::addColumn<QString>("settingsFile");
+
+    QTest::newRow("codex") << QStringLiteral("codex") << QStringLiteral("--codex-home") << QStringLiteral("hooks.json");
+    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json");
+}
+
+void AgentHooksTest::testUnrelatedHooksArePreserved()
+{
+    QFETCH(QString, agent);
+    QFETCH(QString, homeOption);
+    QFETCH(QString, settingsFile);
+
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString configHome = temporaryDir.filePath(QStringLiteral("agent-home"));
+    QVERIFY(QDir().mkpath(configHome));
+
+    QJsonArray userHooks;
+    const QStringList userCommands = {
+        QStringLiteral("/opt/custom/kmux/hooks/%1-user.sh").arg(agent),
+        QStringLiteral("/opt/custom/kmux-%1-hook-wrapper").arg(agent),
+        QStringLiteral("/opt/custom/konsole-project-status-wrapper"),
+        QStringLiteral("/opt/custom/kmux-project-status-wrapper"),
+    };
+    for (const QString &command : userCommands) {
+        userHooks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("command")}, {QStringLiteral("command"), command}});
+    }
+
+    QJsonObject userGroup;
+    userGroup.insert(QStringLiteral("hooks"), userHooks);
+    QJsonArray sessionStartGroups;
+    sessionStartGroups.append(userGroup);
+    QJsonObject hooks;
+    hooks.insert(QStringLiteral("SessionStart"), sessionStartGroups);
+    QJsonObject originalSettings;
+    originalSettings.insert(QStringLiteral("hooks"), hooks);
+
+    QFile settings(QDir(configHome).filePath(settingsFile));
+    QVERIFY(settings.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray encodedSettings = QJsonDocument(originalSettings).toJson(QJsonDocument::Indented);
+    QCOMPARE(settings.write(encodedSettings), encodedSettings.size());
+    settings.close();
+
+    const auto runHooks = [&temporaryDir, &homeOption, &configHome, &agent](const QString &command) {
+        QProcess process;
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+        process.setProcessEnvironment(environment);
+        process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE), {homeOption, configHome, command, agent, QStringLiteral("--quiet")});
+        if (!process.waitForStarted() || !process.waitForFinished()) {
+            return QStringLiteral("Could not run kmux-agent-hooks: %1").arg(process.errorString());
+        }
+        if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+            return QString::fromUtf8(process.readAllStandardError());
+        }
+        return QString();
+    };
+
+    QString error = runHooks(QStringLiteral("install"));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    error = runHooks(QStringLiteral("uninstall"));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+
+    QVERIFY(settings.open(QIODevice::ReadOnly));
+    QCOMPARE(QJsonDocument::fromJson(settings.readAll()).object(), originalSettings);
 }
 
 void AgentHooksTest::testHomeScopedScripts_data()
