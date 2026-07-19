@@ -13,6 +13,7 @@
 
 // Qt
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
 
@@ -36,12 +37,16 @@ BookmarkHandler::BookmarkHandler(KActionCollection *collection, QMenu *menu, boo
 {
     setObjectName(QStringLiteral("BookmarkHandler"));
 
-    _file = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/bookmarks.xml"));
+    const QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString bookmarkDirectory = QDir(dataLocation).filePath(QStringLiteral("kmux"));
+    QDir().mkpath(bookmarkDirectory);
+    _file = QDir(bookmarkDirectory).filePath(QStringLiteral("bookmarks.xml"));
 
-    if (_file.isEmpty()) {
-        _file = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kmux");
-        QDir().mkpath(_file);
-        _file += QStringLiteral("/bookmarks.xml");
+    if (!QFileInfo::exists(_file)) {
+        const QString legacyFile = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/bookmarks.xml"));
+        if (!legacyFile.isEmpty() && QFile::copy(legacyFile, _file)) {
+            QFile::setPermissions(_file, QFile::permissions(_file) | QFileDevice::WriteOwner);
+        }
     }
 
     KBookmarkManager *manager = new KBookmarkManager(_file, this);

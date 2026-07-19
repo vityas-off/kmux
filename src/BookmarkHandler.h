@@ -43,7 +43,7 @@ class KONSOLEPRIVATE_EXPORT BookmarkHandler : public QObject, public KBookmarkOw
 
 public:
     /**
-     * Constructs a new bookmark handler for Konsole bookmarks.
+     * Constructs a new bookmark handler for Kmux bookmarks.
      *
      * @param collection The collection which the bookmark menu's actions should be added to
      * @param menu The menu which the bookmark actions should be added to
