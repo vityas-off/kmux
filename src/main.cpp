@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 
     app->setWindowIcon(QIcon::fromTheme(QStringLiteral("kmux"), QIcon::fromTheme(QStringLiteral("utilities-terminal"))));
 
-    KLocalizedString::setApplicationDomain("konsole");
+    KLocalizedString::setApplicationDomain("kmux");
 
     const QString version =
         QStringLiteral(KMUX_GIT_REVISION).isEmpty() ? QStringLiteral(KMUX_VERSION) : QStringLiteral(KMUX_VERSION " (" KMUX_GIT_REVISION ")");

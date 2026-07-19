@@ -176,8 +176,9 @@ ecm_qt_install_logging_categories(
     DESTINATION "${KDE_INSTALL_LOGGINGCATEGORIESDIR}"
 )
 
-# Do not install upstream Konsole translations/doc translations under their
-# original catalog names; distro packages must be able to install side-by-side.
+# Install the inherited translations under Kmux's own catalog name so Kmux and
+# Konsole packages can be installed side by side.
+ki18n_install(po)
 
 if(ECM_VERSION VERSION_GREATER_EQUAL 5.101.0)
   install(FILES completions/kmux.zsh RENAME _kmux DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
