@@ -398,6 +398,8 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
 
 ProjectWorkspaceContainer::~ProjectWorkspaceContainer()
 {
+    // Do not defer this to QObject child cleanup: destroying tab containers can synchronously query
+    // the workspace model and lookup maps, which must still be alive.
     delete _stack;
     _stack = nullptr;
 }
