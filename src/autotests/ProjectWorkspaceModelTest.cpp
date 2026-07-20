@@ -15,6 +15,7 @@ class ProjectWorkspaceModelTest : public QObject
 
 private Q_SLOTS:
     void testProjectStateAndOrdering();
+    void testTitleValidation();
 };
 
 void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
@@ -54,6 +55,28 @@ void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
     QVERIFY(model.removeProject(secondProject));
     QCOMPARE(model.projectCount(), 1);
     QCOMPARE(model.projectAt(0).id, firstProject);
+}
+
+void ProjectWorkspaceModelTest::testTitleValidation()
+{
+    ProjectWorkspaceModel model;
+    QSignalSpy addedSpy(&model, &ProjectWorkspaceModel::projectAdded);
+
+    const auto invalidProject = model.addProject(QStringLiteral("  \t  "));
+    QVERIFY(invalidProject.isNull());
+    QCOMPARE(model.projectCount(), 0);
+    QCOMPARE(model.nextProjectNumber(), 1);
+    QCOMPARE(addedSpy.count(), 0);
+
+    const auto projectId = model.addProject(QStringLiteral("  Valid title  "));
+    QVERIFY(!projectId.isNull());
+    QCOMPARE(model.project(projectId).title, QStringLiteral("Valid title"));
+    QCOMPARE(addedSpy.count(), 1);
+
+    QSignalSpy changedSpy(&model, &ProjectWorkspaceModel::projectChanged);
+    QVERIFY(!model.setProjectTitle(projectId, QStringLiteral("   ")));
+    QCOMPARE(model.project(projectId).title, QStringLiteral("Valid title"));
+    QCOMPARE(changedSpy.count(), 0);
 }
 
 QTEST_GUILESS_MAIN(ProjectWorkspaceModelTest)

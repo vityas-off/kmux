@@ -422,6 +422,10 @@ int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const 
     Q_ASSERT(container != nullptr);
 
     const ProjectWorkspaceModel::ProjectId id = _model->addProject(title);
+    if (id.isNull()) {
+        return -1;
+    }
+
     _projectIds.insert(container, id);
     _containers.insert(id, container);
     const int index = _model->indexOf(id);

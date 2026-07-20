@@ -2097,7 +2097,8 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
         bool reusedInitialProject = false;
         for (const auto &projectValue : jsonProjects) {
             const auto projectObject = projectValue.toObject();
-            const QString title = projectObject[QStringLiteral("Title")].toString(_workspaceContainer->nextDefaultProjectTitle());
+            const QString storedTitle = projectObject[QStringLiteral("Title")].toString();
+            const QString title = storedTitle.trimmed().isEmpty() ? _workspaceContainer->nextDefaultProjectTitle() : storedTitle;
 
             TabbedViewContainer *container = nullptr;
             if (!reusedInitialProject && _workspaceContainer->projectCount() == 1 && activeContainer() != nullptr && activeContainer()->count() == 0) {

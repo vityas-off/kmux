@@ -17,9 +17,14 @@ ProjectWorkspaceModel::ProjectWorkspaceModel(QObject *parent)
 
 ProjectWorkspaceModel::ProjectId ProjectWorkspaceModel::addProject(const QString &title)
 {
+    const QString normalizedTitle = title.trimmed();
+    if (normalizedTitle.isEmpty()) {
+        return {};
+    }
+
     ProjectData project;
     project.id = QUuid::createUuid();
-    project.title = title.trimmed();
+    project.title = normalizedTitle;
     _projects.append(project);
     _nextProjectNumber = qMax(_nextProjectNumber, _projects.count() + 1);
     Q_EMIT projectAdded(project.id, _projects.count() - 1);
