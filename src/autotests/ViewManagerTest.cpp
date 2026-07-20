@@ -1226,6 +1226,48 @@ void ViewManagerTest::testColdRestorePreservesSessionProfileAndState()
     QCOMPARE(restoredSession->activityColor(), tabActivityColor);
 }
 
+void ViewManagerTest::testColdRestoreIgnoresEmptyEncoding()
+{
+    KConfig config(m_testDir->filePath(QStringLiteral("cold-restore-empty-encoding-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+    const QByteArray profileEncoding("ISO-8859-1");
+
+    {
+        auto sourceWindow = MainWindow();
+        Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+        profile->setHidden(true);
+        profile->setProperty(Profile::Name, QStringLiteral("Empty encoding restore test profile"));
+        profile->setProperty(Profile::DefaultEncoding, QString::fromLatin1(profileEncoding));
+
+        Session *session = sourceWindow.createSession(profile, m_testDir->path());
+        QVERIFY(session != nullptr);
+        QCOMPARE(session->codec(), profileEncoding);
+        sourceWindow.viewManager()->saveSessions(group);
+    }
+
+    auto projects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+    auto project = projects.at(0).toObject();
+    auto tabs = project[QStringLiteral("Tabs")].toArray();
+    auto tab = tabs.at(0).toObject();
+    auto widgets = tab[QStringLiteral("Widgets")].toArray();
+    auto terminal = widgets.at(0).toObject();
+    terminal.insert(QStringLiteral("Encoding"), QString());
+    widgets[0] = terminal;
+    tab[QStringLiteral("Widgets")] = widgets;
+    tabs[0] = tab;
+    project[QStringLiteral("Tabs")] = tabs;
+    projects[0] = project;
+    group.writeEntry("Projects", QJsonDocument(projects).toJson(QJsonDocument::Compact));
+
+    auto restoredWindow = MainWindow();
+    auto *restoredManager = restoredWindow.viewManager();
+    restoredManager->restoreSessions(group, false);
+
+    Session *restoredSession = restoredManager->activeViewController()->session();
+    QVERIFY(restoredSession != nullptr);
+    QCOMPARE(restoredSession->codec(), profileEncoding);
+}
+
 void ViewManagerTest::testFinishedAutoCloseCommandIsNotColdRestored()
 {
     const QString counterPath = m_testDir->filePath(QStringLiteral("finished-command-counter"));

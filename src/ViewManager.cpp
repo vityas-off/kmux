@@ -1946,7 +1946,10 @@ void restoreColdSessionState(Session *session, const QJsonObject &sessionObject)
         session->tabActivityColorSetByUser(sessionObject[QStringLiteral("TabActivityColorSetByUser")].toBool());
     }
     if (sessionObject.contains(QStringLiteral("Encoding"))) {
-        session->setCodec(sessionObject[QStringLiteral("Encoding")].toString().toUtf8());
+        const QByteArray encoding = sessionObject[QStringLiteral("Encoding")].toString().toUtf8();
+        if (!encoding.isEmpty()) {
+            session->setCodec(encoding);
+        }
     }
     if (sessionObject.contains(QStringLiteral("BadgeEnabled"))) {
         session->setBadgeEnabled(sessionObject[QStringLiteral("BadgeEnabled")].toBool());
