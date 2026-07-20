@@ -25,6 +25,7 @@ private Q_SLOTS:
     void testCodexRepairsPreviousDottedInstall();
     void testCodexLauncherHookInstallation_data();
     void testCodexLauncherHookInstallation();
+    void testCodexLauncherSkipsSelfSymlink();
     void testClaudeLifecycleConfiguration();
     void testHookOperationsWaitForTransactionLock_data();
     void testHookOperationsWaitForTransactionLock();
@@ -85,6 +86,40 @@ void AgentHooksTest::testCodexLauncherHookInstallation()
     process.readAllStandardOutput().trimmed().toLongLong(&pidIsValid);
     QVERIFY(pidIsValid);
     QCOMPARE(QFileInfo::exists(configHome), expectHooksInstalled);
+}
+
+void AgentHooksTest::testCodexLauncherSkipsSelfSymlink()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString launcherBinDir = temporaryDir.filePath(QStringLiteral("launcher-bin"));
+    const QString agentBinDir = temporaryDir.filePath(QStringLiteral("agent-bin"));
+    QVERIFY(QDir().mkpath(launcherBinDir));
+    QVERIFY(QDir().mkpath(agentBinDir));
+
+    const QString launcherAlias = QDir(launcherBinDir).filePath(QStringLiteral("codex"));
+    QVERIFY(QFile::link(QStringLiteral(KMUX_CODEX_EXECUTABLE), launcherAlias));
+
+    const QString agentPath = QDir(agentBinDir).filePath(QStringLiteral("codex"));
+    QFile agent(agentPath);
+    QVERIFY(agent.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray script = QByteArrayLiteral("#!/bin/sh\nprintf 'real-codex:%s\\n' \"$1\"\n");
+    QCOMPARE(agent.write(script), script.size());
+    agent.close();
+    QVERIFY(QFile::setPermissions(agentPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("PATH"), launcherBinDir + QDir::listSeparator() + agentBinDir);
+    environment.insert(QStringLiteral("KMUX_CODEX_HOOKS_DISABLED"), QStringLiteral("1"));
+
+    QProcess process;
+    process.setProcessEnvironment(environment);
+    process.start(QStringLiteral(KMUX_CODEX_EXECUTABLE), {QStringLiteral("argument")});
+    QVERIFY(process.waitForStarted());
+    QVERIFY2(process.waitForFinished(5000), "kmux-codex recursively executed itself");
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+    QCOMPARE(process.readAllStandardOutput().trimmed(), QByteArrayLiteral("real-codex:argument"));
 }
 
 void AgentHooksTest::testClaudeLifecycleConfiguration()

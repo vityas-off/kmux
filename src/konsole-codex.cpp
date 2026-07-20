@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
@@ -70,6 +71,77 @@ bool installTrustedHooks(const char *launcherPath)
     }
     return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
+
+std::vector<std::string> executableCandidates(const char *executable)
+{
+    if (std::strchr(executable, '/') != nullptr) {
+        return {executable};
+    }
+
+    const char *pathEnvironment = std::getenv("PATH");
+    const std::string searchPath = pathEnvironment != nullptr ? pathEnvironment : "/bin:/usr/bin";
+    std::vector<std::string> candidates;
+    std::string::size_type start = 0;
+    do {
+        const auto separator = searchPath.find(':', start);
+        const std::string directory = searchPath.substr(start, separator - start);
+        candidates.emplace_back((directory.empty() ? std::string(".") : directory) + '/' + executable);
+        if (separator == std::string::npos) {
+            break;
+        }
+        start = separator + 1;
+    } while (start <= searchPath.size());
+    return candidates;
+}
+
+bool executableIdentity(const char *executable, struct stat &identity)
+{
+    for (const std::string &candidate : executableCandidates(executable)) {
+        if (access(candidate.c_str(), X_OK) == 0 && stat(candidate.c_str(), &identity) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void execShellScript(const std::string &script, const std::vector<char *> &args)
+{
+    std::vector<char *> shellArgs;
+    shellArgs.reserve(args.size() + 1);
+    shellArgs.push_back(const_cast<char *>(script.c_str()));
+    shellArgs.insert(shellArgs.end(), args.begin() + 1, args.end());
+    execv("/bin/sh", shellArgs.data());
+}
+
+void execAgent(const char *launcherPath, const std::vector<char *> &args)
+{
+    struct stat launcherIdentity;
+    const bool hasLauncherIdentity = executableIdentity(launcherPath, launcherIdentity);
+    bool skippedLauncher = false;
+    bool permissionDenied = false;
+
+    for (const std::string &candidate : executableCandidates(KMUX_AGENT_NAME)) {
+        struct stat candidateIdentity;
+        if (hasLauncherIdentity && stat(candidate.c_str(), &candidateIdentity) == 0 && candidateIdentity.st_dev == launcherIdentity.st_dev
+            && candidateIdentity.st_ino == launcherIdentity.st_ino) {
+            skippedLauncher = true;
+            continue;
+        }
+
+        execv(candidate.c_str(), args.data());
+        if (errno == ENOEXEC) {
+            execShellScript(candidate, args);
+            return;
+        }
+        if (errno == EACCES) {
+            permissionDenied = true;
+        } else if (errno != ENOENT && errno != ENOTDIR) {
+            return;
+        }
+    }
+
+    errno = permissionDenied ? EACCES : skippedLauncher ? ELOOP : ENOENT;
+}
 }
 
 int main(int argc, char **argv)
@@ -97,7 +169,8 @@ int main(int argc, char **argv)
     }
     execArgs.push_back(nullptr);
 
-    execvp(KMUX_AGENT_NAME, execArgs.data());
-    std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to exec " KMUX_AGENT_NAME ": " << std::strerror(errno) << '\n';
+    execAgent(argv[0], execArgs);
+    const int execError = errno;
+    std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to exec " KMUX_AGENT_NAME ": " << std::strerror(execError) << '\n';
     return 127;
 }
