@@ -57,7 +57,7 @@ void showAndActivateWindow(MainWindow *window)
         return;
     }
 
-    window->setWindowState(window->windowState() & (~Qt::WindowMinimized | Qt::WindowActive));
+    window->setWindowState((window->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
     window->show();
     window->activateWindow();
 }
@@ -256,7 +256,7 @@ int Application::newInstance()
         if (createdNewMainWindow) {
             QTimer::singleShot(0, window, &MainWindow::show);
         } else {
-            window->setWindowState(window->windowState() & (~Qt::WindowMinimized | Qt::WindowActive));
+            window->setWindowState((window->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
             window->show();
             window->activateWindow();
         }
