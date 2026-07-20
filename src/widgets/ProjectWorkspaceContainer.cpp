@@ -29,6 +29,7 @@
 #include <QVBoxLayout>
 #include <QVariant>
 
+#include <KColorScheme>
 #include <KLocalizedString>
 
 #include <algorithm>
@@ -293,9 +294,13 @@ public:
             drawInlineIndicator(painter, processIndicatorRect, processBadge, processIndicatorColor, indicatorFont, drawProcessIndicatorIcon);
         }
         if (!statusIndicatorRect.isNull()) {
-            QColor statusColor = projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
-                ? QColor(245, 165, 36)
-                : runningPulseColor(indicatorColor, highlightColor, selected);
+            QColor statusColor;
+            if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+                const KColorScheme viewScheme(itemOption.palette.currentColorGroup(), KColorScheme::View);
+                statusColor = viewScheme.foreground(KColorScheme::NeutralText).color();
+            } else {
+                statusColor = runningPulseColor(indicatorColor, highlightColor, selected);
+            }
             drawInlineIndicator(painter, statusIndicatorRect, statusBadge, statusColor, indicatorFont, drawProcessIndicatorIcon);
         } else if (!activityRect.isNull()) {
             painter->setPen(Qt::NoPen);
