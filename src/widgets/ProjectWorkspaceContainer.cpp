@@ -18,6 +18,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QPainter>
+#include <QRegion>
 #include <QSignalBlocker>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -345,7 +346,14 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
 
     _statusAnimationTimer->setInterval(100);
     connect(_statusAnimationTimer, &QTimer::timeout, _projectList->viewport(), [this] {
-        _projectList->viewport()->update();
+        QRegion runningItemsRegion;
+        for (int row = 0; row < _projectList->count(); ++row) {
+            auto *item = _projectList->item(row);
+            if (item != nullptr && static_cast<ProjectStatus>(item->data(ProjectStatusRole).toInt()) == ProjectStatus::Running) {
+                runningItemsRegion += _projectList->visualItemRect(item);
+            }
+        }
+        _projectList->viewport()->update(runningItemsRegion);
     });
 
     _rail->setObjectName(QStringLiteral("projectRail"));
