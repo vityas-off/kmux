@@ -226,7 +226,7 @@ void ViewManager::setupActions()
     action->setText(i18nc("@action:inmenu", "Add Project"));
     connect(action, &QAction::triggered, this, &ViewManager::createProject);
     collection->addAction(QStringLiteral("add-workspace"), action);
-    collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_W);
+    collection->setDefaultShortcut(action, Qt::CTRL | Qt::ALT | Qt::Key_P);
     _workspaceContainer->addAction(action);
 
     action = new QAction(this);

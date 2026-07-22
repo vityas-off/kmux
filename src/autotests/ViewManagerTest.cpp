@@ -781,7 +781,7 @@ void ViewManagerTest::testProjectWorkspaceNavigationShortcuts()
 
     auto *addWorkspace = mw.actionCollection()->action(QStringLiteral("add-workspace"));
     QVERIFY(addWorkspace != nullptr);
-    QCOMPARE(addWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W));
+    QCOMPARE(addWorkspace->shortcut(), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_P));
 
     auto *nextWorkspace = mw.actionCollection()->action(QStringLiteral("next-workspace"));
     QVERIFY(nextWorkspace != nullptr);
