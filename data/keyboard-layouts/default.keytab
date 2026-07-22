@@ -36,7 +36,7 @@ key Backtab   +Control-Ansi : "\t"
 key Return-Shift-NewLine : "\r"
 key Return-Shift+NewLine : "\r\n"
 
-key Return+Shift         : "\EOM"
+key Return+Shift         : "\n"
 
 # Backspace and Delete codes are preserving CTRL-H.
 #
@@ -205,5 +205,4 @@ key Down    -Alt-Ctrl+Shift-AppScreen  : scrollLineDown
 key PgDown      -Ctrl+Shift-AppScreen  : scrollPageDown
 key PgDown      +Ctrl+Shift-AppScreen  : scrollPromptDown
 key End              +Shift-AppScreen  : scrollDownToBottom
-
 

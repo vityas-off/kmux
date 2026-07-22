@@ -70,6 +70,16 @@ Agent hooks communicate with the Kmux session through the
 `KMUX_DBUS_*` environment exported inside Kmux terminals. These helpers are
 built when DBus support is enabled.
 
+### Shift+Enter
+
+Kmux intentionally changes Konsole's default `Shift+Enter` binding to send a
+newline (`\n`). This enables multiline input in terminal coding agents such as
+Claude Code. See [Configuring Shift+Enter for Claude Code in
+Konsole](https://www.reddit.com/r/ClaudeAI/comments/1nuvtwv/configuring_shiftenter_for_claude_code_in_konsole/)
+for background and manual configuration details. Users who need Konsole's
+upstream behavior can select or customize another key binding in the active
+profile's Keyboard settings.
+
 ## Foundation and Inspiration
 
 Kmux is built on [KDE Konsole](https://apps.kde.org/konsole/) and retains its
