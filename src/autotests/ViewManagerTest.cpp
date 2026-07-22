@@ -645,6 +645,27 @@ void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 }
 
+void ViewManagerTest::testProjectWorkspaceCodexAutoReviewedPermissionStaysRunning()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+}
+
 void ViewManagerTest::testProjectWorkspaceClaudeDecisionClearsOnTerminalInput()
 {
     auto mw = MainWindow();

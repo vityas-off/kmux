@@ -2783,8 +2783,10 @@ void ViewManager::setSessionProjectStatus(Session *session,
         || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
 
     int pendingTerminalDecisions = agentProcessChanged || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
-    if (isCodexEvent && isPermissionRequest) {
+    if (isCodexEvent && isPermissionRequest && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         ++pendingTerminalDecisions;
+    } else if (isCodexEvent && isPermissionRequest) {
+        pendingTerminalDecisions = 0;
     } else if (isClaudeEvent && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput && (isPermissionRequest || isNotification)) {
         // Claude can emit both events for one prompt. One terminal decision
         // resolves the prompt, so coalesce them instead of requiring two keys.

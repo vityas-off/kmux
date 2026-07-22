@@ -26,6 +26,7 @@ private Q_SLOTS:
     void testCodexLauncherHookInstallation_data();
     void testCodexLauncherHookInstallation();
     void testCodexLauncherSkipsSelfSymlink();
+    void testCodexPermissionRequestUsesConfiguredReviewer();
     void testClaudeLifecycleConfiguration();
     void testHookOperationsWaitForTransactionLock_data();
     void testHookOperationsWaitForTransactionLock();
@@ -120,6 +121,91 @@ void AgentHooksTest::testCodexLauncherSkipsSelfSymlink()
     QCOMPARE(process.exitStatus(), QProcess::NormalExit);
     QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
     QCOMPARE(process.readAllStandardOutput().trimmed(), QByteArrayLiteral("real-codex:argument"));
+}
+
+void AgentHooksTest::testCodexPermissionRequestUsesConfiguredReviewer()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString configHome = temporaryDir.filePath(QStringLiteral("codex-home"));
+    QVERIFY(QDir().mkpath(configHome));
+    QFile config(QDir(configHome).filePath(QStringLiteral("config.toml")));
+    QVERIFY(config.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray configContents = QByteArrayLiteral("approvals_reviewer = \"auto_review\"\n");
+    QCOMPARE(config.write(configContents), configContents.size());
+    config.close();
+
+    QProcess process;
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    process.setProcessEnvironment(environment);
+    process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE),
+                  {QStringLiteral("--codex-home"), configHome, QStringLiteral("install"), QStringLiteral("codex"), QStringLiteral("--quiet")});
+    QVERIFY(process.waitForStarted());
+    QVERIFY(process.waitForFinished());
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+
+    QFile settings(QDir(configHome).filePath(QStringLiteral("hooks.json")));
+    QVERIFY(settings.open(QIODevice::ReadOnly));
+    const QJsonArray permissionRequests =
+        QJsonDocument::fromJson(settings.readAll()).object().value(QStringLiteral("hooks")).toObject().value(QStringLiteral("PermissionRequest")).toArray();
+    QCOMPARE(permissionRequests.size(), 1);
+    const QString permissionRequestCommand =
+        permissionRequests.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile permissionRequestScript(permissionRequestCommand);
+    QVERIFY(permissionRequestScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString permissionRequestScriptText = QString::fromUtf8(permissionRequestScript.readAll());
+    QVERIFY(permissionRequestScriptText.contains(QStringLiteral("--event 'PermissionRequest'")));
+    QVERIFY(permissionRequestScriptText.contains(QStringLiteral("--codex-permission-request")));
+    QVERIFY(permissionRequestScriptText.contains(QStringLiteral("\"$@\" needsInput")));
+
+    const QString tracePath = temporaryDir.filePath(QStringLiteral("hook-trace.jsonl"));
+    const QByteArray hookPayload = QJsonDocument(QJsonObject{{QStringLiteral("cwd"), temporaryDir.path()}}).toJson(QJsonDocument::Compact);
+    auto runPermissionHook = [&](const QString &program, const QStringList &arguments, QProcessEnvironment hookEnvironment, const QString &expectedStatus) {
+        QFile::remove(tracePath);
+        hookEnvironment.insert(QStringLiteral("CODEX_HOME"), configHome);
+        hookEnvironment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), tracePath);
+        hookEnvironment.remove(QStringLiteral("KMUX_DBUS_SERVICE"));
+        hookEnvironment.remove(QStringLiteral("KMUX_DBUS_SESSION"));
+
+        QProcess hookProcess;
+        hookProcess.setProcessEnvironment(hookEnvironment);
+        hookProcess.start(program, arguments);
+        QVERIFY(hookProcess.waitForStarted());
+        QCOMPARE(hookProcess.write(hookPayload), hookPayload.size());
+        hookProcess.closeWriteChannel();
+        QVERIFY(hookProcess.waitForFinished());
+        QCOMPARE(hookProcess.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(hookProcess.exitCode(), 0);
+
+        QFile trace(tracePath);
+        QVERIFY(trace.open(QIODevice::ReadOnly | QIODevice::Text));
+        QString receivedStatus;
+        while (!trace.atEnd()) {
+            const QJsonObject record = QJsonDocument::fromJson(trace.readLine()).object();
+            if (record.value(QStringLiteral("phase")) == QLatin1String("received")) {
+                receivedStatus = record.value(QStringLiteral("status")).toString();
+                break;
+            }
+        }
+        QCOMPARE(receivedStatus, expectedStatus);
+    };
+
+    runPermissionHook(permissionRequestCommand, {}, environment, QStringLiteral("running"));
+
+    const QString fakeBin = temporaryDir.filePath(QStringLiteral("bin"));
+    QVERIFY(QDir().mkpath(fakeBin));
+    const QString fakeCodexPath = QDir(fakeBin).filePath(QStringLiteral("codex"));
+    QFile fakeCodex(fakeCodexPath);
+    QVERIFY(fakeCodex.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray fakeCodexContents = QByteArrayLiteral("#!/bin/sh\n\"$KMUX_TEST_PERMISSION_HOOK\"\nhook_status=$?\nexit \"$hook_status\"\n");
+    QCOMPARE(fakeCodex.write(fakeCodexContents), fakeCodexContents.size());
+    fakeCodex.close();
+    QVERIFY(QFile::setPermissions(fakeCodexPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    environment.insert(QStringLiteral("KMUX_TEST_PERMISSION_HOOK"), permissionRequestCommand);
+    runPermissionHook(fakeCodexPath, {QStringLiteral("-c"), QStringLiteral("approvals_reviewer=\"user\"")}, environment, QStringLiteral("needsInput"));
 }
 
 void AgentHooksTest::testClaudeLifecycleConfiguration()

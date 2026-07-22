@@ -450,7 +450,7 @@ if(HAVE_DBUS)
     install(TARGETS kmux-agent-hooks ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
     if(BUILD_TESTING)
-        add_dependencies(AgentHooksTest kmux-agent-hooks kmux-codex)
+        add_dependencies(AgentHooksTest kmux-agent-hooks kmux-codex kmux-project-status)
         target_compile_definitions(
             AgentHooksTest
             PRIVATE

@@ -46,9 +46,9 @@ struct HookEvent {
     QString matcher;
 };
 
-// Codex SessionStart describes the agent process, not an active turn. Its
-// PermissionRequest hook has no matching approval-resolved event, so Kmux
-// clears that needs-input state when the terminal receives the decision key.
+// Codex SessionStart describes the agent process, not an active turn. The
+// project-status helper resolves PermissionRequest dynamically because Codex
+// runs the hook before either the user or automatic approval reviewer.
 // Manual compaction is a standalone turn; automatic compaction inherits the
 // running state of the turn that triggered it.
 const QList<HookEvent> CodexHookEvents = {
@@ -200,6 +200,9 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
                                               "    set -- \"$@\" --agent-pid \"$agent_pid\"\n"
                                               "fi\n")
                                               .arg(agentPidEnvironment);
+    const QString reviewerAwareArguments = agentName == QLatin1String(CodexAgentName) && event.eventName == QLatin1String("PermissionRequest")
+        ? QStringLiteral("set -- \"$@\" --codex-permission-request\n")
+        : QString();
 
     return QStringLiteral(
                "#!/bin/sh\n"
@@ -207,14 +210,15 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
                "helper=%2\n"
                "set -- --hook-output --agent %3 --event %4\n"
                "%5"
+               "%6"
                "if [ -x \"$helper\" ]; then\n"
-               "    \"$helper\" \"$@\" %6\n"
+               "    \"$helper\" \"$@\" %7\n"
                "elif command -v kmux-project-status >/dev/null 2>&1; then\n"
-               "    kmux-project-status \"$@\" %6\n"
+               "    kmux-project-status \"$@\" %7\n"
                "else\n"
                "    printf '{}\\n'\n"
                "fi\n")
-        .arg(agentName, quotedHelper, quotedAgentName, quotedEventName, agentProcessArguments, event.status);
+        .arg(agentName, quotedHelper, quotedAgentName, quotedEventName, agentProcessArguments, reviewerAwareArguments, event.status);
 }
 
 bool writeTextFileAtomically(const QString &path, const QString &content, QString *error)
