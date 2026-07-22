@@ -521,6 +521,9 @@ public:
         return _activeNotifications;
     }
 
+    /** Clears pending activity, silence, and bell notifications. */
+    void resetNotifications();
+
     // checks that the binary 'program' is available and can be executed
     // returns the binary name if available or an empty string otherwise
     static QString checkProgram(const QString &program);
@@ -1027,7 +1030,6 @@ private Q_SLOTS:
     void onReceiveBlock(const char *buf, int len);
     void silenceTimerDone();
     void activityTimerDone();
-    void resetNotifications();
 
     void onViewSizeChange(int height, int width);
 

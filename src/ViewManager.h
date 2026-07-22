@@ -552,6 +552,7 @@ private:
     void handleSessionTerminalNotification(const QString &title, const QString &body);
     void handleSessionProjectStatusChanged(const QString &status, qlonglong agentProcessId, const QString &agent, const QString &event);
     void handleSessionDestroyed(QObject *object);
+    void acknowledgeSessionAttention(SessionController *controller);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
     void clearProjectAttention(TabbedViewContainer *container);
     void setSessionProjectStatus(Session *session,

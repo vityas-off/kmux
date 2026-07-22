@@ -27,6 +27,7 @@
 #include <KStandardAction>
 #include <KXMLGUIFactory>
 
+#include "../Emulation.h"
 #include "../MainWindow.h"
 #include "../ViewManager.h"
 #include "../containers/ContainerSessionState.h"
@@ -479,6 +480,36 @@ void ViewManagerTest::testProjectWorkspaceTerminalNotificationMarksInactiveProje
     QCOMPARE(viewManager->currentSession(), firstSession->sessionId());
     QVERIFY(!workspaces->projectHasActivity(firstProject));
     QCOMPARE(workspaces->projectNotification(firstProject), QStringLiteral("Codex: Turn complete"));
+}
+
+void ViewManagerTest::testProjectWorkspaceActivityClearsWhenTerminalRefocused()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    auto *controller = terminal->sessionController();
+    QVERIFY(controller != nullptr);
+    Session *session = controller->session();
+    QVERIFY(session != nullptr);
+
+    Q_EMIT session->emulation()->bell();
+    viewManager->_sessionsNeedingAttention.insert(session);
+    viewManager->refreshProjectSummary(project);
+    QVERIFY(session->activeNotifications().testFlag(Session::Notification::Bell));
+    QVERIFY(workspaces->projectHasActivity(project));
+
+    Q_EMIT controller->viewFocused(controller);
+
+    QCOMPARE(session->activeNotifications(), Session::NoNotification);
+    QVERIFY(!viewManager->_sessionsNeedingAttention.contains(session));
+    QVERIFY(!workspaces->projectHasActivity(project));
 }
 
 void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()

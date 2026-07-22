@@ -1242,6 +1242,8 @@ void ViewManager::removeController(SessionController *controller)
 
 void ViewManager::controllerChanged(SessionController *controller)
 {
+    acknowledgeSessionAttention(controller);
+
     if (controller == _pluggedController) {
         return;
     }
@@ -2725,6 +2727,21 @@ void ViewManager::handleSessionDestroyed(QObject *object)
     _sessionsNeedingAttention.remove(session);
     _sessionProjectStatuses.remove(session);
     updateProjectStatusProcessTimer();
+}
+
+void ViewManager::acknowledgeSessionAttention(SessionController *controller)
+{
+    if (controller == nullptr || controller->session() == nullptr) {
+        return;
+    }
+
+    Session *session = controller->session();
+    const auto containers = containersForSession(session);
+    _sessionsNeedingAttention.remove(session);
+    session->resetNotifications();
+    for (TabbedViewContainer *container : containers) {
+        refreshProjectSummary(container);
+    }
 }
 
 void ViewManager::markSessionAttention(Session *session, TabbedViewContainer *container)
