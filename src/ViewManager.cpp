@@ -9,6 +9,7 @@
 
 #include "config-konsole.h"
 #include "konsoledebug.h"
+#include "workspaces/AgentSleepInhibitor.h"
 
 // Qt
 #include <QColor>
@@ -168,6 +169,7 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
 
     _projectStatusProcessTimer.setInterval(ProjectStatusProcessCheckIntervalMs);
     connect(&_projectStatusProcessTimer, &QTimer::timeout, this, &ViewManager::clearExitedSessionProjectStatuses);
+    AgentSleepInhibitor::instance()->setAgentRunning(this, false);
 
     // setup actions which are related to the views
     setupActions();
@@ -185,7 +187,10 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
 #endif
 }
 
-ViewManager::~ViewManager() = default;
+ViewManager::~ViewManager()
+{
+    AgentSleepInhibitor::instance()->setAgentRunning(this, false);
+}
 
 int ViewManager::managerId() const
 {
@@ -2726,6 +2731,7 @@ void ViewManager::handleSessionDestroyed(QObject *object)
     auto *session = static_cast<Session *>(object);
     _sessionsNeedingAttention.remove(session);
     _sessionProjectStatuses.remove(session);
+    updateAgentSleepInhibition();
     updateProjectStatusProcessTimer();
 }
 
@@ -2778,6 +2784,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
         _sessionProjectStatuses.remove(session);
         _sessionsNeedingAttention.remove(session);
+        updateAgentSleepInhibition();
         updateProjectStatusProcessTimer();
         return;
     }
@@ -2819,6 +2826,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     } else {
         _sessionsNeedingAttention.remove(session);
     }
+    updateAgentSleepInhibition();
     updateProjectStatusProcessTimer();
 }
 
@@ -2842,6 +2850,7 @@ void ViewManager::handleSessionTerminalDecisionKey(Session *session, TabbedViewC
         status->status = ProjectWorkspaceContainer::ProjectStatus::Running;
         _sessionsNeedingAttention.remove(session);
     }
+    updateAgentSleepInhibition();
     refreshProjectSummary(container);
 }
 
@@ -2866,6 +2875,7 @@ void ViewManager::clearExitedSessionProjectStatuses()
         status = _sessionProjectStatuses.erase(status);
     }
 
+    updateAgentSleepInhibition();
     updateProjectStatusProcessTimer();
     for (TabbedViewContainer *container : std::as_const(containersToRefresh)) {
         refreshProjectSummary(container);
@@ -2895,6 +2905,14 @@ void ViewManager::updateProjectInputRequirement()
 
     _hasProjectNeedingInput = hasProjectNeedingInput;
     Q_EMIT updateWindowIcon();
+}
+
+void ViewManager::updateAgentSleepInhibition()
+{
+    const bool hasRunningAgent = std::any_of(_sessionProjectStatuses.cbegin(), _sessionProjectStatuses.cend(), [](const SessionProjectStatus &status) {
+        return status.status == ProjectWorkspaceContainer::ProjectStatus::Running;
+    });
+    AgentSleepInhibitor::instance()->setAgentRunning(this, hasRunningAgent);
 }
 
 void ViewManager::addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex)

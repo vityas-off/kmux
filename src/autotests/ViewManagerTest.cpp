@@ -28,6 +28,7 @@
 #include <KXMLGUIFactory>
 
 #include "../Emulation.h"
+#include "../KonsoleSettings.h"
 #include "../MainWindow.h"
 #include "../ViewManager.h"
 #include "../containers/ContainerSessionState.h"
@@ -40,6 +41,7 @@
 #include "../widgets/ProjectWorkspaceContainer.h"
 #include "../widgets/ViewContainer.h"
 #include "../widgets/ViewSplitter.h"
+#include "../workspaces/AgentSleepInhibitor.h"
 #include <QStandardPaths>
 
 using namespace Konsole;
@@ -551,6 +553,72 @@ void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
 
     firstSession->setProjectStatus(QStringLiteral("unknown"));
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::None);
+}
+
+void ViewManagerTest::testRunningAgentsControlSleepInhibition()
+{
+    auto *inhibitor = AgentSleepInhibitor::instance();
+    auto *settingItem = KonsoleSettings::self()->preventSleepWhileAgentsRunItem();
+    QVERIFY(settingItem != nullptr);
+    QVERIFY(settingItem->getDefault().toBool());
+
+    const bool previousSetting = KonsoleSettings::preventSleepWhileAgentsRun();
+    const auto restoreSetting = qScopeGuard([inhibitor, previousSetting] {
+        KonsoleSettings::setPreventSleepWhileAgentsRun(previousSetting);
+        inhibitor->updateInhibition();
+    });
+    KonsoleSettings::setPreventSleepWhileAgentsRun(true);
+    inhibitor->updateInhibition();
+    QVERIFY(!inhibitor->_inhibitionRequested);
+
+    auto window = MainWindow();
+    auto *viewManager = window.viewManager();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+
+    window.newTab();
+    auto *firstTerminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    Session *firstSession = firstTerminal->sessionController()->session();
+    QVERIFY(firstSession != nullptr);
+
+    window.newTab();
+    auto *secondTerminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(secondTerminal != nullptr);
+    Session *secondSession = secondTerminal->sessionController()->session();
+    QVERIFY(secondSession != nullptr);
+    QVERIFY(secondSession != firstSession);
+
+    firstSession->setProjectStatus(QStringLiteral("needsInput"));
+    QVERIFY(!inhibitor->_inhibitionRequested);
+
+    secondSession->setProjectStatus(QStringLiteral("running"));
+    QCOMPARE(viewManager->_workspaceContainer->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    QVERIFY(inhibitor->_inhibitionRequested);
+
+    secondSession->setProjectStatus(QStringLiteral("idle"));
+    QVERIFY(!inhibitor->_inhibitionRequested);
+
+    firstSession->setProjectStatus(QStringLiteral("running"));
+    QVERIFY(inhibitor->_inhibitionRequested);
+
+    auto secondWindow = MainWindow();
+    secondWindow.newTab();
+    auto *thirdController = secondWindow.viewManager()->activeViewController();
+    QVERIFY(thirdController != nullptr);
+    Session *thirdSession = thirdController->session();
+    QVERIFY(thirdSession != nullptr);
+    thirdSession->setProjectStatus(QStringLiteral("running"));
+    firstSession->setProjectStatus(QStringLiteral("idle"));
+    QVERIFY(inhibitor->_inhibitionRequested);
+
+    thirdSession->setProjectStatus(QStringLiteral("idle"));
+    QVERIFY(!inhibitor->_inhibitionRequested);
+
+    thirdSession->setProjectStatus(QStringLiteral("running"));
+    KonsoleSettings::setPreventSleepWhileAgentsRun(false);
+    inhibitor->updateInhibition();
+    QVERIFY(!inhibitor->_inhibitionRequested);
 }
 
 void ViewManagerTest::testProjectWorkspaceStatusClearsWhenAgentExits()

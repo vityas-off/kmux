@@ -18,6 +18,7 @@ GeneralSettings::GeneralSettings(QWidget *aParent)
     setupUi(this);
 #if !HAVE_DBUS
     kcfg_ShowProgressInTaskBar->hide();
+    kcfg_PreventSleepWhileAgentsRun->hide();
 #endif
 
     connect(enableAllMessagesButton, &QPushButton::clicked, this, &Konsole::GeneralSettings::slotEnableAllMessages);

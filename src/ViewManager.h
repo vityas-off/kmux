@@ -565,6 +565,7 @@ private:
     void clearExitedSessionProjectStatuses();
     void updateProjectStatusProcessTimer();
     void updateProjectInputRequirement();
+    void updateAgentSleepInhibition();
     QList<SessionController *> sessionControllersForContainer(TabbedViewContainer *container) const;
     void addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex);
     void moveTabToProject(TabbedViewContainer *sourceContainer, int tabIndex, TabbedViewContainer *targetContainer);

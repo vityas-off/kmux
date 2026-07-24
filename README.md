@@ -70,6 +70,11 @@ Agent hooks communicate with the Kmux session through the
 `KMUX_DBUS_*` environment exported inside Kmux terminals. These helpers are
 built when DBus support is enabled.
 
+By default, Kmux also prevents automatic system sleep while at least one
+integrated agent reports that it is running. Sleep is allowed again when all
+agents become idle or wait for input. This behavior can be disabled in the
+General settings and requires DBus support.
+
 ### Shift+Enter
 
 Kmux intentionally changes Konsole's default `Shift+Enter` binding to send a

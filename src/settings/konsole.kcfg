@@ -53,6 +53,11 @@
       <tooltip>Automatic send/receive files over serial connections</tooltip>
       <default>false</default>
     </entry>
+    <entry name="PreventSleepWhileAgentsRun" type="Bool">
+      <label>Prevent automatic sleep while terminal agents are working</label>
+      <tooltip>Keep the system awake while at least one terminal agent reports that it is running</tooltip>
+      <default>true</default>
+    </entry>
   </group>
   <group name="ThumbnailsSettings">
      <entry name="EnableThumbnails" type="Bool">
