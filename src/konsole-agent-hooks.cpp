@@ -62,13 +62,25 @@ const QList<HookEvent> CodexHookEvents = {
     {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
 };
 
+// Claude auto mode answers permission questions with its own classifier, so a
+// denial never opens a prompt and PermissionRequest never runs. PermissionDenied
+// reports it while the turn keeps going; ViewManager latches it until the turn
+// ends, because that is when Claude asks the user instead of running the tool.
+// Manual compaction is a standalone turn that no other event brackets, so it
+// needs both compaction hooks to show progress and to stop showing it. Automatic
+// compaction inherits the running state of the turn that triggered it, and the
+// session it restarts underneath that turn is not a session the tab may report
+// as idle -- hence the "manual" matcher and the SessionStart sources.
 const QList<HookEvent> ClaudeHookEvents = {
-    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("idle"), 5, QString()},
+    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("idle"), 5, QStringLiteral("startup|resume|clear|fork")},
     {QStringLiteral("UserPromptSubmit"), QStringLiteral("user_prompt_submit"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PreToolUse"), QStringLiteral("pre_tool_use"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PostToolUse"), QStringLiteral("post_tool_use"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("PostToolUseFailure"), QStringLiteral("post_tool_use_failure"), QStringLiteral("running"), 5, QString()},
+    {QStringLiteral("PreCompact"), QStringLiteral("pre_compact"), QStringLiteral("running"), 5, QStringLiteral("manual")},
+    {QStringLiteral("PostCompact"), QStringLiteral("post_compact"), QStringLiteral("idle"), 5, QStringLiteral("manual")},
     {QStringLiteral("PermissionRequest"), QStringLiteral("permission_request"), QStringLiteral("needsInput"), 5, QString()},
+    {QStringLiteral("PermissionDenied"), QStringLiteral("permission_denied"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("Notification"), QStringLiteral("notification"), QStringLiteral("needsInput"), 5, QStringLiteral("permission_prompt|elicitation_dialog")},
     {QStringLiteral("ElicitationResult"), QStringLiteral("elicitation_result"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},

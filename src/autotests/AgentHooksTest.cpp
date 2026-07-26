@@ -242,8 +242,39 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     QVERIFY(elicitationResultScriptText.contains(QStringLiteral("--event 'ElicitationResult'")));
     QVERIFY(elicitationResultScriptText.contains(QStringLiteral("\"$@\" running")));
 
+    const QJsonArray preCompacts = hooks.value(QStringLiteral("PreCompact")).toArray();
+    QCOMPARE(preCompacts.size(), 1);
+    QCOMPARE(preCompacts.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("manual"));
+    const QString preCompactCommand =
+        preCompacts.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile preCompactScript(preCompactCommand);
+    QVERIFY(preCompactScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    QVERIFY(QString::fromUtf8(preCompactScript.readAll()).contains(QStringLiteral("\"$@\" running")));
+
+    const QJsonArray postCompacts = hooks.value(QStringLiteral("PostCompact")).toArray();
+    QCOMPARE(postCompacts.size(), 1);
+    QCOMPARE(postCompacts.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("manual"));
+    const QString postCompactCommand =
+        postCompacts.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile postCompactScript(postCompactCommand);
+    QVERIFY(postCompactScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    QVERIFY(QString::fromUtf8(postCompactScript.readAll()).contains(QStringLiteral("\"$@\" idle")));
+
+    const QJsonArray permissionDenials = hooks.value(QStringLiteral("PermissionDenied")).toArray();
+    QCOMPARE(permissionDenials.size(), 1);
+    const QString permissionDeniedCommand =
+        permissionDenials.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile permissionDeniedScript(permissionDeniedCommand);
+    QVERIFY(permissionDeniedScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString permissionDeniedScriptText = QString::fromUtf8(permissionDeniedScript.readAll());
+    QVERIFY(permissionDeniedScriptText.contains(QStringLiteral("--event 'PermissionDenied'")));
+    QVERIFY(permissionDeniedScriptText.contains(QStringLiteral("\"$@\" running")));
+
     const QJsonArray sessionStarts = hooks.value(QStringLiteral("SessionStart")).toArray();
     QCOMPARE(sessionStarts.size(), 1);
+    // Compaction restarts the session under a turn that is still running, so
+    // that source must not reach the tab as an idle session start.
+    QCOMPARE(sessionStarts.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("startup|resume|clear|fork"));
     const QString sessionStartCommand =
         sessionStarts.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
     QFile sessionStartScript(sessionStartCommand);
@@ -503,7 +534,7 @@ void AgentHooksTest::testHomeScopedScripts_data()
     QTest::addColumn<int>("handlerCount");
 
     QTest::newRow("codex") << QStringLiteral("codex") << QStringLiteral("--codex-home") << QStringLiteral("hooks.json") << 8;
-    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json") << 11;
+    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json") << 14;
 }
 
 void AgentHooksTest::testHomeScopedScripts()

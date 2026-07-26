@@ -2802,9 +2802,20 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool isCodexEvent = agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0;
     const bool isClaudeEvent = agent.compare(QLatin1String("claude"), Qt::CaseInsensitive) == 0;
     const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
+    const bool isPermissionDenied = event.compare(QLatin1String("PermissionDenied"), Qt::CaseInsensitive) == 0;
     const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
-    const bool resetsPendingDecisions = isSessionStart || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
+    const bool startsTurn = isSessionStart || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0;
+    const bool endsAgentSession = event.compare(QLatin1String("SessionEnd"), Qt::CaseInsensitive) == 0;
+    const bool resetsPendingDecisions = startsTurn || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
+
+    // A Claude auto mode denial resolves without a prompt, so the turn keeps
+    // running and ends on Stop with Claude asking the user what to do instead.
+    // Carry the denial across that Stop so the tab asks for input rather than
+    // reporting the turn as finished; the next prompt is what clears it.
+    bool autoModeDenial = agentProcessChanged || startsTurn || endsAgentSession ? false : previousStatus.autoModeDenial;
+    if (isClaudeEvent && isPermissionDenied) {
+        autoModeDenial = true;
+    }
 
     int pendingTerminalDecisions = agentProcessChanged || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
     if (isCodexEvent && isPermissionRequest && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
@@ -2819,8 +2830,11 @@ void ViewManager::setSessionProjectStatus(Session *session,
         pendingTerminalDecisions = 0;
     }
 
-    const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
-    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent});
+    auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
+    if (autoModeDenial && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
+        effectiveStatus = ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
+    }
+    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent, autoModeDenial});
     if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);
     } else {
