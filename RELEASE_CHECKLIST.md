@@ -7,7 +7,9 @@ SPDX-License-Identifier: CC0-1.0
 
 This document tracks the work required for the first public Kmux release.
 
-Last assessment: 2026-07-14
+Last assessment: 2026-07-18 (build, test, and install evidence)
+
+Checklist reconciled with `master` tip `5043259d` on 2026-07-21.
 
 Target release: `v0.1.0-alpha.1`
 
@@ -30,9 +32,52 @@ The product MVP is already substantial:
 - side-by-side installation with Konsole is largely separated;
 - workspace-specific behavior has dedicated regression tests.
 
-The largest remaining gap is release engineering rather than product scope:
-CI, a verified clean test run, stable application identity, release metadata,
-tagging, staged installation validation, and packaging.
+The product code is ready for release-engineering work to proceed in parallel.
+The current `master` commit `1c0aca821` was verified on 2026-07-18 with a new
+clean Release build configured with testing, DBus, X11, and libssh enabled. The
+complete build succeeded and all 27 registered CTest tests passed, including
+`PartTest`, `TerminalInterfaceTest`, and the workspace regression tests. The
+main executable reports `0.1.0` plus the source commit, and the version-reporting
+helper tools report `0.1.0`.
+
+A clean `DESTDIR` installation also succeeded and produced 28 installed files:
+the application and helper executables, two internal libraries, two bundled
+plugins, the KPart, desktop and AppStream metadata, KGlobalAccel and notification
+metadata, the KIO service menu, icons, logging metadata, and zsh completion. No
+staged file path collided with a file already present on the development host.
+This is a useful preliminary check, but it does not replace comparing package
+ownership with a distribution's Konsole package or testing installation and
+removal in a clean VM.
+
+Since that verification `master` has advanced eleven commits to `5043259d`.
+Those commits completed the independent Kmux translation domain and catalog
+installation, and landed several workspace-persistence, secondary-launch, and
+agent-hook fixes. The build, test, and install evidence recorded above therefore
+predates the current tip: the full CTest suite and the staged installation must
+be re-run on the final release commit, and the dogfooding window restarts after
+the most recent persistence, IPC, or hook change.
+
+The remaining alpha blockers are a short code/metadata/documentation cleanup
+and release engineering rather than new product scope:
+
+- add minimal Linux CI and an ASan/UBSan run;
+- decide the final alpha version presentation and current Kmux maintainer;
+- correct maintainer and upstream attribution in About, AppStream, and Doxygen;
+- add AppStream release history and a stable screenshot URL;
+- finish alpha limitations, recovery, support, and release notes;
+- correct REUSE/SPDX coverage for new Kmux files and the screenshot;
+- keep tracking the previously observed transient `TerminalInterfaceTest`
+  shell-startup timeout until CI either reproduces it or provides enough
+  evidence to close it;
+- complete clean-package, installed-runtime, side-by-side, and manual smoke
+  testing before tagging.
+
+Infrastructure preparation can start now. In particular, create or verify the
+AUR maintainer account, add CI, prepare an Arch clean chroot, prepare one clean
+Arch Plasma VM, and draft the `PKGBUILD`. Do not publish the stable AUR package
+or finalize its source checksum until the GitHub prerelease tag exists. Native
+Debian/RPM packaging remains a later channel and should not delay the first
+GitHub/AUR alpha.
 
 ## Release strategy
 
@@ -106,7 +151,8 @@ All items in this section should be completed before publishing
 - [x] Configure a clean Release build from an empty build directory.
 - [x] Build the complete project successfully.
 - [x] Run the complete CTest suite with `--output-on-failure`.
-- [x] Confirm that all registered tests pass on the release commit.
+- [ ] Re-run all registered tests and confirm they pass on the final release
+      commit after the remaining metadata and documentation changes.
 - [x] Reproduce and fix or conclusively explain the previously recorded
       `PartTest` failure.
 - [ ] Reproduce and fix or conclusively explain the previously recorded
@@ -117,11 +163,16 @@ All items in this section should be completed before publishing
 
 A clean Release build in `~/kde/build/kmux` passed all 27 registered tests on
 2026-07-14, including `PartTest`, `TerminalInterfaceTest`, and both registered
-AppStream tests. This confirms that the built `kmuxpart` plugin is discovered
-without relying on stale build-tree state. The first full run had one transient
-`TerminalInterfaceTest` timeout while waiting for `currentDirectoryChanged`;
-the test then passed five consecutive standalone runs and the complete rerun.
-Keep tracking this shell-startup timing failure until its cause is conclusive.
+AppStream tests. A second clean Release build from current `master` in
+`/tmp/kmux-release-audit` passed all 27 tests on 2026-07-18. This confirms that
+the built `kmuxpart` plugin is discovered without relying on stale build-tree
+state. The first 2026-07-14 full run had one transient `TerminalInterfaceTest`
+timeout while waiting for `currentDirectoryChanged`; the test then passed five
+consecutive standalone runs, the complete rerun, and the 2026-07-18 clean run.
+Keep tracking this shell-startup timing failure in CI until its cause is
+conclusive or it has a sufficiently stable history.
+The full suite must still be rerun after the remaining release commits before
+the tag is created.
 The relevant tests are in:
 
 - `src/autotests/PartTest.cpp`;
@@ -179,14 +230,31 @@ Identity locations include:
 ### 4. Release version and tag
 
 - [ ] Confirm `0.1.0-alpha.1` as the first public version.
-- [ ] Ensure all installed executables report a consistent Kmux version.
-- [ ] Replace the hard-coded `1.0` version in `kmux-project-status` with the
+- [x] Ensure all version-reporting installed executables report a consistent
+      Kmux product version.
+- [x] Replace the hard-coded `1.0` version in `kmux-project-status` with the
       product version where appropriate.
 - [ ] Create a Kmux-specific `v0.1.0-alpha.1` tag.
-- [ ] Do not derive the Kmux package version from inherited Konsole tags.
+- [x] Define the Kmux product version independently of inherited Konsole tags.
 - [ ] Create a GitHub prerelease from the tag.
 - [ ] Add concise release notes or a changelog entry.
-- [ ] Include the release tag or commit in useful bug-report information.
+- [x] Include the source commit in the main executable version and About data.
+
+Current version output from the 2026-07-18 clean build is:
+
+```text
+kmux 0.1.0 (1c0aca821009)
+kmux-project-status 0.1.0
+kmux-agent-hooks 0.1.0
+```
+
+The embedded commit tracks the build tree, so a build of the current tip now
+reports `5043259d…` instead. Re-record this output from the final release build.
+
+The remaining version decision is whether the application itself should display
+`0.1.0-alpha.1`, or whether the numeric application/library version remains
+`0.1.0` while the source and package release use the prerelease tag
+`v0.1.0-alpha.1`.
 
 Relevant version locations include:
 
@@ -203,7 +271,7 @@ Relevant version locations include:
       Konsole maintenance.
 - [ ] Keep Konsole authors and maintainers as upstream attribution rather than
       implying that they support Kmux.
-- [ ] Add a bug tracker URL to AppStream metadata.
+- [x] Add a bug tracker URL to AppStream metadata.
 - [ ] Add a support or contact URL if available.
 - [ ] Decide how private security reports should be submitted.
 
@@ -213,36 +281,47 @@ Relevant files:
 - `Mainpage.dox`;
 - `desktop/*.metainfo.xml`.
 
+Current `master` still presents Kurt Hindenburg as the general maintainer in the
+About data and as the maintainer in `Mainpage.dox`. Those entries are inherited
+Konsole attribution and must not imply that upstream Konsole maintainers support
+Kmux. AppStream currently identifies only “Kmux contributors”; replace or
+supplement that with the agreed current Kmux maintainer identity.
+
 ### 6. AppStream and desktop metadata
 
 - [x] Rename AppStream metadata to `<app-id>.metainfo.xml` after finalizing the
       App ID.
 - [ ] Add a `<releases>` entry for `0.1.0-alpha.1` with the release date.
-- [ ] Add a bug tracker URL.
+- [x] Add a bug tracker URL.
 - [ ] Add at least one screenshot.
 - [ ] Publish screenshots at a stable or immutable URL.
 - [ ] Resize or prepare the existing screenshot if needed for store guidelines.
-- [x] Run pedantic AppStream validation.
+- [ ] Pass `appstreamcli validate --pedantic` with the final release metadata.
 - [x] Validate the main application desktop file.
 - [ ] Treat `kmuxrun.desktop` as a KDE service-menu file rather than passing it
       blindly through the generic desktop-file validator.
-- [ ] Update notification metadata so the application is presented as Kmux,
+- [x] Update notification metadata so the application is presented as Kmux,
       not Konsole.
 
 The existing screenshot is:
 
 - `screenshots/kmux-project-workspaces.png`.
 
+The main desktop file passed `desktop-file-validate` on 2026-07-18. The current
+AppStream file does not yet pass the pedantic validator because release history
+is missing. URL reachability warnings seen in the restricted audit environment
+were caused by unavailable network access; `releases-info-missing` is the real
+metadata failure that must be fixed.
+
 ### 7. Dependency declarations
 
-- [ ] Make Zlib explicitly required in CMake, because `ZLIB::ZLIB` is linked
+- [x] Make Zlib explicitly required in CMake, because `ZLIB::ZLIB` is linked
       unconditionally.
-- [ ] Add Qt XML explicitly to the main Qt component lookup rather than relying
+- [x] Add Qt XML explicitly to the main Qt component lookup rather than relying
       on a transitive dependency.
-- [ ] Clearly document that libssh is required when `WITH_LIBSSH=ON`.
-- [ ] Decide and document whether release packages enable libssh.
-- [ ] Review or remove the `WITH_X11` option if it does not actually control
-      the build.
+- [x] Clearly document that libssh is required when `WITH_LIBSSH=ON`.
+- [x] Decide and document that the initial AUR package enables libssh.
+- [x] Confirm that `WITH_X11` controls the existing X11-specific build paths.
 - [ ] Add Zlib and the complete Qt/KF dependency set to build documentation.
 - [ ] Verify a clean configure on a system that does not already have a Konsole
       development environment installed.
@@ -251,10 +330,16 @@ Likely Arch runtime/build dependencies must be derived and verified from the
 actual clean package build. They include Qt 6, KF6 components, ICU, Zlib, and
 libssh when enabled.
 
+The 2026-07-18 clean configure found Qt XML, Zlib, and libssh as direct
+dependencies. `WITH_X11` is consumed by `WindowSystemInfo.cpp` and
+`MainWindow.cpp`, so it is not currently a dead option. The complete package
+dependency list still needs to be derived in an Arch clean chroot rather than
+from the development host.
+
 ### 8. Staged installation and side-by-side validation
 
 - [x] Install into a clean `DESTDIR` staging directory.
-- [ ] Inspect the complete install manifest.
+- [x] Inspect the complete install manifest.
 - [ ] Confirm that no file collides with an installed Konsole package.
 - [ ] Confirm that removing Kmux does not remove Konsole resources.
 - [ ] Launch the installed executable rather than the build-tree executable.
@@ -277,24 +362,39 @@ The current installation surface can be reviewed in:
 - `tools/CMakeLists.txt`;
 - `build/install_manifest.txt` for the existing local build.
 
+The 2026-07-18 staged Release installation contained 28 files and had no path
+collision with files already present on the development host. The final
+collision, package-removal, plugin discovery, and side-by-side claims remain
+open until they are checked against the distribution's actual Konsole package
+and in a clean Plasma VM.
+
 ### 9. Licensing and source archive checks
 
-- [ ] Run `reuse lint`.
+- [x] Run `reuse lint` and record the current failures.
 - [ ] Add or correct licensing annotations for new Kmux files as needed.
 - [ ] Check licensing for `screenshots/kmux-project-workspaces.png`.
 - [ ] Confirm that release archives contain all required license files.
 - [ ] Confirm that generated files and local build output are not included in
       the source release.
 
+`reuse --no-multiprocessing lint` ran on 2026-07-18 and did not pass. It reported
+copyright information for 460 of 662 files and licensing information for 385 of
+662 files. Many failures are inherited upstream assets and translations, but
+new Kmux source files also lack explicit copyright lines and
+`screenshots/kmux-project-workspaces.png` lacks a licensing annotation. Prefer
+targeted SPDX fixes for new Kmux files plus maintainable `REUSE.toml`
+annotations for accurately classified inherited files rather than manually
+editing hundreds of imported files without provenance review.
+
 ### 10. User-visible branding cleanup
 
-- [ ] Replace “Start Konsole in fullscreen mode” with Kmux wording.
-- [ ] Replace “Konsole View Layout” where it describes a Kmux-facing dialog.
-- [ ] Update notification metadata still displayed as Konsole.
+- [x] Replace “Start Konsole in fullscreen mode” with Kmux wording.
+- [x] Replace “Konsole View Layout” where it describes a Kmux-facing dialog.
+- [x] Update notification metadata still displayed as Konsole.
 - [ ] Review other user-visible `Konsole` strings and distinguish intentional
       compatibility terminology from stale branding.
-- [ ] Make Codex and Claude wrapper environment-variable naming consistent.
-- [ ] If `KONSOLE_CODEX_HOOKS_DISABLED` is retained for compatibility, add and
+- [x] Make Codex and Claude wrapper environment-variable naming consistent.
+- [x] If `KONSOLE_CODEX_HOOKS_DISABLED` is retained for compatibility, add and
       document a `KMUX_CODEX_HOOKS_DISABLED` alias.
 
 Potential locations:
@@ -303,6 +403,11 @@ Potential locations:
 - `src/ViewManager.cpp`;
 - `src/konsole-codex.cpp`;
 - `desktop/kmux.notifyrc`.
+
+The targeted Kmux branding fixes are complete. The broader review remains open
+because inherited settings and compatibility UI still contain user-visible
+Konsole wording; each occurrence must be classified as intentional compatibility
+terminology or stale fork branding rather than changed mechanically.
 
 ### 11. Known limitations and release documentation
 
@@ -315,11 +420,16 @@ Document all of the following in README or release notes:
 - [ ] Cold restore reconstructs sessions and may restart commands; it does not
       checkpoint arbitrary running processes.
 - [ ] Describe which one-shot commands are excluded from automatic restart.
-- [ ] Agent status integration requires a DBus-enabled build.
+- [x] Agent status integration requires a DBus-enabled build.
 - [ ] Localization is currently incomplete or English-only where applicable.
 - [ ] Workspace persistence compatibility may change during alpha releases.
 - [ ] Describe how users can reset corrupted workspace state.
-- [ ] Describe how users can uninstall agent hooks safely.
+- [x] Describe how users can uninstall agent hooks safely.
+
+README already states that agent integration is available only in a DBus-enabled
+build and documents the `kmux-agent-hooks uninstall` flow. The other unchecked
+alpha warnings, restore/recovery details, and compatibility promises still need
+to be written before the prerelease.
 
 ### 12. Manual alpha smoke test
 
@@ -545,6 +655,8 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
 
 ## AUR checklist
 
+- [ ] Create or verify the AUR maintainer account and its SSH key before the
+      release window.
 - [ ] Confirm that the `kmux` AUR package name is available immediately before
       publishing.
 - [ ] Create a tagged GitHub prerelease first.
@@ -624,16 +736,24 @@ should be completed before calling Kmux a beta.
 
 ### Localization
 
-- [ ] Decide whether to use a dedicated `kmux` translation domain.
-- [ ] Stop accidentally depending on installed Konsole translation catalogs.
-- [ ] Install Kmux translation catalogs.
+- [x] Decide whether to use a dedicated `kmux` translation domain.
+- [x] Stop accidentally depending on installed Konsole translation catalogs.
+- [x] Install Kmux translation catalogs.
 - [ ] Make new project-workspace strings translatable and available to
       translators.
+
+The dedicated `kmux` translation domain is in place: `src/CMakeLists.txt` sets
+`-DTRANSLATION_DOMAIN="kmux"`, `src/main.cpp` calls
+`KLocalizedString::setApplicationDomain("kmux")`, every `po/*/konsole.po`
+catalog was renamed to `kmux.po`, and `ki18n_install(po)` installs the Kmux
+catalogs. What remains is confirming that new project-workspace strings are
+extracted into a `kmux` message template and exposed to translators.
 
 Current translation-domain locations include:
 
 - `src/main.cpp`;
-- `src/CMakeLists.txt`.
+- `src/CMakeLists.txt`;
+- `CMakeLists.txt` (`ki18n_install(po)`).
 
 ### Project documentation and policy
 
@@ -712,16 +832,29 @@ Packaging and metadata:
 
 ## Suggested immediate execution order
 
-1. Finalize the App ID.
-2. Run a fresh clean build and complete CTest suite.
-3. Fix any reproducible failures, especially KPart loading tests.
-4. Add minimal Linux CI.
-5. Correct CMake dependency declarations.
-6. Update maintainer, AppStream, notification, and branding metadata.
-7. Document alpha limitations.
-8. Run staged-install and side-by-side smoke tests.
-9. Run licensing validation.
-10. Dogfood the release candidate for several days.
-11. Tag and publish `v0.1.0-alpha.1` as a GitHub prerelease.
-12. Build and publish the AUR `kmux` package from that tag.
-13. Collect feedback before beginning Flatpak/Flathub work.
+1. Add minimal Linux CI for clean Release/test builds, CTest, staged install,
+   desktop/AppStream validation, and install-manifest checks.
+2. Create or verify the AUR maintainer account, prepare an Arch clean chroot and
+   one clean Arch Plasma VM, and draft the `PKGBUILD` without publishing it.
+3. Confirm how `0.1.0-alpha.1` is presented by the application and identify the
+   current Kmux maintainer, support contact, and private-security-report path.
+4. Correct About/Doxygen attribution and finish AppStream release and screenshot
+   metadata so the pedantic validator passes.
+5. Document alpha limitations, persistence reset/recovery, one-shot command
+   restore behavior, support information, and release notes.
+6. Correct SPDX coverage for new Kmux files and the screenshot, add accurate
+   annotations for inherited files, and make `reuse lint` pass or document a
+   narrowly justified release exception.
+7. Use CI to monitor the transient `TerminalInterfaceTest` shell-startup timeout
+   and harden the test if it reproduces; run at least one ASan/UBSan build.
+8. Build the package in the Arch clean chroot, inspect dependency and file
+   ownership results, then run installed-runtime, removal, side-by-side, and
+   manual alpha smoke tests in the clean Plasma VM.
+9. Dogfood the release candidate for several days after the last persistence,
+   IPC, or agent-hook change.
+10. Tag and publish `v0.1.0-alpha.1` as a GitHub prerelease with release notes
+    and checksums.
+11. Build and publish the AUR `kmux` package from that immutable tag and verified
+    source checksum.
+12. Collect feedback before beginning Flatpak/Flathub work. Add native DEB/RPM
+    packaging later if there is demand; it is not a first-alpha blocker.
