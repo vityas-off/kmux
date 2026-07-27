@@ -282,6 +282,53 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     const QString sessionStartScriptText = QString::fromUtf8(sessionStartScript.readAll());
     QVERIFY(sessionStartScriptText.contains(QStringLiteral("--event 'SessionStart'")));
     QVERIFY(sessionStartScriptText.contains(QStringLiteral("\"$@\" idle")));
+
+    const QJsonArray stops = hooks.value(QStringLiteral("Stop")).toArray();
+    QCOMPARE(stops.size(), 1);
+    const QString stopCommand =
+        stops.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile stopScript(stopCommand);
+    QVERIFY(stopScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString stopScriptText = QString::fromUtf8(stopScript.readAll());
+    QVERIFY(stopScriptText.contains(QStringLiteral("--event 'Stop'")));
+    QVERIFY(stopScriptText.contains(QStringLiteral("--claude-stop")));
+    QVERIFY(stopScriptText.contains(QStringLiteral("\"$@\" idle")));
+
+    const QString tracePath = temporaryDir.filePath(QStringLiteral("hook-trace.jsonl"));
+    auto runStopHook = [&](const QJsonObject &payload, const QString &expectedStatus) {
+        QFile::remove(tracePath);
+        QProcessEnvironment hookEnvironment = environment;
+        hookEnvironment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), tracePath);
+        hookEnvironment.remove(QStringLiteral("KMUX_DBUS_SERVICE"));
+        hookEnvironment.remove(QStringLiteral("KMUX_DBUS_SESSION"));
+
+        QProcess hookProcess;
+        hookProcess.setProcessEnvironment(hookEnvironment);
+        hookProcess.start(stopCommand);
+        QVERIFY(hookProcess.waitForStarted());
+        const QByteArray encodedPayload = QJsonDocument(payload).toJson(QJsonDocument::Compact);
+        QCOMPARE(hookProcess.write(encodedPayload), encodedPayload.size());
+        hookProcess.closeWriteChannel();
+        QVERIFY(hookProcess.waitForFinished());
+        QCOMPARE(hookProcess.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(hookProcess.exitCode(), 0);
+
+        QFile trace(tracePath);
+        QVERIFY(trace.open(QIODevice::ReadOnly | QIODevice::Text));
+        QString receivedStatus;
+        while (!trace.atEnd()) {
+            const QJsonObject record = QJsonDocument::fromJson(trace.readLine()).object();
+            if (record.value(QStringLiteral("phase")) == QLatin1String("received")) {
+                receivedStatus = record.value(QStringLiteral("status")).toString();
+                break;
+            }
+        }
+        QCOMPARE(receivedStatus, expectedStatus);
+    };
+
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{}}}, QStringLiteral("idle"));
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("monitor")}}}}},
+                QStringLiteral("running"));
 }
 
 void AgentHooksTest::testCodexFeatureToml_data()

@@ -15,6 +15,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
@@ -213,14 +214,13 @@ QStringList codexInvocationArguments()
     return {};
 }
 
-QString hookWorkingDirectory()
+QJsonObject hookPayload()
 {
     QFile input;
     if (!input.open(stdin, QIODevice::ReadOnly)) {
         return {};
     }
-    const QJsonDocument payload = QJsonDocument::fromJson(input.readAll());
-    return payload.object().value(QStringLiteral("cwd")).toString();
+    return QJsonDocument::fromJson(input.readAll()).object();
 }
 
 QString codexConfigHome()
@@ -389,11 +389,14 @@ int main(int argc, char **argv)
     const QCommandLineOption eventOption(QStringLiteral("event"), QStringLiteral("Agent event name used by the hook trace."), QStringLiteral("name"));
     const QCommandLineOption codexPermissionRequestOption(QStringLiteral("codex-permission-request"),
                                                           QStringLiteral("Resolve PermissionRequest status from the effective Codex approval reviewer."));
+    const QCommandLineOption claudeStopOption(QStringLiteral("claude-stop"),
+                                              QStringLiteral("Keep Claude running when a Stop event is waiting for background tasks."));
     parser.addOption(hookModeOption);
     parser.addOption(agentPidOption);
     parser.addOption(agentOption);
     parser.addOption(eventOption);
     parser.addOption(codexPermissionRequestOption);
+    parser.addOption(claudeStopOption);
     parser.addPositionalArgument(QStringLiteral("status"), QStringLiteral("Project status: running, idle, needsInput, unknown, or none."));
     parser.process(app);
 
@@ -412,7 +415,14 @@ int main(int argc, char **argv)
     bool validAgentPid = false;
     const qlonglong agentPid = parser.value(agentPidOption).toLongLong(&validAgentPid);
     QString status = args.first();
-    if (parser.isSet(codexPermissionRequestOption) && effectiveCodexReviewer(hookWorkingDirectory()) == QLatin1String("auto_review")) {
+    QJsonObject payload;
+    if (parser.isSet(codexPermissionRequestOption) || parser.isSet(claudeStopOption)) {
+        payload = hookPayload();
+    }
+    if (parser.isSet(codexPermissionRequestOption) && effectiveCodexReviewer(payload.value(QStringLiteral("cwd")).toString()) == QLatin1String("auto_review")) {
+        status = QStringLiteral("running");
+    }
+    if (parser.isSet(claudeStopOption) && !payload.value(QStringLiteral("background_tasks")).toArray().isEmpty()) {
         status = QStringLiteral("running");
     }
     const QString agent = parser.value(agentOption);

@@ -215,6 +215,8 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
     const QString reviewerAwareArguments = agentName == QLatin1String(CodexAgentName) && event.eventName == QLatin1String("PermissionRequest")
         ? QStringLiteral("set -- \"$@\" --codex-permission-request\n")
         : QString();
+    const QString backgroundTaskAwareArguments =
+        agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("Stop") ? QStringLiteral("set -- \"$@\" --claude-stop\n") : QString();
 
     return QStringLiteral(
                "#!/bin/sh\n"
@@ -223,14 +225,22 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
                "set -- --hook-output --agent %3 --event %4\n"
                "%5"
                "%6"
+               "%7"
                "if [ -x \"$helper\" ]; then\n"
-               "    \"$helper\" \"$@\" %7\n"
+               "    \"$helper\" \"$@\" %8\n"
                "elif command -v kmux-project-status >/dev/null 2>&1; then\n"
-               "    kmux-project-status \"$@\" %7\n"
+               "    kmux-project-status \"$@\" %8\n"
                "else\n"
                "    printf '{}\\n'\n"
                "fi\n")
-        .arg(agentName, quotedHelper, quotedAgentName, quotedEventName, agentProcessArguments, reviewerAwareArguments, event.status);
+        .arg(agentName,
+             quotedHelper,
+             quotedAgentName,
+             quotedEventName,
+             agentProcessArguments,
+             reviewerAwareArguments,
+             backgroundTaskAwareArguments,
+             event.status);
 }
 
 bool writeTextFileAtomically(const QString &path, const QString &content, QString *error)
