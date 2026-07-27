@@ -744,6 +744,42 @@ void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 }
 
+void ViewManagerTest::testProjectWorkspaceAgentInterruptClearsRunningStatus()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    for (const QString &agent : {QStringLiteral("codex"), QStringLiteral("claude")}) {
+        session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, agent, QStringLiteral("UserPromptSubmit"));
+        QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+        QKeyEvent modifiedEscape(QEvent::KeyPress, Qt::Key_Escape, Qt::ShiftModifier);
+        Q_EMIT terminal->keyPressedSignal(&modifiedEscape);
+        QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+        QKeyEvent escapeKey(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+        Q_EMIT terminal->keyPressedSignal(&escapeKey);
+        QCOMPARE(viewManager->_sessionProjectStatuses.value(session).status, ProjectWorkspaceContainer::ProjectStatus::Idle);
+        QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    }
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("other"), QStringLiteral("UserPromptSubmit"));
+    QKeyEvent escapeKey(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    Q_EMIT terminal->keyPressedSignal(&escapeKey);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+}
+
 void ViewManagerTest::testProjectWorkspaceCodexAutoReviewedPermissionStaysRunning()
 {
     auto mw = MainWindow();

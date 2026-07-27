@@ -1160,7 +1160,7 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(session, &Konsole::Session::terminalNotificationReceived, this, &Konsole::ViewManager::handleSessionTerminalNotification, Qt::UniqueConnection);
     connect(session, &Konsole::Session::projectStatusChanged, this, &Konsole::ViewManager::handleSessionProjectStatusChanged, Qt::UniqueConnection);
     connect(view, &Konsole::TerminalDisplay::keyPressedSignal, this, [this, session, view](QKeyEvent *keyEvent) {
-        handleSessionTerminalDecisionKey(session, containerForTerminal(view), keyEvent);
+        handleSessionAgentKey(session, containerForTerminal(view), keyEvent);
     });
     connect(session, &QObject::destroyed, this, &Konsole::ViewManager::handleSessionDestroyed, Qt::UniqueConnection);
 
@@ -2844,25 +2844,35 @@ void ViewManager::setSessionProjectStatus(Session *session,
     updateProjectStatusProcessTimer();
 }
 
-void ViewManager::handleSessionTerminalDecisionKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent)
+void ViewManager::handleSessionAgentKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent)
 {
     if (session == nullptr || keyEvent == nullptr || keyEvent->type() != QEvent::KeyPress || keyEvent->isAutoRepeat()) {
         return;
     }
 
     const auto commandModifiers = keyEvent->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+    const bool interruptsTurn = commandModifiers == Qt::NoModifier && keyEvent->key() == Qt::Key_Escape;
     const bool resolvesDecision =
         commandModifiers == Qt::NoModifier && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Escape);
     auto status = _sessionProjectStatuses.find(session);
-    if (!resolvesDecision || status == _sessionProjectStatuses.end() || status->pendingTerminalDecisions <= 0
-        || status->status != ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+    if (status == _sessionProjectStatuses.end()) {
         return;
     }
 
-    --status->pendingTerminalDecisions;
-    if (status->pendingTerminalDecisions == 0) {
-        status->status = ProjectWorkspaceContainer::ProjectStatus::Running;
+    if (resolvesDecision && status->pendingTerminalDecisions > 0 && status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+        --status->pendingTerminalDecisions;
+        if (status->pendingTerminalDecisions == 0) {
+            status->status = ProjectWorkspaceContainer::ProjectStatus::Running;
+            _sessionsNeedingAttention.remove(session);
+        }
+    } else if (interruptsTurn && status->status == ProjectWorkspaceContainer::ProjectStatus::Running
+               && (status->agent == QLatin1String("codex") || status->agent == QLatin1String("claude"))) {
+        status->status = ProjectWorkspaceContainer::ProjectStatus::Idle;
+        status->pendingTerminalDecisions = 0;
+        status->autoModeDenial = false;
         _sessionsNeedingAttention.remove(session);
+    } else {
+        return;
     }
     updateAgentSleepInhibition();
     refreshProjectSummary(container);

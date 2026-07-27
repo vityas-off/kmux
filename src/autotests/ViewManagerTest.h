@@ -35,6 +35,7 @@ private Q_SLOTS:
     void testProjectWorkspaceStatusClearsWhenAgentExits();
     void testProjectWorkspaceAgentSessionDoesNotInheritAnotherAgentPid();
     void testProjectWorkspaceCodexDecisionKeysAreSessionScoped();
+    void testProjectWorkspaceAgentInterruptClearsRunningStatus();
     void testProjectWorkspaceCodexAutoReviewedPermissionStaysRunning();
     void testProjectWorkspaceClaudeAutoModeDenialOutlivesStop();
     void testProjectWorkspaceClaudeAutoModeDenialClearsOnNextPrompt();

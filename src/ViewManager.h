@@ -561,7 +561,7 @@ private:
                                  qlonglong agentProcessId = 0,
                                  const QString &agent = {},
                                  const QString &event = {});
-    void handleSessionTerminalDecisionKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent);
+    void handleSessionAgentKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent);
     void clearExitedSessionProjectStatuses();
     void updateProjectStatusProcessTimer();
     void updateProjectInputRequirement();
