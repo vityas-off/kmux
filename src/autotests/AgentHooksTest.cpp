@@ -327,7 +327,11 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     };
 
     runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{}}}, QStringLiteral("idle"));
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("shell")}}}}},
+                QStringLiteral("idle"));
     runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("monitor")}}}}},
+                QStringLiteral("idle"));
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("subagent")}}}}},
                 QStringLiteral("running"));
 }
 
