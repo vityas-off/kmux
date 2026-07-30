@@ -550,7 +550,13 @@ private:
     QSet<TabbedViewContainer *> containersForSession(Session *session) const;
     void handleSessionStateChanged();
     void handleSessionTerminalNotification(const QString &title, const QString &body);
-    void handleSessionProjectStatusChanged(const QString &status, qlonglong agentProcessId, const QString &agent, const QString &event);
+    void handleSessionProjectStatusChanged(const QString &status,
+                                           qlonglong agentProcessId,
+                                           const QString &agent,
+                                           const QString &event,
+                                           const QString &sessionId,
+                                           const QString &promptId,
+                                           const QString &agentId);
     void handleSessionDestroyed(QObject *object);
     void acknowledgeSessionAttention(SessionController *controller);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
@@ -560,7 +566,10 @@ private:
                                  const QString &status,
                                  qlonglong agentProcessId = 0,
                                  const QString &agent = {},
-                                 const QString &event = {});
+                                 const QString &event = {},
+                                 const QString &sessionId = {},
+                                 const QString &promptId = {},
+                                 const QString &agentId = {});
     void handleSessionAgentKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent);
     void clearExitedSessionProjectStatuses();
     void updateProjectStatusProcessTimer();
@@ -587,6 +596,8 @@ private:
         int pendingTerminalDecisions = 0;
         QString agent;
         bool claudeBackgroundWork = false;
+        QString agentSessionId;
+        QString agentPromptId;
     };
     QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
     QTimer _projectStatusProcessTimer;

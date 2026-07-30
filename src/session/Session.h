@@ -882,9 +882,15 @@ public Q_SLOTS:
 
     /**
      * Sets the project-level status together with the agent lifecycle event
-     * that produced it.
+     * and Claude hook identities that produced it.
      */
-    Q_SCRIPTABLE void setProjectStatusForAgentEvent(const QString &status, qlonglong processId, const QString &agent, const QString &event);
+    Q_SCRIPTABLE void setProjectStatusForAgentEvent(const QString &status,
+                                                    qlonglong processId,
+                                                    const QString &agent,
+                                                    const QString &event,
+                                                    const QString &sessionId,
+                                                    const QString &promptId,
+                                                    const QString &agentId);
 
 Q_SIGNALS:
 
@@ -940,7 +946,13 @@ Q_SIGNALS:
      * Emitted when an external agent hook updates the project-level status
      * associated with this session.
      */
-    void projectStatusChanged(const QString &status, qlonglong processId, const QString &agent, const QString &event);
+    void projectStatusChanged(const QString &status,
+                              qlonglong processId,
+                              const QString &agent,
+                              const QString &event,
+                              const QString &sessionId,
+                              const QString &promptId,
+                              const QString &agentId);
 
     /**
      * Requests that the background color of views on this session

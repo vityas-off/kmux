@@ -2683,17 +2683,23 @@ bool Session::isCalledViaDbusAndForbidden() const
 
 void Session::setProjectStatus(const QString &status)
 {
-    Q_EMIT projectStatusChanged(status, 0, {}, {});
+    Q_EMIT projectStatusChanged(status, 0, {}, {}, {}, {}, {});
 }
 
 void Session::setProjectStatusWithProcess(const QString &status, qlonglong processId)
 {
-    Q_EMIT projectStatusChanged(status, processId, {}, {});
+    Q_EMIT projectStatusChanged(status, processId, {}, {}, {}, {}, {});
 }
 
-void Session::setProjectStatusForAgentEvent(const QString &status, qlonglong processId, const QString &agent, const QString &event)
+void Session::setProjectStatusForAgentEvent(const QString &status,
+                                            qlonglong processId,
+                                            const QString &agent,
+                                            const QString &event,
+                                            const QString &sessionId,
+                                            const QString &promptId,
+                                            const QString &agentId)
 {
-    Q_EMIT projectStatusChanged(status, processId, agent, event);
+    Q_EMIT projectStatusChanged(status, processId, agent, event, sessionId, promptId, agentId);
 }
 
 #include "moc_Session.cpp"

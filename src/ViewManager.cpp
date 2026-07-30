@@ -2705,7 +2705,13 @@ void ViewManager::handleSessionTerminalNotification(const QString &title, const 
     }
 }
 
-void ViewManager::handleSessionProjectStatusChanged(const QString &status, qlonglong agentProcessId, const QString &agent, const QString &event)
+void ViewManager::handleSessionProjectStatusChanged(const QString &status,
+                                                    qlonglong agentProcessId,
+                                                    const QString &agent,
+                                                    const QString &event,
+                                                    const QString &sessionId,
+                                                    const QString &promptId,
+                                                    const QString &agentId)
 {
     auto *session = qobject_cast<Session *>(sender());
     const auto containers = containersForSession(session);
@@ -2720,7 +2726,7 @@ void ViewManager::handleSessionProjectStatusChanged(const QString &status, qlong
         attentionContainer = *containers.cbegin();
     }
 
-    setSessionProjectStatus(session, attentionContainer, status, agentProcessId, agent, event);
+    setSessionProjectStatus(session, attentionContainer, status, agentProcessId, agent, event, sessionId, promptId, agentId);
     for (TabbedViewContainer *container : containers) {
         refreshProjectSummary(container);
     }
@@ -2774,10 +2780,44 @@ void ViewManager::setSessionProjectStatus(Session *session,
                                           const QString &status,
                                           qlonglong agentProcessId,
                                           const QString &agent,
-                                          const QString &event)
+                                          const QString &event,
+                                          const QString &sessionId,
+                                          const QString &promptId,
+                                          const QString &agentId)
 {
     if (session == nullptr) {
         return;
+    }
+
+    const auto previousStatus = _sessionProjectStatuses.value(session);
+    const QString normalizedAgent = agent.trimmed().toLower();
+    const bool isSessionStart = event.compare(QLatin1String("SessionStart"), Qt::CaseInsensitive) == 0;
+    const bool isUserPromptSubmit = event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0;
+    const bool agentChanged = normalizedAgent != previousStatus.agent && (!normalizedAgent.isEmpty() || !previousStatus.agent.isEmpty());
+    const bool isClaudeEvent = normalizedAgent == QLatin1String("claude");
+    if (isClaudeEvent && !agentId.trimmed().isEmpty()) {
+        return;
+    }
+
+    // Hook helpers may finish out of order. Bind Claude's session and prompt
+    // identities at their start events, then discard mutations from older work.
+    const QString normalizedSessionId = sessionId.trimmed();
+    const QString normalizedPromptId = promptId.trimmed();
+    const QString previousSessionId = agentChanged ? QString() : previousStatus.agentSessionId;
+    const QString previousPromptId = agentChanged ? QString() : previousStatus.agentPromptId;
+    if (isClaudeEvent && !isSessionStart && !previousSessionId.isEmpty() && !normalizedSessionId.isEmpty() && normalizedSessionId != previousSessionId) {
+        return;
+    }
+    if (isClaudeEvent && !isSessionStart && !isUserPromptSubmit && !previousPromptId.isEmpty() && !normalizedPromptId.isEmpty()
+        && normalizedPromptId != previousPromptId) {
+        return;
+    }
+
+    QString agentSessionId;
+    QString agentPromptId;
+    if (isClaudeEvent) {
+        agentSessionId = isSessionStart || previousSessionId.isEmpty() ? normalizedSessionId : previousSessionId;
+        agentPromptId = isSessionStart ? QString() : (isUserPromptSubmit ? normalizedPromptId : previousPromptId);
     }
 
     auto projectStatus = projectStatusFromString(status);
@@ -2789,10 +2829,6 @@ void ViewManager::setSessionProjectStatus(Session *session,
         return;
     }
 
-    const auto previousStatus = _sessionProjectStatuses.value(session);
-    const QString normalizedAgent = agent.trimmed().toLower();
-    const bool isSessionStart = event.compare(QLatin1String("SessionStart"), Qt::CaseInsensitive) == 0;
-    const bool agentChanged = normalizedAgent != previousStatus.agent && (!normalizedAgent.isEmpty() || !previousStatus.agent.isEmpty());
     const bool agentProcessChanged =
         agentChanged || isSessionStart || (agentProcessId > 0 && previousStatus.agentProcessId > 0 && agentProcessId != previousStatus.agentProcessId);
     if (agentProcessId <= 0 && !agentChanged && !isSessionStart) {
@@ -2800,11 +2836,10 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
 
     const bool isCodexEvent = agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0;
-    const bool isClaudeEvent = agent.compare(QLatin1String("claude"), Qt::CaseInsensitive) == 0;
     const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
     const bool isIdlePrompt = event.compare(QLatin1String("IdlePrompt"), Qt::CaseInsensitive) == 0;
     const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
-    const bool startsTurn = isSessionStart || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0;
+    const bool startsTurn = isSessionStart || isUserPromptSubmit;
     const bool stopsTurn = event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
     const bool endsAgentSession = event.compare(QLatin1String("SessionEnd"), Qt::CaseInsensitive) == 0;
     const bool resetsPendingDecisions = startsTurn || stopsTurn;
@@ -2831,7 +2866,9 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
 
     const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
-    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent, claudeBackgroundWork});
+    _sessionProjectStatuses.insert(
+        session,
+        {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent, claudeBackgroundWork, agentSessionId, agentPromptId});
     if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);
     } else if (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {

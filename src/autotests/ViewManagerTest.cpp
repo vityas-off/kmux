@@ -676,11 +676,17 @@ void ViewManagerTest::testProjectWorkspaceAgentSessionDoesNotInheritAnotherAgent
     QProcess codexProcess;
     codexProcess.start(QStringLiteral("sleep"), {QStringLiteral("30")});
     QVERIFY(codexProcess.waitForStarted());
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), codexProcess.processId(), QStringLiteral("codex"), QStringLiteral("SessionStart"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"),
+                                           codexProcess.processId(),
+                                           QStringLiteral("codex"),
+                                           QStringLiteral("SessionStart"),
+                                           {},
+                                           {},
+                                           {});
 
     codexProcess.kill();
     QVERIFY(codexProcess.waitForFinished());
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), 0, QStringLiteral("claude"), QStringLiteral("SessionStart"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), 0, QStringLiteral("claude"), QStringLiteral("SessionStart"), {}, {}, {});
 
     const auto claudeStatusWithoutPid = viewManager->_sessionProjectStatuses.value(session);
     QCOMPARE(claudeStatusWithoutPid.agent, QStringLiteral("claude"));
@@ -691,7 +697,13 @@ void ViewManagerTest::testProjectWorkspaceAgentSessionDoesNotInheritAnotherAgent
     QProcess claudeProcess;
     claudeProcess.start(QStringLiteral("sleep"), {QStringLiteral("30")});
     QVERIFY(claudeProcess.waitForStarted());
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), claudeProcess.processId(), QStringLiteral("claude"), QStringLiteral("SessionStart"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"),
+                                           claudeProcess.processId(),
+                                           QStringLiteral("claude"),
+                                           QStringLiteral("SessionStart"),
+                                           {},
+                                           {},
+                                           {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentProcessId, claudeProcess.processId());
 
     claudeProcess.kill();
@@ -724,8 +736,10 @@ void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
     QVERIFY(secondSession != firstSession);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    firstSession->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
-    secondSession->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    firstSession
+        ->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
+    secondSession
+        ->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
     QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
@@ -741,7 +755,7 @@ void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
     QCOMPARE(viewManager->_sessionProjectStatuses.value(secondSession).status, ProjectWorkspaceContainer::ProjectStatus::Idle);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
-    firstSession->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PreToolUse"));
+    firstSession->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PreToolUse"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
     firstSession->setProjectStatus(QStringLiteral("needsInput"));
@@ -766,7 +780,7 @@ void ViewManagerTest::testProjectWorkspaceAgentInterruptClearsRunningStatus()
 
     const qlonglong processId = QCoreApplication::applicationPid();
     for (const QString &agent : {QStringLiteral("codex"), QStringLiteral("claude")}) {
-        session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, agent, QStringLiteral("UserPromptSubmit"));
+        session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, agent, QStringLiteral("UserPromptSubmit"), {}, {}, {});
         QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
         QKeyEvent modifiedEscape(QEvent::KeyPress, Qt::Key_Escape, Qt::ShiftModifier);
@@ -779,7 +793,7 @@ void ViewManagerTest::testProjectWorkspaceAgentInterruptClearsRunningStatus()
         QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
     }
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("other"), QStringLiteral("UserPromptSubmit"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("other"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
     QKeyEvent escapeKey(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
     Q_EMIT terminal->keyPressedSignal(&escapeKey);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
@@ -801,7 +815,7 @@ void ViewManagerTest::testProjectWorkspaceCodexAutoReviewedPermissionStaysRunnin
     QVERIFY(session != nullptr);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
@@ -822,12 +836,12 @@ void ViewManagerTest::testProjectWorkspaceClaudeDenialDoesNotOverrideStop()
     QVERIFY(session != nullptr);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PermissionDenied"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PermissionDenied"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PostToolUse"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("Stop"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PostToolUse"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("Stop"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
 }
 
@@ -852,8 +866,8 @@ void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptMarksInactiveProject()
     QVERIFY(secondProject != firstProject);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
     QVERIFY(workspaces->projectHasActivity(firstProject));
@@ -880,8 +894,8 @@ void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRun
     QVERIFY(session != nullptr);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("Stop"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("Stop"), {}, {}, {});
     QVERIFY(viewManager->_sessionProjectStatuses.value(session).claudeBackgroundWork);
 
     viewManager->createProject();
@@ -889,7 +903,7 @@ void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRun
     QVERIFY(secondProject != nullptr);
     QVERIFY(secondProject != firstProject);
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Running);
     QVERIFY(!workspaces->projectHasActivity(firstProject));
@@ -911,7 +925,7 @@ void ViewManagerTest::testProjectWorkspaceClaudeRateLimitNeedsInput()
     QVERIFY(session != nullptr);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("RateLimit"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("RateLimit"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
@@ -919,8 +933,65 @@ void ViewManagerTest::testProjectWorkspaceClaudeRateLimitNeedsInput()
     Q_EMIT terminal->keyPressedSignal(&returnKey);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PreToolUse"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PreToolUse"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+}
+
+void ViewManagerTest::testProjectWorkspaceClaudeRejectsStaleHookIdentities()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    const QString claude = QStringLiteral("claude");
+    const QString firstSession = QStringLiteral("session-1");
+    const QString secondSession = QStringLiteral("session-2");
+    const QString firstPrompt = QStringLiteral("prompt-1");
+    const QString secondPrompt = QStringLiteral("prompt-2");
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("SessionStart"), firstSession, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("UserPromptSubmit"), firstSession, firstPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("SessionStart"), secondSession, {}, {});
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentSessionId, secondSession);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentPromptId, QString());
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, claude, QStringLiteral("Notification"), firstSession, firstPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("UserPromptSubmit"), secondSession, firstPrompt, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("UserPromptSubmit"), secondSession, secondPrompt, {});
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentPromptId, secondPrompt);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("Stop"), secondSession, firstPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"),
+                                           processId,
+                                           claude,
+                                           QStringLiteral("PermissionRequest"),
+                                           secondSession,
+                                           secondPrompt,
+                                           QStringLiteral("subagent-1"));
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("none"), processId, claude, QStringLiteral("SessionEnd"), firstSession, firstPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("none"), processId, claude, QStringLiteral("SessionEnd"), secondSession, secondPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
 }
 
 void ViewManagerTest::testProjectWorkspaceClaudeDecisionClearsOnTerminalInput()
@@ -939,8 +1010,8 @@ void ViewManagerTest::testProjectWorkspaceClaudeDecisionClearsOnTerminalInput()
     QVERIFY(session != nullptr);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("PermissionRequest"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("Notification"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("PermissionRequest"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("Notification"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
@@ -949,7 +1020,7 @@ void ViewManagerTest::testProjectWorkspaceClaudeDecisionClearsOnTerminalInput()
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PreToolUse"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PreToolUse"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
@@ -969,12 +1040,12 @@ void ViewManagerTest::testProjectWorkspaceTracksMultipleCodexDecisionsInOneSessi
     QVERIFY(session != nullptr);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 2);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PostToolUse"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PostToolUse"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 2);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
@@ -988,7 +1059,7 @@ void ViewManagerTest::testProjectWorkspaceTracksMultipleCodexDecisionsInOneSessi
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PostToolUse"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PostToolUse"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
@@ -1012,7 +1083,7 @@ void ViewManagerTest::testSessionSignalsAreHandledOnceAcrossMultipleViews()
     QCOMPARE(session->views().count(), 2);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
 
     QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
@@ -1026,7 +1097,7 @@ void ViewManagerTest::testSessionSignalsAreHandledOnceAcrossMultipleViews()
     QVERIFY(deletedTerminal.isNull());
     QCOMPARE(session->views().count(), 1);
 
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
 
     Q_EMIT session->terminalNotificationReceived(QStringLiteral("Codex"), QStringLiteral("Turn complete"));

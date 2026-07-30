@@ -468,6 +468,9 @@ int main(int argc, char **argv)
                         QStringLiteral("Hook belongs to a Claude subagent."));
         return finishForHook(hookMode, 0);
     }
+    const QString sessionId = payload.value(QStringLiteral("session_id")).toString();
+    const QString promptId = payload.value(QStringLiteral("prompt_id")).toString();
+    const QString agentId = payload.value(QStringLiteral("agent_id")).toString();
     if (service.isEmpty() || objectPath.isEmpty()) {
         const QString error = QStringLiteral("KMUX_DBUS_SERVICE and KMUX_DBUS_SESSION must be set.");
         appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, error);
@@ -483,7 +486,7 @@ int main(int argc, char **argv)
     }
 
     const QDBusReply<void> reply = !agent.isEmpty() && !event.isEmpty()
-        ? session.call(QStringLiteral("setProjectStatusForAgentEvent"), status, validAgentPid ? agentPid : 0, agent, event)
+        ? session.call(QStringLiteral("setProjectStatusForAgentEvent"), status, validAgentPid ? agentPid : 0, agent, event, sessionId, promptId, agentId)
         : validAgentPid && agentPid > 0 ? session.call(QStringLiteral("setProjectStatusWithProcess"), status, agentPid)
                                         : session.call(QStringLiteral("setProjectStatus"), status);
     if (!reply.isValid()) {
