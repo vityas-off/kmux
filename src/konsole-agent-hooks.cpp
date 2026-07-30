@@ -223,6 +223,9 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
     const QString notificationAwareArguments = agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("Notification")
         ? QStringLiteral("set -- \"$@\" --claude-notification\n")
         : QString();
+    const QString stopFailureAwareArguments = agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("StopFailure")
+        ? QStringLiteral("set -- \"$@\" --claude-stop-failure\n")
+        : QString();
 
     return QStringLiteral(
                "#!/bin/sh\n"
@@ -233,10 +236,11 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
                "%6"
                "%7"
                "%8"
+               "%9"
                "if [ -x \"$helper\" ]; then\n"
-               "    \"$helper\" \"$@\" %9\n"
+               "    \"$helper\" \"$@\" %10\n"
                "elif command -v kmux-project-status >/dev/null 2>&1; then\n"
-               "    kmux-project-status \"$@\" %9\n"
+               "    kmux-project-status \"$@\" %10\n"
                "else\n"
                "    printf '{}\\n'\n"
                "fi\n")
@@ -248,6 +252,7 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
              reviewerAwareArguments,
              backgroundTaskAwareArguments,
              notificationAwareArguments,
+             stopFailureAwareArguments,
              event.status);
 }
 

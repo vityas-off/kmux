@@ -40,6 +40,7 @@ private Q_SLOTS:
     void testProjectWorkspaceClaudeDenialDoesNotOverrideStop();
     void testProjectWorkspaceClaudeIdlePromptMarksInactiveProject();
     void testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRunning();
+    void testProjectWorkspaceClaudeRateLimitNeedsInput();
     void testProjectWorkspaceClaudeDecisionClearsOnTerminalInput();
     void testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession();
     void testSessionSignalsAreHandledOnceAcrossMultipleViews();

@@ -324,8 +324,19 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     QVERIFY(stopScriptText.contains(QStringLiteral("--claude-stop")));
     QVERIFY(stopScriptText.contains(QStringLiteral("\"$@\" idle")));
 
+    const QJsonArray stopFailures = hooks.value(QStringLiteral("StopFailure")).toArray();
+    QCOMPARE(stopFailures.size(), 1);
+    const QString stopFailureCommand =
+        stopFailures.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile stopFailureScript(stopFailureCommand);
+    QVERIFY(stopFailureScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString stopFailureScriptText = QString::fromUtf8(stopFailureScript.readAll());
+    QVERIFY(stopFailureScriptText.contains(QStringLiteral("--event 'StopFailure'")));
+    QVERIFY(stopFailureScriptText.contains(QStringLiteral("--claude-stop-failure")));
+    QVERIFY(stopFailureScriptText.contains(QStringLiteral("\"$@\" idle")));
+
     const QString tracePath = temporaryDir.filePath(QStringLiteral("hook-trace.jsonl"));
-    auto runStopHook = [&](const QJsonObject &payload, const QString &expectedStatus) {
+    auto runHook = [&](const QString &command, const QJsonObject &payload, const QString &expectedStatus, const QString &expectedEvent) {
         QFile::remove(tracePath);
         QProcessEnvironment hookEnvironment = environment;
         hookEnvironment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), tracePath);
@@ -334,7 +345,7 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
 
         QProcess hookProcess;
         hookProcess.setProcessEnvironment(hookEnvironment);
-        hookProcess.start(stopCommand);
+        hookProcess.start(command);
         QVERIFY(hookProcess.waitForStarted());
         const QByteArray encodedPayload = QJsonDocument(payload).toJson(QJsonDocument::Compact);
         QCOMPARE(hookProcess.write(encodedPayload), encodedPayload.size());
@@ -346,14 +357,20 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
         QFile trace(tracePath);
         QVERIFY(trace.open(QIODevice::ReadOnly | QIODevice::Text));
         QString receivedStatus;
+        QString receivedEvent;
         while (!trace.atEnd()) {
             const QJsonObject record = QJsonDocument::fromJson(trace.readLine()).object();
             if (record.value(QStringLiteral("phase")) == QLatin1String("received")) {
                 receivedStatus = record.value(QStringLiteral("status")).toString();
+                receivedEvent = record.value(QStringLiteral("event")).toString();
                 break;
             }
         }
         QCOMPARE(receivedStatus, expectedStatus);
+        QCOMPARE(receivedEvent, expectedEvent);
+    };
+    auto runStopHook = [&](const QJsonObject &payload, const QString &expectedStatus) {
+        runHook(stopCommand, payload, expectedStatus, QStringLiteral("Stop"));
     };
 
     runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{}}}, QStringLiteral("idle"));
@@ -385,6 +402,14 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
                 QStringLiteral("running"));
     runStopHook(QJsonObject{{QStringLiteral("session_crons"), QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("cron-1")}}}}},
                 QStringLiteral("running"));
+    runHook(stopFailureCommand,
+            QJsonObject{{QStringLiteral("error"), QStringLiteral("rate_limit")}},
+            QStringLiteral("needsInput"),
+            QStringLiteral("RateLimit"));
+    runHook(stopFailureCommand,
+            QJsonObject{{QStringLiteral("error"), QStringLiteral("authentication_failed")}},
+            QStringLiteral("idle"),
+            QStringLiteral("StopFailure"));
 }
 
 void AgentHooksTest::testCodexFeatureToml_data()

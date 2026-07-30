@@ -405,6 +405,8 @@ int main(int argc, char **argv)
                                               QStringLiteral("Keep Claude running when a Stop event has active background work."));
     const QCommandLineOption claudeNotificationOption(QStringLiteral("claude-notification"),
                                                       QStringLiteral("Preserve the Claude notification subtype for project-status handling."));
+    const QCommandLineOption claudeStopFailureOption(QStringLiteral("claude-stop-failure"),
+                                                     QStringLiteral("Resolve a Claude StopFailure status from its error type."));
     parser.addOption(hookModeOption);
     parser.addOption(agentPidOption);
     parser.addOption(agentOption);
@@ -412,6 +414,7 @@ int main(int argc, char **argv)
     parser.addOption(codexPermissionRequestOption);
     parser.addOption(claudeStopOption);
     parser.addOption(claudeNotificationOption);
+    parser.addOption(claudeStopFailureOption);
     parser.addPositionalArgument(QStringLiteral("status"), QStringLiteral("Project status: running, idle, needsInput, unknown, or none."));
     parser.process(app);
 
@@ -431,7 +434,8 @@ int main(int argc, char **argv)
     const qlonglong agentPid = parser.value(agentPidOption).toLongLong(&validAgentPid);
     QString status = args.first();
     QJsonObject payload;
-    if (parser.isSet(codexPermissionRequestOption) || parser.isSet(claudeStopOption) || parser.isSet(claudeNotificationOption)) {
+    if (parser.isSet(codexPermissionRequestOption) || parser.isSet(claudeStopOption) || parser.isSet(claudeNotificationOption)
+        || parser.isSet(claudeStopFailureOption)) {
         payload = hookPayload();
     }
     if (parser.isSet(codexPermissionRequestOption) && effectiveCodexReviewer(payload.value(QStringLiteral("cwd")).toString()) == QLatin1String("auto_review")) {
@@ -446,6 +450,11 @@ int main(int argc, char **argv)
         && payload.value(QStringLiteral("notification_type")).toString().compare(QLatin1String("idle_prompt"), Qt::CaseInsensitive) == 0) {
         event = QStringLiteral("IdlePrompt");
         status = QStringLiteral("idle");
+    }
+    if (parser.isSet(claudeStopFailureOption)
+        && payload.value(QStringLiteral("error")).toString().compare(QLatin1String("rate_limit"), Qt::CaseInsensitive) == 0) {
+        event = QStringLiteral("RateLimit");
+        status = QStringLiteral("needsInput");
     }
     appendHookTrace(QStringLiteral("received"), agent, event, status, validAgentPid ? agentPid : 0, objectPath);
     if (service.isEmpty() || objectPath.isEmpty()) {
