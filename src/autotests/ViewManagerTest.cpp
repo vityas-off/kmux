@@ -878,6 +878,36 @@ void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptMarksInactiveProject()
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
 }
 
+void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptPreservesPermissionRequest()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    auto *terminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("PermissionRequest"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"), {}, {}, {});
+
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 1);
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    QVERIFY(workspaces->projectHasActivity(firstProject));
+    QVERIFY(viewManager->hasProjectNeedingInput());
+}
+
 void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRunning()
 {
     auto mw = MainWindow();

@@ -2861,7 +2861,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
         // Claude can emit both events for one prompt. One terminal decision
         // resolves the prompt, so coalesce them instead of requiring two keys.
         pendingTerminalDecisions = 1;
-    } else if (!isCodexEvent) {
+    } else if (!isCodexEvent && !isIdlePrompt) {
         pendingTerminalDecisions = 0;
     }
 
