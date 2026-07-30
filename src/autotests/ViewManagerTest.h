@@ -39,6 +39,8 @@ private Q_SLOTS:
     void testProjectWorkspaceCodexAutoReviewedPermissionStaysRunning();
     void testProjectWorkspaceClaudeAutoModeDenialOutlivesStop();
     void testProjectWorkspaceClaudeAutoModeDenialClearsOnNextPrompt();
+    void testProjectWorkspaceClaudeIdlePromptMarksInactiveProject();
+    void testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRunning();
     void testProjectWorkspaceClaudeDecisionClearsOnTerminalInput();
     void testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession();
     void testSessionSignalsAreHandledOnceAcrossMultipleViews();

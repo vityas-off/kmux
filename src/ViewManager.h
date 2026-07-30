@@ -587,6 +587,7 @@ private:
         int pendingTerminalDecisions = 0;
         QString agent;
         bool autoModeDenial = false;
+        bool claudeBackgroundWork = false;
     };
     QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
     QTimer _projectStatusProcessTimer;

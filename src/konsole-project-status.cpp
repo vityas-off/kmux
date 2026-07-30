@@ -403,12 +403,15 @@ int main(int argc, char **argv)
                                                           QStringLiteral("Resolve PermissionRequest status from the effective Codex approval reviewer."));
     const QCommandLineOption claudeStopOption(QStringLiteral("claude-stop"),
                                               QStringLiteral("Keep Claude running when a Stop event has active background work."));
+    const QCommandLineOption claudeNotificationOption(QStringLiteral("claude-notification"),
+                                                      QStringLiteral("Preserve the Claude notification subtype for project-status handling."));
     parser.addOption(hookModeOption);
     parser.addOption(agentPidOption);
     parser.addOption(agentOption);
     parser.addOption(eventOption);
     parser.addOption(codexPermissionRequestOption);
     parser.addOption(claudeStopOption);
+    parser.addOption(claudeNotificationOption);
     parser.addPositionalArgument(QStringLiteral("status"), QStringLiteral("Project status: running, idle, needsInput, unknown, or none."));
     parser.process(app);
 
@@ -428,7 +431,7 @@ int main(int argc, char **argv)
     const qlonglong agentPid = parser.value(agentPidOption).toLongLong(&validAgentPid);
     QString status = args.first();
     QJsonObject payload;
-    if (parser.isSet(codexPermissionRequestOption) || parser.isSet(claudeStopOption)) {
+    if (parser.isSet(codexPermissionRequestOption) || parser.isSet(claudeStopOption) || parser.isSet(claudeNotificationOption)) {
         payload = hookPayload();
     }
     if (parser.isSet(codexPermissionRequestOption) && effectiveCodexReviewer(payload.value(QStringLiteral("cwd")).toString()) == QLatin1String("auto_review")) {
@@ -438,7 +441,12 @@ int main(int argc, char **argv)
         status = QStringLiteral("running");
     }
     const QString agent = parser.value(agentOption);
-    const QString event = parser.value(eventOption);
+    QString event = parser.value(eventOption);
+    if (parser.isSet(claudeNotificationOption)
+        && payload.value(QStringLiteral("notification_type")).toString().compare(QLatin1String("idle_prompt"), Qt::CaseInsensitive) == 0) {
+        event = QStringLiteral("IdlePrompt");
+        status = QStringLiteral("idle");
+    }
     appendHookTrace(QStringLiteral("received"), agent, event, status, validAgentPid ? agentPid : 0, objectPath);
     if (service.isEmpty() || objectPath.isEmpty()) {
         const QString error = QStringLiteral("KMUX_DBUS_SERVICE and KMUX_DBUS_SESSION must be set.");

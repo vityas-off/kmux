@@ -2780,7 +2780,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
         return;
     }
 
-    const auto projectStatus = projectStatusFromString(status);
+    auto projectStatus = projectStatusFromString(status);
     if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
         _sessionProjectStatuses.remove(session);
         _sessionsNeedingAttention.remove(session);
@@ -2803,10 +2803,20 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool isClaudeEvent = agent.compare(QLatin1String("claude"), Qt::CaseInsensitive) == 0;
     const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
     const bool isPermissionDenied = event.compare(QLatin1String("PermissionDenied"), Qt::CaseInsensitive) == 0;
+    const bool isIdlePrompt = event.compare(QLatin1String("IdlePrompt"), Qt::CaseInsensitive) == 0;
     const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
     const bool startsTurn = isSessionStart || event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0;
+    const bool stopsTurn = event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
     const bool endsAgentSession = event.compare(QLatin1String("SessionEnd"), Qt::CaseInsensitive) == 0;
-    const bool resetsPendingDecisions = startsTurn || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
+    const bool resetsPendingDecisions = startsTurn || stopsTurn;
+
+    bool claudeBackgroundWork = agentProcessChanged || startsTurn || endsAgentSession ? false : previousStatus.claudeBackgroundWork;
+    if (isClaudeEvent && stopsTurn) {
+        claudeBackgroundWork = projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running;
+    }
+    if (isClaudeEvent && isIdlePrompt && claudeBackgroundWork) {
+        projectStatus = ProjectWorkspaceContainer::ProjectStatus::Running;
+    }
 
     // A Claude auto mode denial resolves without a prompt, so the turn keeps
     // running and ends on Stop with Claude asking the user what to do instead.
@@ -2831,11 +2841,13 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
 
     auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
-    if (autoModeDenial && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
+    if (autoModeDenial && !isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
         effectiveStatus = ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
     }
-    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent, autoModeDenial});
+    _sessionProjectStatuses.insert(session, {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent, autoModeDenial, claudeBackgroundWork});
     if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+        markSessionAttention(session, container);
+    } else if (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
         markSessionAttention(session, container);
     } else {
         _sessionsNeedingAttention.remove(session);

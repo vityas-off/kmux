@@ -230,7 +230,37 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     const QJsonObject hooks = QJsonDocument::fromJson(settings.readAll()).object().value(QStringLiteral("hooks")).toObject();
     const QJsonArray notifications = hooks.value(QStringLiteral("Notification")).toArray();
     QCOMPARE(notifications.size(), 1);
-    QCOMPARE(notifications.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("permission_prompt|elicitation_dialog"));
+    QCOMPARE(notifications.first().toObject().value(QStringLiteral("matcher")).toString(), QStringLiteral("permission_prompt|idle_prompt|elicitation_dialog"));
+    const QString notificationCommand =
+        notifications.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile notificationScript(notificationCommand);
+    QVERIFY(notificationScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    QVERIFY(QString::fromUtf8(notificationScript.readAll()).contains(QStringLiteral("--claude-notification")));
+
+    const QString notificationTracePath = temporaryDir.filePath(QStringLiteral("notification-trace.jsonl"));
+    QProcessEnvironment notificationEnvironment = environment;
+    notificationEnvironment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), notificationTracePath);
+    notificationEnvironment.remove(QStringLiteral("KMUX_DBUS_SERVICE"));
+    notificationEnvironment.remove(QStringLiteral("KMUX_DBUS_SESSION"));
+
+    QProcess notificationProcess;
+    notificationProcess.setProcessEnvironment(notificationEnvironment);
+    notificationProcess.start(notificationCommand);
+    QVERIFY(notificationProcess.waitForStarted());
+    const QByteArray notificationPayload =
+        QJsonDocument(QJsonObject{{QStringLiteral("notification_type"), QStringLiteral("idle_prompt")}}).toJson(QJsonDocument::Compact);
+    QCOMPARE(notificationProcess.write(notificationPayload), notificationPayload.size());
+    notificationProcess.closeWriteChannel();
+    QVERIFY(notificationProcess.waitForFinished());
+    QCOMPARE(notificationProcess.exitStatus(), QProcess::NormalExit);
+    QCOMPARE(notificationProcess.exitCode(), 0);
+
+    QFile notificationTrace(notificationTracePath);
+    QVERIFY(notificationTrace.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QJsonObject notificationRecord = QJsonDocument::fromJson(notificationTrace.readLine()).object();
+    QCOMPARE(notificationRecord.value(QStringLiteral("phase")).toString(), QStringLiteral("received"));
+    QCOMPARE(notificationRecord.value(QStringLiteral("event")).toString(), QStringLiteral("IdlePrompt"));
+    QCOMPARE(notificationRecord.value(QStringLiteral("status")).toString(), QStringLiteral("idle"));
 
     const QJsonArray elicitationResults = hooks.value(QStringLiteral("ElicitationResult")).toArray();
     QCOMPARE(elicitationResults.size(), 1);

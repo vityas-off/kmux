@@ -81,7 +81,11 @@ const QList<HookEvent> ClaudeHookEvents = {
     {QStringLiteral("PostCompact"), QStringLiteral("post_compact"), QStringLiteral("idle"), 5, QStringLiteral("manual")},
     {QStringLiteral("PermissionRequest"), QStringLiteral("permission_request"), QStringLiteral("needsInput"), 5, QString()},
     {QStringLiteral("PermissionDenied"), QStringLiteral("permission_denied"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("Notification"), QStringLiteral("notification"), QStringLiteral("needsInput"), 5, QStringLiteral("permission_prompt|elicitation_dialog")},
+    {QStringLiteral("Notification"),
+     QStringLiteral("notification"),
+     QStringLiteral("needsInput"),
+     5,
+     QStringLiteral("permission_prompt|idle_prompt|elicitation_dialog")},
     {QStringLiteral("ElicitationResult"), QStringLiteral("elicitation_result"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
     {QStringLiteral("StopFailure"), QStringLiteral("stop_failure"), QStringLiteral("idle"), 5, QString()},
@@ -217,6 +221,9 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
         : QString();
     const QString backgroundTaskAwareArguments =
         agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("Stop") ? QStringLiteral("set -- \"$@\" --claude-stop\n") : QString();
+    const QString notificationAwareArguments = agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("Notification")
+        ? QStringLiteral("set -- \"$@\" --claude-notification\n")
+        : QString();
 
     return QStringLiteral(
                "#!/bin/sh\n"
@@ -226,10 +233,11 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
                "%5"
                "%6"
                "%7"
+               "%8"
                "if [ -x \"$helper\" ]; then\n"
-               "    \"$helper\" \"$@\" %8\n"
+               "    \"$helper\" \"$@\" %9\n"
                "elif command -v kmux-project-status >/dev/null 2>&1; then\n"
-               "    kmux-project-status \"$@\" %8\n"
+               "    kmux-project-status \"$@\" %9\n"
                "else\n"
                "    printf '{}\\n'\n"
                "fi\n")
@@ -240,6 +248,7 @@ QString hookScriptContent(const QString &agentName, const HookEvent &event)
              agentProcessArguments,
              reviewerAwareArguments,
              backgroundTaskAwareArguments,
+             notificationAwareArguments,
              event.status);
 }
 

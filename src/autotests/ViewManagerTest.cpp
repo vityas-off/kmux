@@ -859,6 +859,70 @@ void ViewManagerTest::testProjectWorkspaceClaudeAutoModeDenialClearsOnNextPrompt
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
 }
 
+void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptMarksInactiveProject()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    auto *terminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(workspaces->projectHasActivity(firstProject));
+    QVERIFY(!viewManager->hasProjectNeedingInput());
+
+    workspaces->activateProject(firstProject);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+}
+
+void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRunning()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    auto *terminal = firstProject->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"));
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("Stop"));
+    QVERIFY(viewManager->_sessionProjectStatuses.value(session).claudeBackgroundWork);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"));
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+}
+
 void ViewManagerTest::testProjectWorkspaceClaudeDecisionClearsOnTerminalInput()
 {
     auto mw = MainWindow();
