@@ -329,9 +329,31 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{}}}, QStringLiteral("idle"));
     runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("shell")}}}}},
                 QStringLiteral("idle"));
-    runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("monitor")}}}}},
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"),
+                             QJsonArray{QJsonObject{
+                                 {QStringLiteral("type"), QStringLiteral("subagent")},
+                                 {QStringLiteral("status"), QStringLiteral("completed")},
+                             }}}},
                 QStringLiteral("idle"));
-    runStopHook(QJsonObject{{QStringLiteral("background_tasks"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("subagent")}}}}},
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"),
+                             QJsonArray{QJsonObject{
+                                 {QStringLiteral("type"), QStringLiteral("shell")},
+                                 {QStringLiteral("status"), QStringLiteral("running")},
+                             }}}},
+                QStringLiteral("running"));
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"),
+                             QJsonArray{QJsonObject{
+                                 {QStringLiteral("type"), QStringLiteral("monitor")},
+                                 {QStringLiteral("status"), QStringLiteral("running")},
+                             }}}},
+                QStringLiteral("running"));
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"),
+                             QJsonArray{QJsonObject{
+                                 {QStringLiteral("type"), QStringLiteral("subagent")},
+                                 {QStringLiteral("status"), QStringLiteral("running")},
+                             }}}},
+                QStringLiteral("running"));
+    runStopHook(QJsonObject{{QStringLiteral("session_crons"), QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("cron-1")}}}}},
                 QStringLiteral("running"));
 }
 

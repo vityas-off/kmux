@@ -223,11 +223,15 @@ QJsonObject hookPayload()
     return QJsonDocument::fromJson(input.readAll()).object();
 }
 
-bool hasClaudeBackgroundSubagent(const QJsonObject &payload)
+bool hasClaudeBackgroundWork(const QJsonObject &payload)
 {
+    if (!payload.value(QStringLiteral("session_crons")).toArray().isEmpty()) {
+        return true;
+    }
+
     const QJsonArray backgroundTasks = payload.value(QStringLiteral("background_tasks")).toArray();
     return std::any_of(backgroundTasks.cbegin(), backgroundTasks.cend(), [](const QJsonValue &task) {
-        return task.toObject().value(QStringLiteral("type")).toString().compare(QLatin1String("subagent"), Qt::CaseInsensitive) == 0;
+        return task.toObject().value(QStringLiteral("status")).toString().compare(QLatin1String("running"), Qt::CaseInsensitive) == 0;
     });
 }
 
@@ -398,7 +402,7 @@ int main(int argc, char **argv)
     const QCommandLineOption codexPermissionRequestOption(QStringLiteral("codex-permission-request"),
                                                           QStringLiteral("Resolve PermissionRequest status from the effective Codex approval reviewer."));
     const QCommandLineOption claudeStopOption(QStringLiteral("claude-stop"),
-                                              QStringLiteral("Keep Claude running when a Stop event is waiting for background subagents."));
+                                              QStringLiteral("Keep Claude running when a Stop event has active background work."));
     parser.addOption(hookModeOption);
     parser.addOption(agentPidOption);
     parser.addOption(agentOption);
@@ -430,7 +434,7 @@ int main(int argc, char **argv)
     if (parser.isSet(codexPermissionRequestOption) && effectiveCodexReviewer(payload.value(QStringLiteral("cwd")).toString()) == QLatin1String("auto_review")) {
         status = QStringLiteral("running");
     }
-    if (parser.isSet(claudeStopOption) && hasClaudeBackgroundSubagent(payload)) {
+    if (parser.isSet(claudeStopOption) && hasClaudeBackgroundWork(payload)) {
         status = QStringLiteral("running");
     }
     const QString agent = parser.value(agentOption);
