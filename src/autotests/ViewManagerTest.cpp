@@ -806,7 +806,7 @@ void ViewManagerTest::testProjectWorkspaceCodexAutoReviewedPermissionStaysRunnin
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
-void ViewManagerTest::testProjectWorkspaceClaudeAutoModeDenialOutlivesStop()
+void ViewManagerTest::testProjectWorkspaceClaudeDenialDoesNotOverrideStop()
 {
     auto mw = MainWindow();
     auto *viewManager = mw.viewManager();
@@ -827,34 +827,6 @@ void ViewManagerTest::testProjectWorkspaceClaudeAutoModeDenialOutlivesStop()
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
     session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PostToolUse"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("Stop"));
-    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
-}
-
-void ViewManagerTest::testProjectWorkspaceClaudeAutoModeDenialClearsOnNextPrompt()
-{
-    auto mw = MainWindow();
-    auto *viewManager = mw.viewManager();
-    auto *workspaces = viewManager->_workspaceContainer.data();
-    QVERIFY(workspaces != nullptr);
-
-    mw.newTab();
-    auto *project = viewManager->activeContainer();
-    QVERIFY(project != nullptr);
-    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
-    QVERIFY(terminal != nullptr);
-    Session *session = terminal->sessionController()->session();
-    QVERIFY(session != nullptr);
-
-    const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PermissionDenied"));
-    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("Stop"));
-    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
-
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"));
-    QVERIFY(!viewManager->_sessionProjectStatuses.value(session).autoModeDenial);
-    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
-
     session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("Stop"));
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
 }

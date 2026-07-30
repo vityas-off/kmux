@@ -62,10 +62,9 @@ const QList<HookEvent> CodexHookEvents = {
     {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
 };
 
-// Claude auto mode answers permission questions with its own classifier, so a
-// denial never opens a prompt and PermissionRequest never runs. PermissionDenied
-// reports it while the turn keeps going; ViewManager latches it until the turn
-// ends, because that is when Claude asks the user instead of running the tool.
+// Claude auto mode answers permission questions with its own classifier.
+// PermissionDenied reports the denied action as feedback while the turn keeps
+// going; subsequent hooks determine whether the turn continues or stops.
 // Manual compaction is a standalone turn that no other event brackets, so it
 // needs both compaction hooks to show progress and to stop showing it. Automatic
 // compaction inherits the running state of the turn that triggered it, and the
