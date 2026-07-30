@@ -313,6 +313,31 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     QVERIFY(sessionStartScriptText.contains(QStringLiteral("--event 'SessionStart'")));
     QVERIFY(sessionStartScriptText.contains(QStringLiteral("\"$@\" idle")));
 
+    const QString subagentTracePath = temporaryDir.filePath(QStringLiteral("subagent-trace.jsonl"));
+    QProcessEnvironment subagentEnvironment = environment;
+    subagentEnvironment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), subagentTracePath);
+    subagentEnvironment.remove(QStringLiteral("KMUX_DBUS_SERVICE"));
+    subagentEnvironment.remove(QStringLiteral("KMUX_DBUS_SESSION"));
+
+    QProcess subagentProcess;
+    subagentProcess.setProcessEnvironment(subagentEnvironment);
+    subagentProcess.start(sessionStartCommand);
+    QVERIFY(subagentProcess.waitForStarted());
+    const QByteArray subagentPayload = QJsonDocument(QJsonObject{{QStringLiteral("agent_id"), QStringLiteral("agent-1")}}).toJson(QJsonDocument::Compact);
+    QCOMPARE(subagentProcess.write(subagentPayload), subagentPayload.size());
+    subagentProcess.closeWriteChannel();
+    QVERIFY(subagentProcess.waitForFinished());
+    QCOMPARE(subagentProcess.exitStatus(), QProcess::NormalExit);
+    QCOMPARE(subagentProcess.exitCode(), 0);
+
+    QFile subagentTrace(subagentTracePath);
+    QVERIFY(subagentTrace.open(QIODevice::ReadOnly | QIODevice::Text));
+    QCOMPARE(QJsonDocument::fromJson(subagentTrace.readLine()).object().value(QStringLiteral("phase")).toString(), QStringLiteral("received"));
+    const QJsonObject ignoredSubagentRecord = QJsonDocument::fromJson(subagentTrace.readLine()).object();
+    QCOMPARE(ignoredSubagentRecord.value(QStringLiteral("phase")).toString(), QStringLiteral("ignored"));
+    QVERIFY(ignoredSubagentRecord.value(QStringLiteral("error")).toString().contains(QStringLiteral("subagent")));
+    QVERIFY(subagentTrace.atEnd());
+
     const QJsonArray stops = hooks.value(QStringLiteral("Stop")).toArray();
     QCOMPARE(stops.size(), 1);
     const QString stopCommand =

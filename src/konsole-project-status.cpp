@@ -432,9 +432,12 @@ int main(int argc, char **argv)
     const QString objectPath = qEnvironmentVariable("KMUX_DBUS_SESSION");
     bool validAgentPid = false;
     const qlonglong agentPid = parser.value(agentPidOption).toLongLong(&validAgentPid);
+    const QString agent = parser.value(agentOption);
+    QString event = parser.value(eventOption);
+    const bool isClaudeHook = agent.compare(QLatin1String("claude"), Qt::CaseInsensitive) == 0;
     QString status = args.first();
     QJsonObject payload;
-    if (parser.isSet(codexPermissionRequestOption) || parser.isSet(claudeStopOption) || parser.isSet(claudeNotificationOption)
+    if (isClaudeHook || parser.isSet(codexPermissionRequestOption) || parser.isSet(claudeStopOption) || parser.isSet(claudeNotificationOption)
         || parser.isSet(claudeStopFailureOption)) {
         payload = hookPayload();
     }
@@ -444,8 +447,6 @@ int main(int argc, char **argv)
     if (parser.isSet(claudeStopOption) && hasClaudeBackgroundWork(payload)) {
         status = QStringLiteral("running");
     }
-    const QString agent = parser.value(agentOption);
-    QString event = parser.value(eventOption);
     if (parser.isSet(claudeNotificationOption)
         && payload.value(QStringLiteral("notification_type")).toString().compare(QLatin1String("idle_prompt"), Qt::CaseInsensitive) == 0) {
         event = QStringLiteral("IdlePrompt");
@@ -457,6 +458,16 @@ int main(int argc, char **argv)
         status = QStringLiteral("needsInput");
     }
     appendHookTrace(QStringLiteral("received"), agent, event, status, validAgentPid ? agentPid : 0, objectPath);
+    if (isClaudeHook && !payload.value(QStringLiteral("agent_id")).toString().trimmed().isEmpty()) {
+        appendHookTrace(QStringLiteral("ignored"),
+                        agent,
+                        event,
+                        status,
+                        validAgentPid ? agentPid : 0,
+                        objectPath,
+                        QStringLiteral("Hook belongs to a Claude subagent."));
+        return finishForHook(hookMode, 0);
+    }
     if (service.isEmpty() || objectPath.isEmpty()) {
         const QString error = QStringLiteral("KMUX_DBUS_SERVICE and KMUX_DBUS_SESSION must be set.");
         appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, error);
