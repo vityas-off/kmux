@@ -730,13 +730,18 @@ void ViewManagerTest::testProjectWorkspaceCodexDecisionKeysAreSessionScoped()
 
     QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
     Q_EMIT firstTerminal->keyPressedSignal(&returnKey);
-    QCOMPARE(viewManager->_sessionProjectStatuses.value(firstSession).status, ProjectWorkspaceContainer::ProjectStatus::Running);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(firstSession).pendingTerminalDecisions, 0);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(firstSession).status, ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
     QCOMPARE(viewManager->_sessionProjectStatuses.value(secondSession).status, ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
 
     QKeyEvent escapeKey(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
     Q_EMIT secondTerminal->keyPressedSignal(&escapeKey);
-    QCOMPARE(viewManager->_sessionProjectStatuses.value(secondSession).status, ProjectWorkspaceContainer::ProjectStatus::Running);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(secondSession).pendingTerminalDecisions, 0);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(secondSession).status, ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    firstSession->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PreToolUse"));
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
     firstSession->setProjectStatus(QStringLiteral("needsInput"));
@@ -878,6 +883,9 @@ void ViewManagerTest::testProjectWorkspaceClaudeDecisionClearsOnTerminalInput()
     QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
     Q_EMIT terminal->keyPressedSignal(&returnKey);
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PreToolUse"));
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
@@ -914,6 +922,9 @@ void ViewManagerTest::testProjectWorkspaceTracksMultipleCodexDecisionsInOneSessi
     QKeyEvent secondReturnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
     Q_EMIT terminal->keyPressedSignal(&secondReturnKey);
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PostToolUse"));
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 

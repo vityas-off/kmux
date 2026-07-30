@@ -2852,25 +2852,21 @@ void ViewManager::handleSessionAgentKey(Session *session, TabbedViewContainer *c
 
     const auto commandModifiers = keyEvent->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
     const bool interruptsTurn = commandModifiers == Qt::NoModifier && keyEvent->key() == Qt::Key_Escape;
-    const bool resolvesDecision =
-        commandModifiers == Qt::NoModifier && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Escape);
+    const bool confirmsDecision = commandModifiers == Qt::NoModifier && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter);
     auto status = _sessionProjectStatuses.find(session);
     if (status == _sessionProjectStatuses.end()) {
         return;
     }
 
-    if (resolvesDecision && status->pendingTerminalDecisions > 0 && status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
-        --status->pendingTerminalDecisions;
-        if (status->pendingTerminalDecisions == 0) {
-            status->status = ProjectWorkspaceContainer::ProjectStatus::Running;
-            _sessionsNeedingAttention.remove(session);
-        }
-    } else if (interruptsTurn && status->status == ProjectWorkspaceContainer::ProjectStatus::Running
-               && (status->agent == QLatin1String("codex") || status->agent == QLatin1String("claude"))) {
+    const bool isSupportedAgent = status->agent == QLatin1String("codex") || status->agent == QLatin1String("claude");
+    if (interruptsTurn && isSupportedAgent
+        && (status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput || status->status == ProjectWorkspaceContainer::ProjectStatus::Running)) {
         status->status = ProjectWorkspaceContainer::ProjectStatus::Idle;
         status->pendingTerminalDecisions = 0;
         status->autoModeDenial = false;
         _sessionsNeedingAttention.remove(session);
+    } else if (confirmsDecision && status->pendingTerminalDecisions > 0 && status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+        --status->pendingTerminalDecisions;
     } else {
         return;
     }
