@@ -2,9 +2,11 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -26,6 +28,9 @@ private Q_SLOTS:
     void testCodexLauncherHookInstallation_data();
     void testCodexLauncherHookInstallation();
     void testCodexLauncherSkipsSelfSymlink();
+    void testCodexCommandUsesTransparentLauncher();
+    void testCodexTrustHashesMatchCurrentIdentity();
+    void testClaudeCommandUsesTransparentLauncher();
     void testCodexPermissionRequestUsesConfiguredReviewer();
     void testClaudeLifecycleConfiguration();
     void testHookOperationsWaitForTransactionLock_data();
@@ -121,6 +126,247 @@ void AgentHooksTest::testCodexLauncherSkipsSelfSymlink()
     QCOMPARE(process.exitStatus(), QProcess::NormalExit);
     QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
     QCOMPARE(process.readAllStandardOutput().trimmed(), QByteArrayLiteral("real-codex:argument"));
+}
+
+void AgentHooksTest::testCodexCommandUsesTransparentLauncher()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString shimDir = temporaryDir.filePath(QStringLiteral("kmux-agent-shims"));
+    const QString agentBinDir = temporaryDir.filePath(QStringLiteral("agent-bin"));
+    QVERIFY(QDir().mkpath(shimDir));
+    QVERIFY(QDir().mkpath(agentBinDir));
+
+    const QString launcherAlias = QDir(shimDir).filePath(QStringLiteral("codex"));
+    QVERIFY(QFile::copy(QStringLiteral(KMUX_CODEX_EXECUTABLE), launcherAlias));
+    const QString hookInstaller = QDir(shimDir).filePath(QStringLiteral("kmux-agent-hooks"));
+    QVERIFY(QFile::copy(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE), hookInstaller));
+    const QString projectStatusHelper = QDir(shimDir).filePath(QStringLiteral("kmux-project-status"));
+    QVERIFY(QFile::copy(QStringLiteral(KMUX_PROJECT_STATUS_EXECUTABLE), projectStatusHelper));
+    QVERIFY(QFileInfo(launcherAlias).isExecutable());
+    QVERIFY(QFileInfo(hookInstaller).isExecutable());
+    QVERIFY(QFileInfo(projectStatusHelper).isExecutable());
+
+    const QString agentPath = QDir(agentBinDir).filePath(QStringLiteral("codex"));
+    QFile agent(agentPath);
+    QVERIFY(agent.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray script = QByteArrayLiteral("#!/bin/sh\nprintf 'real-codex:%s\\n' \"$KMUX_CODEX_PID\"\n");
+    QCOMPARE(agent.write(script), script.size());
+    agent.close();
+    QVERIFY(QFile::setPermissions(agentPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    const QString configHome = temporaryDir.filePath(QStringLiteral("codex-home"));
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("PATH"), shimDir + QDir::listSeparator() + agentBinDir);
+    environment.insert(QStringLiteral("CODEX_HOME"), configHome);
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    environment.remove(QStringLiteral("KMUX_CODEX_HOOKS_DISABLED"));
+    environment.remove(QStringLiteral("KONSOLE_CODEX_HOOKS_DISABLED"));
+
+    QProcess process;
+    process.setProcessEnvironment(environment);
+    process.start(launcherAlias);
+    QVERIFY(process.waitForStarted());
+    QVERIFY2(process.waitForFinished(5000), "transparent codex launcher recursively executed itself");
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+    QVERIFY(process.readAllStandardOutput().trimmed().startsWith(QByteArrayLiteral("real-codex:")));
+
+    QFile hooksFile(QDir(configHome).filePath(QStringLiteral("hooks.json")));
+    QVERIFY(hooksFile.open(QIODevice::ReadOnly));
+    const QJsonObject hooks = QJsonDocument::fromJson(hooksFile.readAll()).object().value(QStringLiteral("hooks")).toObject();
+    const QString hookCommand = hooks.value(QStringLiteral("UserPromptSubmit"))
+                                    .toArray()
+                                    .first()
+                                    .toObject()
+                                    .value(QStringLiteral("hooks"))
+                                    .toArray()
+                                    .first()
+                                    .toObject()
+                                    .value(QStringLiteral("command"))
+                                    .toString();
+    QFile hookScript(hookCommand);
+    QVERIFY(hookScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString hookScriptText = QString::fromUtf8(hookScript.readAll());
+    QVERIFY2(hookScriptText.contains(QStringLiteral("helper='%1'").arg(projectStatusHelper)), qPrintable(hookScriptText));
+
+    const QString tracePath = temporaryDir.filePath(QStringLiteral("hook-trace.jsonl"));
+    environment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), tracePath);
+    environment.remove(QStringLiteral("KMUX_DBUS_SERVICE"));
+    environment.remove(QStringLiteral("KMUX_DBUS_SESSION"));
+    QProcess hookProcess;
+    hookProcess.setProcessEnvironment(environment);
+    hookProcess.start(hookCommand);
+    QVERIFY(hookProcess.waitForStarted());
+    QVERIFY(hookProcess.waitForFinished());
+    QCOMPARE(hookProcess.exitStatus(), QProcess::NormalExit);
+
+    QFile traceFile(tracePath);
+    QVERIFY(traceFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QJsonObject firstTraceRecord = QJsonDocument::fromJson(traceFile.readLine()).object();
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("phase")).toString(), QStringLiteral("received"));
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("event")).toString(), QStringLiteral("UserPromptSubmit"));
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("status")).toString(), QStringLiteral("running"));
+}
+
+void AgentHooksTest::testCodexTrustHashesMatchCurrentIdentity()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString configHome = temporaryDir.filePath(QStringLiteral("codex-home"));
+
+    QProcess process;
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    process.setProcessEnvironment(environment);
+    process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE),
+                  {QStringLiteral("--codex-home"), configHome, QStringLiteral("install"), QStringLiteral("codex"), QStringLiteral("--quiet")});
+    QVERIFY(process.waitForStarted());
+    QVERIFY(process.waitForFinished());
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+
+    const QString hooksPath = QDir(configHome).filePath(QStringLiteral("hooks.json"));
+    QFile hooksFile(hooksPath);
+    QVERIFY(hooksFile.open(QIODevice::ReadOnly));
+    const QJsonObject hooks = QJsonDocument::fromJson(hooksFile.readAll()).object().value(QStringLiteral("hooks")).toObject();
+
+    QFile configFile(QDir(configHome).filePath(QStringLiteral("config.toml")));
+    QVERIFY(configFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString config = QString::fromUtf8(configFile.readAll());
+
+    const QHash<QString, QString> eventLabels = {
+        {QStringLiteral("SessionStart"), QStringLiteral("session_start")},
+        {QStringLiteral("UserPromptSubmit"), QStringLiteral("user_prompt_submit")},
+        {QStringLiteral("PreToolUse"), QStringLiteral("pre_tool_use")},
+        {QStringLiteral("PostToolUse"), QStringLiteral("post_tool_use")},
+        {QStringLiteral("PreCompact"), QStringLiteral("pre_compact")},
+        {QStringLiteral("PostCompact"), QStringLiteral("post_compact")},
+        {QStringLiteral("PermissionRequest"), QStringLiteral("permission_request")},
+        {QStringLiteral("Stop"), QStringLiteral("stop")},
+    };
+    const QString keySource = QFileInfo(hooksPath).canonicalFilePath();
+    int checkedHashes = 0;
+    for (auto event = eventLabels.constBegin(); event != eventLabels.constEnd(); ++event) {
+        const QJsonArray groups = hooks.value(event.key()).toArray();
+        for (int groupIndex = 0; groupIndex < groups.size(); ++groupIndex) {
+            const QJsonObject group = groups.at(groupIndex).toObject();
+            const QJsonArray handlers = group.value(QStringLiteral("hooks")).toArray();
+            for (int handlerIndex = 0; handlerIndex < handlers.size(); ++handlerIndex) {
+                const QJsonObject configuredHandler = handlers.at(handlerIndex).toObject();
+                QJsonObject normalizedHandler;
+                normalizedHandler.insert(QStringLiteral("async"), configuredHandler.value(QStringLiteral("async")).toBool(false));
+                normalizedHandler.insert(QStringLiteral("command"), configuredHandler.value(QStringLiteral("command")));
+                normalizedHandler.insert(QStringLiteral("timeout"), configuredHandler.value(QStringLiteral("timeout")));
+                normalizedHandler.insert(QStringLiteral("type"), configuredHandler.value(QStringLiteral("type")));
+
+                QJsonObject identity;
+                identity.insert(QStringLiteral("event_name"), event.value());
+                identity.insert(QStringLiteral("hooks"), QJsonArray{normalizedHandler});
+                if (group.contains(QStringLiteral("matcher"))) {
+                    identity.insert(QStringLiteral("matcher"), group.value(QStringLiteral("matcher")));
+                }
+
+                const QByteArray encodedIdentity = QJsonDocument(identity).toJson(QJsonDocument::Compact);
+                const QString hash =
+                    QStringLiteral("sha256:%1").arg(QString::fromLatin1(QCryptographicHash::hash(encodedIdentity, QCryptographicHash::Sha256).toHex()));
+                const QString key = QStringLiteral("%1:%2:%3:%4").arg(keySource, event.value()).arg(groupIndex).arg(handlerIndex);
+                const QString trustedState = QStringLiteral("[hooks.state.\"%1\"]\ntrusted_hash = \"%2\"").arg(key, hash);
+                QVERIFY2(config.contains(trustedState), qPrintable(QStringLiteral("Missing current Codex trust state for %1").arg(key)));
+                ++checkedHashes;
+            }
+        }
+    }
+    QCOMPARE(checkedHashes, 8);
+}
+
+void AgentHooksTest::testClaudeCommandUsesTransparentLauncher()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString shimDir = temporaryDir.filePath(QStringLiteral("kmux-agent-shims"));
+    const QString agentBinDir = temporaryDir.filePath(QStringLiteral("agent-bin"));
+    QVERIFY(QDir().mkpath(shimDir));
+    QVERIFY(QDir().mkpath(agentBinDir));
+
+    const QString launcherAlias = QDir(shimDir).filePath(QStringLiteral("claude"));
+    QVERIFY(QFile::copy(QStringLiteral(KMUX_CLAUDE_EXECUTABLE), launcherAlias));
+    const QString hookInstaller = QDir(shimDir).filePath(QStringLiteral("kmux-agent-hooks"));
+    QVERIFY(QFile::copy(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE), hookInstaller));
+    const QString projectStatusHelper = QDir(shimDir).filePath(QStringLiteral("kmux-project-status"));
+    QVERIFY(QFile::copy(QStringLiteral(KMUX_PROJECT_STATUS_EXECUTABLE), projectStatusHelper));
+    QVERIFY(QFileInfo(launcherAlias).isExecutable());
+    QVERIFY(QFileInfo(hookInstaller).isExecutable());
+    QVERIFY(QFileInfo(projectStatusHelper).isExecutable());
+
+    const QString agentPath = QDir(agentBinDir).filePath(QStringLiteral("claude"));
+    QFile agent(agentPath);
+    QVERIFY(agent.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray script = QByteArrayLiteral("#!/bin/sh\nprintf 'real-claude:%s\\n' \"$KMUX_CLAUDE_PID\"\n");
+    QCOMPARE(agent.write(script), script.size());
+    agent.close();
+    QVERIFY(QFile::setPermissions(agentPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    const QString homeDir = temporaryDir.filePath(QStringLiteral("home"));
+    QVERIFY(QDir().mkpath(homeDir));
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("PATH"), shimDir + QDir::listSeparator() + agentBinDir);
+    environment.insert(QStringLiteral("HOME"), homeDir);
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    environment.remove(QStringLiteral("KMUX_CLAUDE_HOOKS_DISABLED"));
+
+    QProcess process;
+    process.setProcessEnvironment(environment);
+    process.start(launcherAlias);
+    QVERIFY(process.waitForStarted());
+    QVERIFY2(process.waitForFinished(5000), "transparent claude launcher recursively executed itself");
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+
+    const QByteArray output = process.readAllStandardOutput().trimmed();
+    QVERIFY(output.startsWith(QByteArrayLiteral("real-claude:")));
+    bool pidIsValid = false;
+    output.mid(QByteArrayLiteral("real-claude:").size()).toLongLong(&pidIsValid);
+    QVERIFY(pidIsValid);
+
+    QFile settings(QDir(homeDir).filePath(QStringLiteral(".claude/settings.json")));
+    QVERIFY(settings.open(QIODevice::ReadOnly));
+    const QJsonObject hooks = QJsonDocument::fromJson(settings.readAll()).object().value(QStringLiteral("hooks")).toObject();
+    const QString hookCommand = hooks.value(QStringLiteral("UserPromptSubmit"))
+                                    .toArray()
+                                    .first()
+                                    .toObject()
+                                    .value(QStringLiteral("hooks"))
+                                    .toArray()
+                                    .first()
+                                    .toObject()
+                                    .value(QStringLiteral("command"))
+                                    .toString();
+    QFile hookScript(hookCommand);
+    QVERIFY(hookScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString hookScriptText = QString::fromUtf8(hookScript.readAll());
+    QVERIFY2(hookScriptText.contains(QStringLiteral("helper='%1'").arg(projectStatusHelper)), qPrintable(hookScriptText));
+
+    const QString tracePath = temporaryDir.filePath(QStringLiteral("hook-trace.jsonl"));
+    environment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), tracePath);
+    environment.remove(QStringLiteral("KMUX_DBUS_SERVICE"));
+    environment.remove(QStringLiteral("KMUX_DBUS_SESSION"));
+    QProcess hookProcess;
+    hookProcess.setProcessEnvironment(environment);
+    hookProcess.start(hookCommand);
+    QVERIFY(hookProcess.waitForStarted());
+    const QByteArray hookPayload = QJsonDocument(QJsonObject{{QStringLiteral("session_id"), QStringLiteral("session-1")}}).toJson(QJsonDocument::Compact);
+    QCOMPARE(hookProcess.write(hookPayload), hookPayload.size());
+    hookProcess.closeWriteChannel();
+    QVERIFY(hookProcess.waitForFinished());
+    QCOMPARE(hookProcess.exitStatus(), QProcess::NormalExit);
+
+    QFile traceFile(tracePath);
+    QVERIFY(traceFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QJsonObject firstTraceRecord = QJsonDocument::fromJson(traceFile.readLine()).object();
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("phase")).toString(), QStringLiteral("received"));
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("event")).toString(), QStringLiteral("UserPromptSubmit"));
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("status")).toString(), QStringLiteral("running"));
 }
 
 void AgentHooksTest::testCodexPermissionRequestUsesConfiguredReviewer()
@@ -360,6 +606,16 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     QVERIFY(stopFailureScriptText.contains(QStringLiteral("--claude-stop-failure")));
     QVERIFY(stopFailureScriptText.contains(QStringLiteral("\"$@\" idle")));
 
+    const QJsonArray sessionEnds = hooks.value(QStringLiteral("SessionEnd")).toArray();
+    QCOMPARE(sessionEnds.size(), 1);
+    const QString sessionEndCommand =
+        sessionEnds.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    QFile sessionEndScript(sessionEndCommand);
+    QVERIFY(sessionEndScript.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString sessionEndScriptText = QString::fromUtf8(sessionEndScript.readAll());
+    QVERIFY(sessionEndScriptText.contains(QStringLiteral("--event 'SessionEnd'")));
+    QVERIFY(sessionEndScriptText.contains(QStringLiteral("\"$@\" none")));
+
     const QString tracePath = temporaryDir.filePath(QStringLiteral("hook-trace.jsonl"));
     auto runHook = [&](const QString &command, const QJsonObject &payload, const QString &expectedStatus, const QString &expectedEvent) {
         QFile::remove(tracePath);
@@ -435,6 +691,7 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
             QJsonObject{{QStringLiteral("error"), QStringLiteral("authentication_failed")}},
             QStringLiteral("idle"),
             QStringLiteral("StopFailure"));
+    runHook(sessionEndCommand, QJsonObject{{QStringLiteral("reason"), QStringLiteral("exit")}}, QStringLiteral("none"), QStringLiteral("SessionEnd"));
 }
 
 void AgentHooksTest::testCodexFeatureToml_data()

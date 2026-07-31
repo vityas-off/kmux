@@ -7,6 +7,11 @@
 // Own
 #include "SessionTest.h"
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QScopeGuard>
+#include <QTemporaryDir>
 #include <QTest>
 
 // Konsole
@@ -58,6 +63,43 @@ void SessionTest::testVersionEnvironment()
 
     QVERIFY(session.environment().contains(QLatin1String("KONSOLE_VERSION=260770")));
     QVERIFY(!session.environment().contains(QLatin1String("KONSOLE_VERSION=000100")));
+}
+
+void SessionTest::testKmuxAgentShimsPrecedeProfilePath()
+{
+#ifdef Q_OS_WIN
+    QSKIP("Agent command shims are only installed on Unix platforms.");
+#else
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString shimPath = temporaryDir.filePath(QStringLiteral("claude"));
+    QFile shim(shimPath);
+    QVERIFY(shim.open(QIODevice::WriteOnly | QIODevice::Text));
+    QCOMPARE(shim.write("#!/bin/sh\n"), qint64(10));
+    shim.close();
+    QVERIFY(QFile::setPermissions(shimPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    Session session;
+    const QString previousApplicationName = QCoreApplication::applicationName();
+    const bool hadShimOverride = qEnvironmentVariableIsSet("KMUX_AGENT_SHIM_DIRECTORY");
+    const QByteArray previousShimOverride = qgetenv("KMUX_AGENT_SHIM_DIRECTORY");
+    const auto restoreEnvironment = qScopeGuard([&]() {
+        QCoreApplication::setApplicationName(previousApplicationName);
+        if (hadShimOverride) {
+            qputenv("KMUX_AGENT_SHIM_DIRECTORY", previousShimOverride);
+        } else {
+            qunsetenv("KMUX_AGENT_SHIM_DIRECTORY");
+        }
+    });
+    QCoreApplication::setApplicationName(QStringLiteral("kmux"));
+    qputenv("KMUX_AGENT_SHIM_DIRECTORY", temporaryDir.path().toLocal8Bit());
+
+    session.setEnvironment({QStringLiteral("PATH=/profile/bin")});
+    session.prependKmuxAgentShimsToPath();
+
+    const QString expectedPath = QStringLiteral("PATH=") + temporaryDir.path() + QDir::listSeparator() + QStringLiteral("/profile/bin");
+    QVERIFY(session.environment().contains(expectedPath));
+#endif
 }
 
 QTEST_MAIN(SessionTest)

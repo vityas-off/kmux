@@ -1068,6 +1068,8 @@ private Q_SLOTS:
     void handleOsc777(const QStringList &params);
 
 private:
+    friend class SessionTest;
+
     bool isCalledViaDbusAndForbidden() const;
 
     Q_DISABLE_COPY(Session)
@@ -1083,6 +1085,7 @@ private:
     bool updateForegroundProcessInfo();
     void updateWorkingDirectory();
     void updateContainerContext();
+    void prependKmuxAgentShimsToPath();
     SessionController *controller();
 
     QString validDirectory(const QString &dir) const;

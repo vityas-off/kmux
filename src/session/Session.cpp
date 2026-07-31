@@ -91,6 +91,23 @@ using namespace Konsole;
 
 static const int ZMODEM_BUFFER_SIZE = 1048576; // 1 Mb
 
+static QString environmentValue(const QStringList &environment, const QString &name)
+{
+    const QString prefix = name + QLatin1Char('=');
+    for (auto entry = environment.crbegin(); entry != environment.crend(); ++entry) {
+        if (entry->startsWith(prefix)) {
+            return entry->mid(prefix.size());
+        }
+    }
+    return {};
+}
+
+static QString kmuxAgentShimDirectory()
+{
+    const QString overridePath = qEnvironmentVariable("KMUX_AGENT_SHIM_DIRECTORY");
+    return overridePath.isEmpty() ? QStringLiteral(KMUX_AGENT_SHIM_DIRECTORY) : overridePath;
+}
+
 // compute a securely random cookie used for activationToken
 static QString computeRandomCookie()
 {
@@ -626,6 +643,8 @@ void Session::run()
 #endif
 
     addEnvironmentEntry(QStringLiteral("FLATPAK_TTY_PROGRESS=1"));
+
+    prependKmuxAgentShimsToPath();
 
     // stuff set via addEnvironmentEntry and the secret parts
     const QStringList fullEnv = _environment + secretEnv;
@@ -1231,6 +1250,35 @@ void Session::setEnvironment(const QStringList &environment)
 void Session::addEnvironmentEntry(const QString &entry)
 {
     _environment << entry;
+}
+
+void Session::prependKmuxAgentShimsToPath()
+{
+#ifndef Q_OS_WIN
+    if (qApp->applicationName() != QLatin1String("kmux")) {
+        return;
+    }
+
+    const QString shimDirectory = kmuxAgentShimDirectory();
+    const bool hasAgentShim = QFileInfo(QDir(shimDirectory).filePath(QStringLiteral("codex"))).isExecutable()
+        || QFileInfo(QDir(shimDirectory).filePath(QStringLiteral("claude"))).isExecutable();
+    if (!hasAgentShim) {
+        return;
+    }
+
+    QString path = environmentValue(_environment, QStringLiteral("PATH"));
+    if (path.isEmpty() && _hasProcessEnvironment) {
+        path = environmentValue(_processEnvironment, QStringLiteral("PATH"));
+    }
+    if (path.isEmpty()) {
+        path = qEnvironmentVariable("PATH");
+    }
+
+    const QStringList pathEntries = path.split(QDir::listSeparator(), Qt::SkipEmptyParts);
+    if (!pathEntries.contains(shimDirectory)) {
+        addEnvironmentEntry(QStringLiteral("PATH=") + shimDirectory + QDir::listSeparator() + path);
+    }
+#endif
 }
 
 int Session::sessionId() const

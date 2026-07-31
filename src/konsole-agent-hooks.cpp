@@ -88,7 +88,7 @@ const QList<HookEvent> ClaudeHookEvents = {
     {QStringLiteral("ElicitationResult"), QStringLiteral("elicitation_result"), QStringLiteral("running"), 5, QString()},
     {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
     {QStringLiteral("StopFailure"), QStringLiteral("stop_failure"), QStringLiteral("idle"), 5, QString()},
-    {QStringLiteral("SessionEnd"), QStringLiteral("session_end"), QStringLiteral("idle"), 5, QString()},
+    {QStringLiteral("SessionEnd"), QStringLiteral("session_end"), QStringLiteral("none"), 5, QString()},
 };
 
 QString homePath()
@@ -398,9 +398,15 @@ QString hookTrustHash(const HookEvent &event, const QString &command)
     QJsonArray hooks;
     hooks.append(handler);
 
+    // Codex hashes the normalized TOML hook identity after converting it to
+    // canonical JSON. QJsonDocument sorts object keys in the same order, while
+    // optional TOML fields remain absent rather than becoming JSON nulls.
     QJsonObject identity;
     identity.insert(QStringLiteral("event_name"), event.eventLabel);
     identity.insert(QStringLiteral("hooks"), hooks);
+    if (!event.matcher.isEmpty()) {
+        identity.insert(QStringLiteral("matcher"), event.matcher);
+    }
 
     const QByteArray json = QJsonDocument(identity).toJson(QJsonDocument::Compact);
     const QByteArray digest = QCryptographicHash::hash(json, QCryptographicHash::Sha256).toHex();
@@ -1068,7 +1074,7 @@ int statusCodexHooks(const QString &codexHomeOverride)
     return status.groups == CodexHookEvents.size() && status.handlers == CodexHookEvents.size() && status.executableHandlers == status.handlers ? 0 : 1;
 }
 
-int installClaudeHooks(const QString &claudeHomeOverride)
+int installClaudeHooks(const QString &claudeHomeOverride, bool quiet)
 {
     QTextStream out(stdout);
     QTextStream err(stderr);
@@ -1110,8 +1116,10 @@ int installClaudeHooks(const QString &claudeHomeOverride)
         return 1;
     }
 
-    out << "Installed Claude Code hooks in " << settingsPath << '\n';
-    out << "Hook scripts are in " << scriptDirectory << '\n';
+    if (!quiet) {
+        out << "Installed Claude Code hooks in " << settingsPath << '\n';
+        out << "Hook scripts are in " << scriptDirectory << '\n';
+    }
     return 0;
 }
 
@@ -1233,7 +1241,7 @@ int main(int argc, char **argv)
         if (agent == QLatin1String(CodexAgentName)) {
             return installCodexHooks(parser.value(codexHomeOption), parser.isSet(quietOption));
         }
-        return installClaudeHooks(parser.value(claudeHomeOption));
+        return installClaudeHooks(parser.value(claudeHomeOption), parser.isSet(quietOption));
     }
     if (command == QLatin1String("uninstall")) {
         if (agent == QLatin1String(CodexAgentName)) {

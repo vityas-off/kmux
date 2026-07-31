@@ -1,5 +1,6 @@
 #define KMUX_VERSION "${KMUX_VERSION}"
 #define KONSOLE_VERSION "${KONSOLE_COMPAT_VERSION}"
+#define KMUX_AGENT_SHIM_DIRECTORY "${KDE_INSTALL_FULL_LIBEXECDIR}/kmux/agent-shims"
 
 /* Defined if on DragonFly BSD */
 #cmakedefine01 HAVE_OS_DRAGONFLYBSD

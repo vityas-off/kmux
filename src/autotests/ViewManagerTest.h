@@ -33,6 +33,7 @@ private Q_SLOTS:
     void testProjectWorkspaceStatusTracksSessionHooks();
     void testRunningAgentsControlSleepInhibition();
     void testProjectWorkspaceStatusClearsWhenAgentExits();
+    void testProjectWorkspaceStatusClearsWhenAgentReturnsToShell();
     void testProjectWorkspaceAgentSessionDoesNotInheritAnotherAgentPid();
     void testProjectWorkspaceCodexDecisionKeysAreSessionScoped();
     void testProjectWorkspaceAgentInterruptClearsRunningStatus();

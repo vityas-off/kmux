@@ -19,6 +19,7 @@ private Q_SLOTS:
     void testNoProfile();
     void testEmulation();
     void testVersionEnvironment();
+    void testKmuxAgentShimsPrecedeProfilePath();
 
 private:
 };

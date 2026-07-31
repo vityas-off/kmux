@@ -2852,6 +2852,10 @@ void ViewManager::setSessionProjectStatus(Session *session,
         projectStatus = ProjectWorkspaceContainer::ProjectStatus::Running;
     }
 
+    const bool isSupportedAgent = normalizedAgent == QLatin1String("codex") || normalizedAgent == QLatin1String("claude");
+    const bool agentProcessWasForeground = (agentProcessChanged ? false : previousStatus.agentProcessWasForeground)
+        || (isSupportedAgent && session->isRunning() && session->isForegroundProcessActive());
+
     int pendingTerminalDecisions = agentProcessChanged || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
     if (isCodexEvent && isPermissionRequest && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         ++pendingTerminalDecisions;
@@ -2866,9 +2870,15 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
 
     const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
-    _sessionProjectStatuses.insert(
-        session,
-        {effectiveStatus, agentProcessId, pendingTerminalDecisions, normalizedAgent, claudeBackgroundWork, agentSessionId, agentPromptId});
+    _sessionProjectStatuses.insert(session,
+                                   {effectiveStatus,
+                                    agentProcessId,
+                                    pendingTerminalDecisions,
+                                    normalizedAgent,
+                                    claudeBackgroundWork,
+                                    agentProcessWasForeground,
+                                    agentSessionId,
+                                    agentPromptId});
     if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);
     } else if (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
@@ -2913,12 +2923,20 @@ void ViewManager::clearExitedSessionProjectStatuses()
 {
     QSet<TabbedViewContainer *> containersToRefresh;
     for (auto status = _sessionProjectStatuses.begin(); status != _sessionProjectStatuses.end();) {
-        if (status->agentProcessId <= 0 || projectStatusProcessIsAlive(status->agentProcessId)) {
+        Session *session = status.key();
+        const bool isSupportedAgent = status->agent == QLatin1String("codex") || status->agent == QLatin1String("claude");
+        bool returnedToShell = false;
+        if (isSupportedAgent && session != nullptr && session->isRunning()) {
+            const bool foregroundProcessActive = session->isForegroundProcessActive();
+            status->agentProcessWasForeground = status->agentProcessWasForeground || foregroundProcessActive;
+            returnedToShell = status->agentProcessWasForeground && !foregroundProcessActive;
+        }
+        const bool agentProcessExited = status->agentProcessId > 0 && !projectStatusProcessIsAlive(status->agentProcessId);
+        if (!returnedToShell && !agentProcessExited) {
             ++status;
             continue;
         }
 
-        Session *session = status.key();
         _sessionsNeedingAttention.remove(session);
         for (auto terminal = _sessionMap.cbegin(); terminal != _sessionMap.cend(); ++terminal) {
             if (terminal.value() == session) {
@@ -2939,10 +2957,10 @@ void ViewManager::clearExitedSessionProjectStatuses()
 
 void ViewManager::updateProjectStatusProcessTimer()
 {
-    const bool hasTrackedProcess = std::any_of(_sessionProjectStatuses.cbegin(), _sessionProjectStatuses.cend(), [](const SessionProjectStatus &status) {
-        return status.agentProcessId > 0;
+    const bool hasTrackedAgent = std::any_of(_sessionProjectStatuses.cbegin(), _sessionProjectStatuses.cend(), [](const SessionProjectStatus &status) {
+        return status.agentProcessId > 0 || status.agent == QLatin1String("codex") || status.agent == QLatin1String("claude");
     });
-    if (hasTrackedProcess) {
+    if (hasTrackedAgent) {
         if (!_projectStatusProcessTimer.isActive()) {
             _projectStatusProcessTimer.start();
         }

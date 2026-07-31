@@ -596,6 +596,7 @@ private:
         int pendingTerminalDecisions = 0;
         QString agent;
         bool claudeBackgroundWork = false;
+        bool agentProcessWasForeground = false;
         QString agentSessionId;
         QString agentPromptId;
     };

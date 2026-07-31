@@ -51,7 +51,12 @@ visually separate.
 ## Agent Status Integration
 
 Kmux can show when Codex or Claude Code is running, idle, or waiting for input.
-After installing Kmux, enable the integration with:
+Inside Kmux terminals, the regular `codex` and `claude` commands are
+transparently routed through Kmux helpers. The helpers install or repair the
+matching hooks on first launch, associate status with the agent process, and
+then launch the original command from the rest of `PATH`.
+
+Hooks can also be installed or inspected explicitly:
 
 ```sh
 kmux-agent-hooks install codex
@@ -60,10 +65,9 @@ kmux-agent-hooks install claude
 
 The commands update the respective agent configuration under `~/.codex` or
 `~/.claude`. Use `status` or `uninstall` in place of `install` to inspect or
-remove the integration. The `kmux-codex` and `kmux-claude` helpers install the
-matching hooks, associate status with the agent process, and then launch it. Set
-`KMUX_CODEX_HOOKS_DISABLED=1` or `KMUX_CLAUDE_HOOKS_DISABLED=1` to launch the
-agent without installing or updating its hooks. The legacy
+remove the integration. Set `KMUX_CODEX_HOOKS_DISABLED=1` or
+`KMUX_CLAUDE_HOOKS_DISABLED=1` to launch the agent without installing or
+updating its hooks. The legacy
 `KONSOLE_CODEX_HOOKS_DISABLED=1` name remains supported for compatibility.
 
 Agent hooks communicate with the Kmux session through the

@@ -40,14 +40,55 @@ bool environmentDisablesHooks(const char *name)
     return value != nullptr && std::strcmp(value, "1") == 0;
 }
 
+std::vector<std::string> executableCandidates(const char *executable)
+{
+    if (std::strchr(executable, '/') != nullptr) {
+        return {executable};
+    }
+
+    const char *pathEnvironment = std::getenv("PATH");
+    const std::string searchPath = pathEnvironment != nullptr ? pathEnvironment : "/bin:/usr/bin";
+    std::vector<std::string> candidates;
+    std::string::size_type start = 0;
+    do {
+        const auto separator = searchPath.find(':', start);
+        const std::string directory = searchPath.substr(start, separator - start);
+        candidates.emplace_back((directory.empty() ? std::string(".") : directory) + '/' + executable);
+        if (separator == std::string::npos) {
+            break;
+        }
+        start = separator + 1;
+    } while (start <= searchPath.size());
+    return candidates;
+}
+
 std::string agentHooksExecutable(const char *launcherPath)
 {
-    const std::string path = launcherPath;
-    const auto separator = path.find_last_of('/');
-    if (separator == std::string::npos) {
-        return std::string("kmux-agent-hooks");
+    for (const std::string &candidate : executableCandidates(launcherPath)) {
+        if (access(candidate.c_str(), X_OK) != 0) {
+            continue;
+        }
+
+        const auto separator = candidate.find_last_of('/');
+        if (separator == std::string::npos) {
+            continue;
+        }
+
+        const std::string directory = candidate.substr(0, separator + 1);
+        const std::string sibling = directory + "kmux-agent-hooks";
+        if (access(sibling.c_str(), X_OK) == 0) {
+            return sibling;
+        }
+
+        // Keep compatibility with an earlier layout where transparent shims
+        // lived one directory below the public Kmux helpers.
+        const std::string parentSibling = directory + "../kmux-agent-hooks";
+        if (access(parentSibling.c_str(), X_OK) == 0) {
+            return parentSibling;
+        }
     }
-    return path.substr(0, separator + 1) + "kmux-agent-hooks";
+
+    return std::string("kmux-agent-hooks");
 }
 
 bool installTrustedHooks(const char *launcherPath)
@@ -70,28 +111,6 @@ bool installTrustedHooks(const char *launcherPath)
         }
     }
     return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}
-
-std::vector<std::string> executableCandidates(const char *executable)
-{
-    if (std::strchr(executable, '/') != nullptr) {
-        return {executable};
-    }
-
-    const char *pathEnvironment = std::getenv("PATH");
-    const std::string searchPath = pathEnvironment != nullptr ? pathEnvironment : "/bin:/usr/bin";
-    std::vector<std::string> candidates;
-    std::string::size_type start = 0;
-    do {
-        const auto separator = searchPath.find(':', start);
-        const std::string directory = searchPath.substr(start, separator - start);
-        candidates.emplace_back((directory.empty() ? std::string(".") : directory) + '/' + executable);
-        if (separator == std::string::npos) {
-            break;
-        }
-        start = separator + 1;
-    } while (start <= searchPath.size());
-    return candidates;
 }
 
 bool executableIdentity(const char *executable, struct stat &identity)

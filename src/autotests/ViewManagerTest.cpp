@@ -44,6 +44,8 @@
 #include "../workspaces/AgentSleepInhibitor.h"
 #include <QStandardPaths>
 
+#include <csignal>
+
 using namespace Konsole;
 
 namespace
@@ -652,6 +654,40 @@ void ViewManagerTest::testProjectWorkspaceStatusClearsWhenAgentExits()
     agentProcess.kill();
     QVERIFY(agentProcess.waitForFinished());
     QTRY_COMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
+#endif
+}
+
+void ViewManagerTest::testProjectWorkspaceStatusClearsWhenAgentReturnsToShell()
+{
+#ifndef Q_OS_UNIX
+    QSKIP("Foreground process checks are only available on Unix platforms.");
+#else
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+    session->run();
+    QTRY_VERIFY(session->isRunning());
+    QTRY_VERIFY(!session->isForegroundProcessActive());
+
+    session->sendTextToTerminal(QStringLiteral("sleep 30\n"));
+    QTRY_VERIFY(session->isForegroundProcessActive());
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), 0, QStringLiteral("claude"), QStringLiteral("Stop"), {}, {}, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(viewManager->_sessionProjectStatuses.value(session).agentProcessWasForeground);
+
+    session->sendSignal(SIGINT);
+    QTRY_VERIFY(!session->isForegroundProcessActive());
+    viewManager->clearExitedSessionProjectStatuses();
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
 #endif
 }
 
