@@ -604,6 +604,7 @@ private:
         QString agent;
         bool claudeBackgroundWork = false;
         bool agentProcessWasForeground = false;
+        bool turnInterrupted = false;
         QString agentSessionId;
         QString agentPromptId;
     };

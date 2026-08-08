@@ -819,14 +819,22 @@ void ViewManagerTest::testProjectWorkspaceAgentInterruptClearsRunningStatus()
         session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, agent, QStringLiteral("UserPromptSubmit"), {}, {}, {});
         QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
-        QKeyEvent modifiedEscape(QEvent::KeyPress, Qt::Key_Escape, Qt::ShiftModifier);
-        Q_EMIT terminal->keyPressedSignal(&modifiedEscape);
+        QTest::keyClick(terminal, Qt::Key_Escape, Qt::ShiftModifier);
         QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
-        QKeyEvent escapeKey(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
-        Q_EMIT terminal->keyPressedSignal(&escapeKey);
+        QTest::keyClick(terminal, Qt::Key_Escape);
         QCOMPARE(viewManager->_sessionProjectStatuses.value(session).status, ProjectWorkspaceContainer::ProjectStatus::Idle);
+        QVERIFY(viewManager->_sessionProjectStatuses.value(session).turnInterrupted);
         QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+        session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, agent, QStringLiteral("PostToolUse"), {}, {}, {});
+        QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+        session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, agent, QStringLiteral("PermissionRequest"), {}, {}, {});
+        QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+        session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, agent, QStringLiteral("UserPromptSubmit"), {}, {}, {});
+        QVERIFY(!viewManager->_sessionProjectStatuses.value(session).turnInterrupted);
+        QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
     }
 
     session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("other"), QStringLiteral("UserPromptSubmit"), {}, {}, {});

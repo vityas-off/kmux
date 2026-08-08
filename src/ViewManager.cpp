@@ -2805,6 +2805,15 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool agentChanged = normalizedAgent != previousStatus.agent && (!normalizedAgent.isEmpty() || !previousStatus.agent.isEmpty());
     const bool isClaudeEvent = normalizedAgent == QLatin1String("claude");
     const bool isClaudeSubagentEvent = isClaudeEvent && !agentId.trimmed().isEmpty();
+    const bool isSupportedAgent = normalizedAgent == QLatin1String("codex") || normalizedAgent == QLatin1String("claude");
+    const bool beginsTurn = isSessionStart || isUserPromptSubmit || event.compare(QLatin1String("PreCompact"), Qt::CaseInsensitive) == 0;
+
+    // Codex does not emit Stop when a turn is interrupted. Ignore lifecycle
+    // hooks from that turn until an event explicitly begins new work.
+    if (previousStatus.turnInterrupted && !agentChanged && normalizedAgent == previousStatus.agent && isSupportedAgent && !beginsTurn
+        && projectStatusFromString(status) != ProjectWorkspaceContainer::ProjectStatus::None) {
+        return;
+    }
 
     // Hook helpers may finish out of order. Bind Claude's session and prompt
     // identities at their start events, then discard mutations from older work.
@@ -2883,7 +2892,6 @@ void ViewManager::setSessionProjectStatus(Session *session,
         projectStatus = ProjectWorkspaceContainer::ProjectStatus::Running;
     }
 
-    const bool isSupportedAgent = normalizedAgent == QLatin1String("codex") || normalizedAgent == QLatin1String("claude");
     const bool agentProcessWasForeground = (agentProcessChanged ? false : previousStatus.agentProcessWasForeground)
         || (isSupportedAgent && session->isRunning() && session->isForegroundProcessActive());
 
@@ -2926,6 +2934,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     nextStatus.agent = normalizedAgent;
     nextStatus.claudeBackgroundWork = claudeBackgroundWork;
     nextStatus.agentProcessWasForeground = agentProcessWasForeground;
+    nextStatus.turnInterrupted = previousStatus.turnInterrupted && !agentProcessChanged && !beginsTurn;
     nextStatus.agentSessionId = agentSessionId;
     nextStatus.agentPromptId = agentPromptId;
     _sessionProjectStatuses.insert(session, nextStatus);
@@ -2961,6 +2970,7 @@ void ViewManager::handleSessionAgentKey(Session *session, TabbedViewContainer *c
         status->pendingTerminalDecisions = 0;
         status->pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
         status->statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
+        status->turnInterrupted = true;
         _sessionsNeedingAttention.remove(session);
     } else if (confirmsDecision && status->pendingTerminalDecisions > 0 && status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         --status->pendingTerminalDecisions;
