@@ -584,6 +584,32 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
     QVERIFY(ignoredSubagentRecord.value(QStringLiteral("error")).toString().contains(QStringLiteral("subagent")));
     QVERIFY(subagentTrace.atEnd());
 
+    const QJsonArray preToolUses = hooks.value(QStringLiteral("PreToolUse")).toArray();
+    QCOMPARE(preToolUses.size(), 1);
+    const QString preToolUseCommand =
+        preToolUses.first().toObject().value(QStringLiteral("hooks")).toArray().first().toObject().value(QStringLiteral("command")).toString();
+    const QString subagentResolutionTracePath = temporaryDir.filePath(QStringLiteral("subagent-resolution-trace.jsonl"));
+    QProcessEnvironment subagentResolutionEnvironment = environment;
+    subagentResolutionEnvironment.insert(QStringLiteral("KMUX_AGENT_HOOK_LOG"), subagentResolutionTracePath);
+    subagentResolutionEnvironment.remove(QStringLiteral("KMUX_DBUS_SERVICE"));
+    subagentResolutionEnvironment.remove(QStringLiteral("KMUX_DBUS_SESSION"));
+
+    QProcess subagentResolutionProcess;
+    subagentResolutionProcess.setProcessEnvironment(subagentResolutionEnvironment);
+    subagentResolutionProcess.start(preToolUseCommand);
+    QVERIFY(subagentResolutionProcess.waitForStarted());
+    QCOMPARE(subagentResolutionProcess.write(subagentPayload), subagentPayload.size());
+    subagentResolutionProcess.closeWriteChannel();
+    QVERIFY(subagentResolutionProcess.waitForFinished());
+    QCOMPARE(subagentResolutionProcess.exitStatus(), QProcess::NormalExit);
+    QCOMPARE(subagentResolutionProcess.exitCode(), 0);
+
+    QFile subagentResolutionTrace(subagentResolutionTracePath);
+    QVERIFY(subagentResolutionTrace.open(QIODevice::ReadOnly | QIODevice::Text));
+    QCOMPARE(QJsonDocument::fromJson(subagentResolutionTrace.readLine()).object().value(QStringLiteral("phase")).toString(), QStringLiteral("received"));
+    QCOMPARE(QJsonDocument::fromJson(subagentResolutionTrace.readLine()).object().value(QStringLiteral("phase")).toString(), QStringLiteral("failed"));
+    QVERIFY(subagentResolutionTrace.atEnd());
+
     const QJsonArray stops = hooks.value(QStringLiteral("Stop")).toArray();
     QCOMPARE(stops.size(), 1);
     const QString stopCommand =

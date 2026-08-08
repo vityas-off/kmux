@@ -118,6 +118,15 @@ ProjectWorkspaceContainer::ProjectStatus projectStatusFromString(const QString &
     return ProjectWorkspaceContainer::ProjectStatus::None;
 }
 
+bool isClaudeSubagentResolutionEvent(const QString &event)
+{
+    return event.compare(QLatin1String("PreToolUse"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("PostToolUse"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("PostToolUseFailure"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("PermissionDenied"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("ElicitationResult"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("StopFailure"), Qt::CaseInsensitive) == 0;
+}
+
 ProjectWorkspaceContainer::ProjectStatus higherPriorityProjectStatus(ProjectWorkspaceContainer::ProjectStatus current,
                                                                      ProjectWorkspaceContainer::ProjectStatus candidate)
 {
@@ -2795,9 +2804,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool isUserPromptSubmit = event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0;
     const bool agentChanged = normalizedAgent != previousStatus.agent && (!normalizedAgent.isEmpty() || !previousStatus.agent.isEmpty());
     const bool isClaudeEvent = normalizedAgent == QLatin1String("claude");
-    if (isClaudeEvent && !agentId.trimmed().isEmpty()) {
-        return;
-    }
+    const bool isClaudeSubagentEvent = isClaudeEvent && !agentId.trimmed().isEmpty();
 
     // Hook helpers may finish out of order. Bind Claude's session and prompt
     // identities at their start events, then discard mutations from older work.
@@ -2810,6 +2817,30 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
     if (isClaudeEvent && !isSessionStart && !isUserPromptSubmit && !previousPromptId.isEmpty() && !normalizedPromptId.isEmpty()
         && normalizedPromptId != previousPromptId) {
+        return;
+    }
+
+    if (isClaudeSubagentEvent) {
+        const bool matchesCurrentTurn =
+            !previousSessionId.isEmpty() && normalizedSessionId == previousSessionId && !previousPromptId.isEmpty() && normalizedPromptId == previousPromptId;
+        if (!isClaudeSubagentResolutionEvent(event) || previousStatus.pendingTerminalDecisionOrigin != PendingTerminalDecisionOrigin::Notification
+            || !matchesCurrentTurn) {
+            return;
+        }
+
+        auto resumedStatus = previousStatus;
+        resumedStatus.status = previousStatus.statusBeforePendingTerminalDecision;
+        resumedStatus.pendingTerminalDecisions = 0;
+        resumedStatus.pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
+        resumedStatus.statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
+        _sessionProjectStatuses.insert(session, resumedStatus);
+        if (resumedStatus.status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+            markSessionAttention(session, container);
+        } else {
+            _sessionsNeedingAttention.remove(session);
+        }
+        updateAgentSleepInhibition();
+        updateProjectStatusProcessTimer();
         return;
     }
 
@@ -2857,28 +2888,47 @@ void ViewManager::setSessionProjectStatus(Session *session,
         || (isSupportedAgent && session->isRunning() && session->isForegroundProcessActive());
 
     int pendingTerminalDecisions = agentProcessChanged || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
+    auto pendingTerminalDecisionOrigin =
+        agentProcessChanged || resetsPendingDecisions ? PendingTerminalDecisionOrigin::None : previousStatus.pendingTerminalDecisionOrigin;
+    auto statusBeforePendingTerminalDecision =
+        agentProcessChanged || resetsPendingDecisions ? ProjectWorkspaceContainer::ProjectStatus::None : previousStatus.statusBeforePendingTerminalDecision;
     if (isCodexEvent && isPermissionRequest && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         ++pendingTerminalDecisions;
     } else if (isCodexEvent && isPermissionRequest) {
         pendingTerminalDecisions = 0;
-    } else if (isClaudeEvent && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput && (isPermissionRequest || isNotification)) {
-        // Claude can emit both events for one prompt. One terminal decision
-        // resolves the prompt, so coalesce them instead of requiring two keys.
+    } else if (isClaudeEvent && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput && isPermissionRequest) {
+        if (pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::None) {
+            statusBeforePendingTerminalDecision = previousStatus.status;
+        }
         pendingTerminalDecisions = 1;
-    } else if (!isCodexEvent && !isIdlePrompt) {
+        pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::PermissionRequest;
+    } else if (isClaudeEvent && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput && isNotification) {
+        // Claude can emit both events for one prompt. Keep PermissionRequest
+        // authoritative when the notification does not identify its subagent.
+        if (pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::None) {
+            pendingTerminalDecisions = 1;
+            pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::Notification;
+            statusBeforePendingTerminalDecision = previousStatus.status;
+        }
+    } else if (!isCodexEvent && (!isIdlePrompt || pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::Notification)) {
         pendingTerminalDecisions = 0;
+        pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
+        statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
     }
 
     const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
-    _sessionProjectStatuses.insert(session,
-                                   {effectiveStatus,
-                                    agentProcessId,
-                                    pendingTerminalDecisions,
-                                    normalizedAgent,
-                                    claudeBackgroundWork,
-                                    agentProcessWasForeground,
-                                    agentSessionId,
-                                    agentPromptId});
+    SessionProjectStatus nextStatus;
+    nextStatus.status = effectiveStatus;
+    nextStatus.agentProcessId = agentProcessId;
+    nextStatus.pendingTerminalDecisions = pendingTerminalDecisions;
+    nextStatus.pendingTerminalDecisionOrigin = pendingTerminalDecisionOrigin;
+    nextStatus.statusBeforePendingTerminalDecision = statusBeforePendingTerminalDecision;
+    nextStatus.agent = normalizedAgent;
+    nextStatus.claudeBackgroundWork = claudeBackgroundWork;
+    nextStatus.agentProcessWasForeground = agentProcessWasForeground;
+    nextStatus.agentSessionId = agentSessionId;
+    nextStatus.agentPromptId = agentPromptId;
+    _sessionProjectStatuses.insert(session, nextStatus);
     if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);
     } else if (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
@@ -2909,9 +2959,19 @@ void ViewManager::handleSessionAgentKey(Session *session, TabbedViewContainer *c
         && (status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput || status->status == ProjectWorkspaceContainer::ProjectStatus::Running)) {
         status->status = ProjectWorkspaceContainer::ProjectStatus::Idle;
         status->pendingTerminalDecisions = 0;
+        status->pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
+        status->statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
         _sessionsNeedingAttention.remove(session);
     } else if (confirmsDecision && status->pendingTerminalDecisions > 0 && status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         --status->pendingTerminalDecisions;
+        if (status->pendingTerminalDecisions == 0) {
+            if (status->pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::Notification) {
+                status->status = status->statusBeforePendingTerminalDecision;
+                _sessionsNeedingAttention.remove(session);
+            }
+            status->pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
+            status->statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
+        }
     } else {
         return;
     }

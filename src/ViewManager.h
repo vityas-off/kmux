@@ -590,10 +590,17 @@ private:
 
     QHash<TerminalDisplay *, Session *> _sessionMap;
     QSet<Session *> _sessionsNeedingAttention;
+    enum class PendingTerminalDecisionOrigin {
+        None,
+        PermissionRequest,
+        Notification,
+    };
     struct SessionProjectStatus {
         ProjectWorkspaceContainer::ProjectStatus status = ProjectWorkspaceContainer::ProjectStatus::None;
         qlonglong agentProcessId = 0;
         int pendingTerminalDecisions = 0;
+        PendingTerminalDecisionOrigin pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
+        ProjectWorkspaceContainer::ProjectStatus statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
         QString agent;
         bool claudeBackgroundWork = false;
         bool agentProcessWasForeground = false;

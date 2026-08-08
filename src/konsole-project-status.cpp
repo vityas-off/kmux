@@ -338,6 +338,15 @@ int finishForHook(bool hookMode, int code)
     return code;
 }
 
+bool isClaudeSubagentResolutionEvent(const QString &event)
+{
+    return event.compare(QLatin1String("PreToolUse"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("PostToolUse"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("PostToolUseFailure"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("PermissionDenied"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("ElicitationResult"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("StopFailure"), Qt::CaseInsensitive) == 0;
+}
+
 void printError(bool hookMode, const QString &message)
 {
     if (!hookMode) {
@@ -458,7 +467,7 @@ int main(int argc, char **argv)
         status = QStringLiteral("needsInput");
     }
     appendHookTrace(QStringLiteral("received"), agent, event, status, validAgentPid ? agentPid : 0, objectPath);
-    if (isClaudeHook && !payload.value(QStringLiteral("agent_id")).toString().trimmed().isEmpty()) {
+    if (isClaudeHook && !payload.value(QStringLiteral("agent_id")).toString().trimmed().isEmpty() && !isClaudeSubagentResolutionEvent(event)) {
         appendHookTrace(QStringLiteral("ignored"),
                         agent,
                         event,

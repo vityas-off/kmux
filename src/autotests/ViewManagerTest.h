@@ -40,10 +40,12 @@ private Q_SLOTS:
     void testProjectWorkspaceCodexAutoReviewedPermissionStaysRunning();
     void testProjectWorkspaceClaudeDenialDoesNotOverrideStop();
     void testProjectWorkspaceClaudeIdlePromptMarksInactiveProject();
+    void testProjectWorkspaceClaudeIdlePromptClearsNotification();
     void testProjectWorkspaceClaudeIdlePromptPreservesPermissionRequest();
     void testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRunning();
     void testProjectWorkspaceClaudeRateLimitNeedsInput();
     void testProjectWorkspaceClaudeRejectsStaleHookIdentities();
+    void testProjectWorkspaceClaudeSubagentResolutionClearsOnlyNotification();
     void testProjectWorkspaceClaudeDecisionClearsOnTerminalInput();
     void testProjectWorkspaceTracksMultipleCodexDecisionsInOneSession();
     void testSessionSignalsAreHandledOnceAcrossMultipleViews();
