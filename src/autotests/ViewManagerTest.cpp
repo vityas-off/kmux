@@ -1683,7 +1683,7 @@ void ViewManagerTest::testProjectWorkspaceRailWidthPersists()
     QCOMPARE(restoredWorkspaces->projectRailWidth(), 320);
 }
 
-void ViewManagerTest::testRestoreSessionsCreatesProjectWorkspacesWithoutSessionIds()
+void ViewManagerTest::testRestoreSessionsLazilyCreatesProjectWorkspacesWithoutSessionIds()
 {
     KConfig config(m_testDir->filePath(QStringLiteral("workspaces-restore-testrc")), KConfig::SimpleConfig);
     KConfigGroup group(&config, QStringLiteral("Window"));
@@ -1718,12 +1718,65 @@ void ViewManagerTest::testRestoreSessionsCreatesProjectWorkspacesWithoutSessionI
     QCOMPARE(restoredWorkspaces->projectCount(), 2);
     const auto restoredProjects = restoredWorkspaces->containers();
     QCOMPARE(restoredProjects.count(), 2);
-    QCOMPARE(restoredProjects.at(0)->count(), 2);
-    QCOMPARE(restoredProjects.at(0)->currentIndex(), 1);
+    QCOMPARE(restoredProjects.at(0)->count(), 0);
+    QCOMPARE(restoredWorkspaces->projectTabCount(restoredProjects.at(0)), 2);
     QCOMPARE(restoredProjects.at(1)->count(), 2);
     QCOMPARE(restoredProjects.at(1)->currentIndex(), 1);
     QCOMPARE(restoredManager->activeContainer(), restoredProjects.at(1));
+    QCOMPARE(restoredManager->sessionList().count(), 2);
+
+    restoredWorkspaces->activateProject(restoredProjects.at(0));
+    QCOMPARE(restoredProjects.at(0)->count(), 2);
+    QCOMPARE(restoredProjects.at(0)->currentIndex(), 1);
     QCOMPARE(restoredManager->sessionList().count(), 4);
+
+    restoredWorkspaces->activateProject(restoredProjects.at(1));
+    QCOMPARE(restoredProjects.at(1)->currentIndex(), 1);
+    restoredWorkspaces->activateProject(restoredProjects.at(0));
+    QCOMPARE(restoredProjects.at(0)->count(), 2);
+    QCOMPARE(restoredManager->sessionList().count(), 4);
+}
+
+void ViewManagerTest::testSaveSessionsPreservesDeferredProjectWorkspaces()
+{
+    KConfig sourceConfig(m_testDir->filePath(QStringLiteral("deferred-workspaces-source-testrc")), KConfig::SimpleConfig);
+    KConfigGroup sourceGroup(&sourceConfig, QStringLiteral("Window"));
+
+    {
+        auto sourceWindow = MainWindow();
+        auto *sourceManager = sourceWindow.viewManager();
+
+        sourceWindow.newTab();
+        auto *firstProject = sourceManager->activeContainer();
+        sourceWindow.newTab();
+        firstProject->setCurrentIndex(1);
+
+        sourceManager->createProject();
+        sourceWindow.newTab();
+        sourceManager->saveSessions(sourceGroup);
+    }
+
+    const QJsonArray originalProjects = QJsonDocument::fromJson(sourceGroup.readEntry("Projects", QByteArray("[]"))).array();
+    QCOMPARE(originalProjects.count(), 2);
+
+    auto restoredWindow = MainWindow();
+    auto *restoredManager = restoredWindow.viewManager();
+    auto *restoredWorkspaces = restoredManager->_workspaceContainer.data();
+    restoredManager->restoreSessions(sourceGroup, false);
+
+    const auto restoredProjects = restoredWorkspaces->containers();
+    QCOMPARE(restoredProjects.at(0)->count(), 0);
+    QCOMPARE(restoredWorkspaces->projectTabCount(restoredProjects.at(0)), 2);
+
+    KConfig savedConfig(m_testDir->filePath(QStringLiteral("deferred-workspaces-saved-testrc")), KConfig::SimpleConfig);
+    KConfigGroup savedGroup(&savedConfig, QStringLiteral("Window"));
+    restoredManager->saveSessions(savedGroup);
+    QCOMPARE(restoredProjects.at(0)->count(), 0);
+
+    const QJsonArray savedProjects = QJsonDocument::fromJson(savedGroup.readEntry("Projects", QByteArray("[]"))).array();
+    QCOMPARE(savedProjects.count(), 2);
+    QCOMPARE(savedProjects.at(0).toObject()[QStringLiteral("Tabs")], originalProjects.at(0).toObject()[QStringLiteral("Tabs")]);
+    QCOMPARE(savedProjects.at(0).toObject()[QStringLiteral("Active")], originalProjects.at(0).toObject()[QStringLiteral("Active")]);
 }
 
 void ViewManagerTest::testRestoredProjectTitlesDoNotDuplicateDefaultTitle()

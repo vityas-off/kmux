@@ -30,11 +30,15 @@ class KONSOLEPRIVATE_EXPORT ProjectWorkspaceContainer : public QWidget
 
 public:
     using ProjectStatus = ProjectWorkspaceModel::ProjectStatus;
+    enum class ActivationPolicy {
+        Activate,
+        KeepCurrent,
+    };
 
     explicit ProjectWorkspaceContainer(QWidget *parent = nullptr);
     ~ProjectWorkspaceContainer() override;
 
-    int addProject(TabbedViewContainer *container, const QString &title);
+    int addProject(TabbedViewContainer *container, const QString &title, ActivationPolicy activationPolicy = ActivationPolicy::Activate);
     void removeProject(TabbedViewContainer *container);
     void activateProject(TabbedViewContainer *container);
 

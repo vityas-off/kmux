@@ -11,6 +11,7 @@
 #include <QAction>
 #include <QColor>
 #include <QHash>
+#include <QJsonArray>
 #include <QObject>
 #include <QPointer>
 #include <QSet>
@@ -579,6 +580,10 @@ private:
     void addMoveTabToProjectMenu(QMenu *menu, TabbedViewContainer *sourceContainer, int tabIndex);
     void moveTabToProject(TabbedViewContainer *sourceContainer, int tabIndex, TabbedViewContainer *targetContainer);
     bool confirmCloseProject(TabbedViewContainer *container) const;
+    void restoreProjectIfNeeded(TabbedViewContainer *container);
+    void discardDeferredProject(TabbedViewContainer *container);
+    QJsonArray projectTabsForSaving(TabbedViewContainer *container) const;
+    int projectActiveTabForSaving(TabbedViewContainer *container) const;
     void refreshProjectSummary(TabbedViewContainer *container);
     void updateAutoContainerTabColor(Session *session);
     static QColor colorForContainerKey(const QString &containerKey);
@@ -609,6 +614,13 @@ private:
         QString agentPromptId;
     };
     QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
+    struct DeferredProjectRestore {
+        QJsonArray tabs;
+        int activeTab = 0;
+        bool useSessionIds = false;
+        QHash<int, QPointer<Session>> restoredSessions;
+    };
+    QHash<TabbedViewContainer *, DeferredProjectRestore> _deferredProjects;
     QTimer _projectStatusProcessTimer;
     bool _hasProjectNeedingInput = false;
 

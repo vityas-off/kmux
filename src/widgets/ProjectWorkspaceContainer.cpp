@@ -416,7 +416,7 @@ ProjectWorkspaceContainer::~ProjectWorkspaceContainer()
     _stack = nullptr;
 }
 
-int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const QString &title)
+int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const QString &title, ActivationPolicy activationPolicy)
 {
     Q_ASSERT(container != nullptr);
 
@@ -436,7 +436,9 @@ int ProjectWorkspaceContainer::addProject(TabbedViewContainer *container, const 
     updateListItem(index);
     updateStatusAnimationTimer();
 
-    _projectList->setCurrentRow(index);
+    if (activationPolicy == ActivationPolicy::Activate) {
+        _projectList->setCurrentRow(index);
+    }
     return index;
 }
 

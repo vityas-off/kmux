@@ -258,7 +258,8 @@ void ApplicationTest::testActivationResolvesRelativeTabsFile()
     auto *projects = qobject_cast<ProjectWorkspaceContainer *>(window->viewManager()->widget());
     QVERIFY(projects != nullptr);
     QCOMPARE(projects->projectCount(), 2);
-    QCOMPARE(projects->containers().at(0)->count(), 1);
+    QCOMPARE(projects->containers().at(0)->count(), 0);
+    QCOMPARE(projects->projectTabCount(projects->containers().at(0)), 1);
     QCOMPARE(projects->containers().at(1)->count(), 2);
     QVERIFY(activeSession(window) != nullptr);
     QCOMPARE(activeSession(window)->initialWorkingDirectory(), QDir::cleanPath(profileDirectory.path()));
@@ -293,7 +294,8 @@ void ApplicationTest::testActivationResolvesRelativeLayoutFile()
     auto *projects = qobject_cast<ProjectWorkspaceContainer *>(window->viewManager()->widget());
     QVERIFY(projects != nullptr);
     QCOMPARE(projects->projectCount(), 2);
-    QCOMPARE(projects->containers().at(0)->count(), 1);
+    QCOMPARE(projects->containers().at(0)->count(), 0);
+    QCOMPARE(projects->projectTabCount(projects->containers().at(0)), 1);
     QCOMPARE(projects->containers().at(1)->count(), 2);
 
     delete window;
@@ -336,7 +338,8 @@ void ApplicationTest::testExplicitSessionRequestPreservesInitialWorkspace()
     QCOMPARE(projects->projectCount(), 2);
     QCOMPARE(projects->projectTitle(projects->containers().at(0)), QStringLiteral("Saved One"));
     QCOMPARE(projects->projectTitle(projects->containers().at(1)), QStringLiteral("Saved Two"));
-    QCOMPARE(projects->containers().at(0)->count(), 1);
+    QCOMPARE(projects->containers().at(0)->count(), 0);
+    QCOMPARE(projects->projectTabCount(projects->containers().at(0)), 1);
     QCOMPARE(projects->containers().at(1)->count(), 2);
 
     KConfigGroup savedWorkspace = savedWorkspaceGroup();

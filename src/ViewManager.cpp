@@ -1562,7 +1562,13 @@ bool ViewManager::confirmCloseProject(TabbedViewContainer *container) const
 
 void ViewManager::activeProjectChanged(TabbedViewContainer *container)
 {
-    if (container == nullptr || container == _viewContainer) {
+    if (container == nullptr) {
+        return;
+    }
+
+    restoreProjectIfNeeded(container);
+
+    if (container == _viewContainer) {
         return;
     }
 
@@ -1592,6 +1598,7 @@ void ViewManager::containerEmptied(TabbedViewContainer *container)
         return;
     }
 
+    discardDeferredProject(container);
     _workspaceContainer->removeProject(container);
     if (container == _viewContainer) {
         _viewContainer = _workspaceContainer->activeContainer();
@@ -1886,10 +1893,10 @@ void ViewManager::saveLayout(QString fileName)
 void ViewManager::saveSessions(KConfigGroup &group)
 {
     auto *container = activeContainer();
-    QJsonArray rootArray = saveContainerSessions(container);
+    QJsonArray rootArray = projectTabsForSaving(container);
 
     group.writeEntry("Tabs", QJsonDocument(rootArray).toJson(QJsonDocument::Compact));
-    group.writeEntry("Active", container != nullptr ? container->currentIndex() : 0);
+    group.writeEntry("Active", projectActiveTabForSaving(container));
     if (!_workspaceContainer.isNull()) {
         group.writeEntry("ProjectRailWidth", _workspaceContainer->projectRailWidth());
     }
@@ -1906,8 +1913,8 @@ void ViewManager::saveSessions(KConfigGroup &group)
 
             QJsonObject project;
             project.insert(QStringLiteral("Title"), _workspaceContainer->projectTitle(projectContainer));
-            project.insert(QStringLiteral("Tabs"), saveContainerSessions(projectContainer));
-            project.insert(QStringLiteral("Active"), projectContainer != nullptr ? projectContainer->currentIndex() : 0);
+            project.insert(QStringLiteral("Tabs"), projectTabsForSaving(projectContainer));
+            project.insert(QStringLiteral("Active"), projectActiveTabForSaving(projectContainer));
             projectArray.append(project);
         }
     }
@@ -2017,7 +2024,10 @@ void restoreColdSessionState(Session *session, const QJsonObject &sessionObject)
     }
 }
 
-ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, ViewManager *manager, bool useSessionId)
+ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter,
+                                             ViewManager *manager,
+                                             bool useSessionId,
+                                             const QHash<int, QPointer<Session>> *restoredSessions = nullptr)
 {
     const QJsonArray splitterWidgets = jsonSplitter[QStringLiteral("Widgets")].toArray();
     auto orientation = (jsonSplitter[QStringLiteral("Orientation")].toString() == QStringLiteral("Horizontal")) ? Qt::Horizontal : Qt::Vertical;
@@ -2034,10 +2044,17 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
         const auto cwdIterator = widgetJsonObject.constFind(QStringLiteral("WorkingDirectory"));
 
         if (sessionIterator != widgetJsonObject.constEnd()) {
-            Session *session = useSessionId ? SessionManager::instance()->idToSession(sessionIterator->toInt())
-                                            : manager->createSession(savedSessionProfile(widgetJsonObject));
+            Session *session = nullptr;
+            if (useSessionId) {
+                session = restoredSessions != nullptr ? restoredSessions->value(sessionIterator->toInt()).data()
+                                                      : SessionManager::instance()->idToSession(sessionIterator->toInt());
+            }
+            const bool restoredExistingSession = session != nullptr;
+            if (session == nullptr) {
+                session = manager->createSession(savedSessionProfile(widgetJsonObject));
+            }
 
-            if (!useSessionId) {
+            if (!restoredExistingSession) {
                 restoreColdSessionState(session, widgetJsonObject);
             }
 
@@ -2075,7 +2092,7 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
             }
 
         } else {
-            auto nextSplitter = restoreSessionsSplitterRecurse(widgetJsonObject, manager, useSessionId);
+            auto nextSplitter = restoreSessionsSplitterRecurse(widgetJsonObject, manager, useSessionId, restoredSessions);
             currentSplitter->addWidget(nextSplitter);
         }
     }
@@ -2086,10 +2103,15 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter, Vi
 
 namespace
 {
-void restoreTabsIntoContainer(ViewManager *manager, TabbedViewContainer *container, const QJsonArray &jsonTabs, int activeTab, bool useSessionIds)
+void restoreTabsIntoContainer(ViewManager *manager,
+                              TabbedViewContainer *container,
+                              const QJsonArray &jsonTabs,
+                              int activeTab,
+                              bool useSessionIds,
+                              const QHash<int, QPointer<Session>> *restoredSessions = nullptr)
 {
     for (const auto &jsonSplitter : jsonTabs) {
-        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, useSessionIds);
+        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, useSessionIds, restoredSessions);
         container->addSplitter(topLevelSplitter, container->count());
     }
 
@@ -2107,6 +2129,116 @@ void restoreTabsIntoContainer(ViewManager *manager, TabbedViewContainer *contain
     }
 }
 
+void collectRestoredSessions(const QJsonObject &splitter, QHash<int, QPointer<Session>> &sessions)
+{
+    const QJsonArray widgets = splitter[QStringLiteral("Widgets")].toArray();
+    for (const QJsonValue &widgetValue : widgets) {
+        const QJsonObject widget = widgetValue.toObject();
+        if (widget.contains(QStringLiteral("SessionRestoreId"))) {
+            const int restoreId = widget[QStringLiteral("SessionRestoreId")].toInt();
+            if (Session *session = SessionManager::instance()->idToSession(restoreId)) {
+                sessions.insert(restoreId, session);
+            }
+        } else {
+            collectRestoredSessions(widget, sessions);
+        }
+    }
+}
+
+QJsonObject remapRestoredSessionIds(const QJsonObject &splitter, const QHash<int, QPointer<Session>> &sessions)
+{
+    QJsonObject result = splitter;
+    QJsonArray widgets = result[QStringLiteral("Widgets")].toArray();
+    for (qsizetype i = 0; i < widgets.size(); ++i) {
+        QJsonObject widget = widgets.at(i).toObject();
+        if (widget.contains(QStringLiteral("SessionRestoreId"))) {
+            const int previousRestoreId = widget[QStringLiteral("SessionRestoreId")].toInt();
+            if (Session *session = sessions.value(previousRestoreId)) {
+                const int currentRestoreId = SessionManager::instance()->getRestoreId(session);
+                if (currentRestoreId > 0) {
+                    widget.insert(QStringLiteral("SessionRestoreId"), currentRestoreId);
+                }
+            }
+        } else {
+            widget = remapRestoredSessionIds(widget, sessions);
+        }
+        widgets[i] = widget;
+    }
+    result.insert(QStringLiteral("Widgets"), widgets);
+    return result;
+}
+
+}
+
+void ViewManager::restoreProjectIfNeeded(TabbedViewContainer *container)
+{
+    const auto deferred = _deferredProjects.constFind(container);
+    if (deferred == _deferredProjects.cend()) {
+        return;
+    }
+
+    const DeferredProjectRestore state = deferred.value();
+    _deferredProjects.erase(deferred);
+    const auto *restoredSessions = state.useSessionIds ? &state.restoredSessions : nullptr;
+    restoreTabsIntoContainer(this, container, state.tabs, state.activeTab, state.useSessionIds, restoredSessions);
+    refreshProjectSummary(container);
+}
+
+void ViewManager::discardDeferredProject(TabbedViewContainer *container)
+{
+    const auto deferred = _deferredProjects.find(container);
+    if (deferred == _deferredProjects.end()) {
+        return;
+    }
+
+    const DeferredProjectRestore state = deferred.value();
+    _deferredProjects.erase(deferred);
+
+    QSet<Session *> sessions;
+    for (const QPointer<Session> &session : state.restoredSessions) {
+        if (session != nullptr) {
+            sessions.insert(session);
+        }
+    }
+
+    for (Session *session : std::as_const(sessions)) {
+        const bool hasView = std::any_of(_sessionMap.cbegin(), _sessionMap.cend(), [session](Session *candidate) {
+            return candidate == session;
+        });
+        const bool referencedByDeferredProject =
+            std::any_of(_deferredProjects.cbegin(), _deferredProjects.cend(), [session](const DeferredProjectRestore &other) {
+                return std::any_of(other.restoredSessions.cbegin(), other.restoredSessions.cend(), [session](const QPointer<Session> &candidate) {
+                    return candidate == session;
+                });
+            });
+        if (!hasView && !referencedByDeferredProject) {
+            session->close();
+        }
+    }
+}
+
+QJsonArray ViewManager::projectTabsForSaving(TabbedViewContainer *container) const
+{
+    const auto deferred = _deferredProjects.constFind(container);
+    if (deferred == _deferredProjects.cend()) {
+        return saveContainerSessions(container);
+    }
+
+    if (!deferred->useSessionIds) {
+        return deferred->tabs;
+    }
+
+    QJsonArray tabs;
+    for (const QJsonValue &splitter : deferred->tabs) {
+        tabs.append(remapRestoredSessionIds(splitter.toObject(), deferred->restoredSessions));
+    }
+    return tabs;
+}
+
+int ViewManager::projectActiveTabForSaving(TabbedViewContainer *container) const
+{
+    const auto deferred = _deferredProjects.constFind(container);
+    return deferred != _deferredProjects.cend() ? deferred->activeTab : (container != nullptr ? container->currentIndex() : 0);
 }
 
 void ViewManager::loadLayout(QString file)
@@ -2165,17 +2297,29 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
                 reusedInitialProject = true;
             } else {
                 container = createContainer();
-                _workspaceContainer->addProject(container, title);
+                _workspaceContainer->addProject(container, title, ProjectWorkspaceContainer::ActivationPolicy::KeepCurrent);
             }
 
             const auto tabs = projectObject[QStringLiteral("Tabs")].toArray();
             const int activeTab = projectObject[QStringLiteral("Active")].toInt(0);
-            restoreTabsIntoContainer(this, container, tabs, activeTab, useSessionIds);
+            DeferredProjectRestore deferred;
+            deferred.tabs = tabs;
+            deferred.activeTab = activeTab;
+            deferred.useSessionIds = useSessionIds;
+            if (useSessionIds) {
+                for (const QJsonValue &splitter : tabs) {
+                    collectRestoredSessions(splitter.toObject(), deferred.restoredSessions);
+                }
+            }
+            _deferredProjects.insert(container, deferred);
+            _workspaceContainer->setProjectSummary(container, QString(), qMax(1, int(tabs.size())), 0, false);
             restoredContainers.append(container);
         }
 
         const int activeProject = qBound(0, group.readEntry("ActiveProject", 0), restoredContainers.count() - 1);
-        _workspaceContainer->activateProject(restoredContainers.at(activeProject));
+        auto *activeProjectContainer = restoredContainers.at(activeProject);
+        restoreProjectIfNeeded(activeProjectContainer);
+        _workspaceContainer->activateProject(activeProjectContainer);
         return;
     }
 
@@ -3132,6 +3276,8 @@ void ViewManager::moveTabToProject(TabbedViewContainer *sourceContainer, int tab
     if (splitter == nullptr) {
         return;
     }
+
+    restoreProjectIfNeeded(targetContainer);
 
     const auto terminals = splitter->findChildren<TerminalDisplay *>();
     sourceContainer->moveTabToContainer(tabIndex, targetContainer);
