@@ -9,8 +9,11 @@
 
 #include <QCursor>
 #include <QTabBar>
+#include <QTimer>
 
 #include <optional>
+
+#include "widgets/TerminalTabStatus.h"
 
 class QColor;
 class QPaintEvent;
@@ -22,6 +25,8 @@ class TabbedViewContainer;
 struct DetachableTabData {
     QColor color;
     std::optional<int> progress;
+    TerminalTabStatus status = TerminalTabStatus::None;
+    QString baseToolTip;
 };
 
 class DetachableTabBar : public QTabBar
@@ -41,6 +46,9 @@ public:
     void setActivityColor(int idx, const QColor &color);
 
     void setProgress(int idx, const std::optional<int> &progress);
+    void setStatus(int idx, TerminalTabStatus status);
+    TerminalTabStatus status(int idx) const;
+    void setBaseToolTip(int idx, const QString &toolTip);
 
 Q_SIGNALS:
     void detachTab(int index);
@@ -56,15 +64,19 @@ protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void tabRemoved(int index) override;
 
 private:
     void setDetachableTabData(int idx, const DetachableTabData &data);
+    void updateStatusAnimationTimer();
+    void updateTabToolTip(int idx, const DetachableTabData &data);
 
     DragType dragType;
     QCursor _originalCursor;
     QList<TabbedViewContainer *> _containers;
     int tabId;
     QColor _activityColor;
+    QTimer _statusAnimationTimer;
 };
 }
 

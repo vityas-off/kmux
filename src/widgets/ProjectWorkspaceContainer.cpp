@@ -229,8 +229,9 @@ public:
         const QString processBadge = processCount > 0 ? badgeText(processCount) : QString();
         const QString statusBadge = projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
             ? QStringLiteral("!")
-            : (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running && processBadge.isEmpty() ? i18nc("@info:project status short", "run")
-                                                                                                            : QString());
+            : (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running
+                   ? i18nc("@info:project status short", "run")
+                   : (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Idle ? i18nc("@info:project status short", "idle") : QString()));
         const int tabsIndicatorWidth = indicatorWidth(indicatorMetrics, tabsBadge);
         const int processIndicatorWidth = indicatorWidth(indicatorMetrics, processBadge);
         const int statusIndicatorWidth = indicatorWidth(indicatorMetrics, statusBadge);
@@ -286,20 +287,18 @@ public:
         if (!tabsIndicatorRect.isNull()) {
             drawInlineIndicator(painter, tabsIndicatorRect, tabsBadge, indicatorColor, indicatorFont, drawTabIndicatorIcon);
         }
-        QColor processIndicatorColor = indicatorColor;
-        if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running) {
-            processIndicatorColor = runningPulseColor(indicatorColor, highlightColor, selected);
-        }
         if (!processIndicatorRect.isNull()) {
-            drawInlineIndicator(painter, processIndicatorRect, processBadge, processIndicatorColor, indicatorFont, drawProcessIndicatorIcon);
+            drawInlineIndicator(painter, processIndicatorRect, processBadge, indicatorColor, indicatorFont, drawProcessIndicatorIcon);
         }
         if (!statusIndicatorRect.isNull()) {
             QColor statusColor;
             if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
                 const KColorScheme viewScheme(itemOption.palette.currentColorGroup(), KColorScheme::View);
                 statusColor = viewScheme.foreground(KColorScheme::NeutralText).color();
-            } else {
+            } else if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running) {
                 statusColor = runningPulseColor(indicatorColor, highlightColor, selected);
+            } else {
+                statusColor = blendedColor(indicatorColor, highlightColor, selected ? 0.58 : 0.44);
             }
             drawInlineIndicator(painter, statusIndicatorRect, statusBadge, statusColor, indicatorFont, drawProcessIndicatorIcon);
         } else if (!activityRect.isNull()) {

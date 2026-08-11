@@ -557,6 +557,102 @@ void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
     QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::None);
 }
 
+void ViewManagerTest::testTerminalTabsTrackSessionStatusesIndependently()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    const int firstTabIndex = project->currentIndex();
+    auto *firstTerminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(firstTerminal != nullptr);
+    Session *firstSession = firstTerminal->sessionController()->session();
+    QVERIFY(firstSession != nullptr);
+
+    mw.newTab();
+    const int secondTabIndex = project->currentIndex();
+    QVERIFY(secondTabIndex != firstTabIndex);
+    auto *secondTerminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(secondTerminal != nullptr);
+    Session *secondSession = secondTerminal->sessionController()->session();
+    QVERIFY(secondSession != nullptr);
+    QVERIFY(secondSession != firstSession);
+
+    firstSession->setProjectStatus(QStringLiteral("needsInput"));
+    secondSession->setProjectStatus(QStringLiteral("idle"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::NeedsInput);
+    QCOMPARE(project->terminalTabStatus(secondTabIndex), TerminalTabStatus::AgentIdle);
+
+    secondSession->setProjectStatus(QStringLiteral("running"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::NeedsInput);
+    QCOMPARE(project->terminalTabStatus(secondTabIndex), TerminalTabStatus::AgentRunning);
+
+    firstSession->setProjectStatus(QStringLiteral("none"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::None);
+    QCOMPARE(project->terminalTabStatus(secondTabIndex), TerminalTabStatus::AgentRunning);
+
+    project->setCurrentIndex(firstTabIndex);
+    viewManager->splitLeftRight();
+    QCOMPARE(project->currentTabViewCount(), 2);
+    const auto splitTerminals = project->viewSplitterAt(firstTabIndex)->findChildren<TerminalDisplay *>();
+    QCOMPARE(splitTerminals.count(), 2);
+    auto *splitTerminal = splitTerminals.at(0)->sessionController()->session() == firstSession ? splitTerminals.at(1) : splitTerminals.at(0);
+    Session *splitSession = splitTerminal->sessionController()->session();
+    QVERIFY(splitSession != nullptr);
+    QVERIFY(splitSession != firstSession);
+
+    splitSession->setProjectStatus(QStringLiteral("idle"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::AgentIdle);
+    firstSession->setProjectStatus(QStringLiteral("needsInput"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::NeedsInput);
+}
+
+void ViewManagerTest::testForegroundProcessAndIdleAgentUseDifferentStatuses()
+{
+#ifndef Q_OS_UNIX
+    QSKIP("Foreground process checks are only available on Unix platforms.");
+#else
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    const int tabIndex = project->currentIndex();
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+    session->run();
+    QTRY_VERIFY(session->isRunning());
+    QTRY_VERIFY(!session->isForegroundProcessActive());
+
+    session->sendTextToTerminal(QStringLiteral("sleep 30\n"));
+    QTRY_VERIFY(session->isForegroundProcessActive());
+    viewManager->refreshProjectSummary(project);
+    QCOMPARE(project->terminalTabStatus(tabIndex), TerminalTabStatus::ForegroundProcess);
+    QCOMPARE(workspaces->projectActiveProcessCount(project), 1);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("SessionStart"), {}, {}, {});
+    QCOMPARE(project->terminalTabStatus(tabIndex), TerminalTabStatus::AgentIdle);
+    QCOMPARE(workspaces->projectActiveProcessCount(project), 0);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("none"), processId, QStringLiteral("claude"), QStringLiteral("SessionEnd"), {}, {}, {});
+    QCOMPARE(project->terminalTabStatus(tabIndex), TerminalTabStatus::ForegroundProcess);
+    QCOMPARE(workspaces->projectActiveProcessCount(project), 1);
+
+    session->sendSignal(SIGINT);
+    QTRY_VERIFY(!session->isForegroundProcessActive());
+#endif
+}
+
 void ViewManagerTest::testRunningAgentsControlSleepInhibition()
 {
     auto *inhibitor = AgentSleepInhibitor::instance();

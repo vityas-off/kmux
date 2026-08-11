@@ -470,6 +470,7 @@ void TabbedViewContainer::addView(TerminalDisplay *view)
     auto item = view->sessionController();
     int index = _newTabBehavior == PutNewTabAfterCurrentTab ? currentIndex() + 1 : -1;
     index = insertTab(index, viewSplitter, item->icon(), item->title());
+    qobject_cast<DetachableTabBar *>(tabBar())->setBaseToolTip(index, item->title());
 
     connectTerminalDisplay(view);
     connect(viewSplitter, &ViewSplitter::destroyed, this, &TabbedViewContainer::viewDestroyed);
@@ -695,7 +696,7 @@ void TabbedViewContainer::updateTitle(ViewProperties *item)
     const int index = indexOf(topLevelSplitter);
     QString tabText = item->title();
 
-    setTabToolTip(index, tabText);
+    qobject_cast<DetachableTabBar *>(tabBar())->setBaseToolTip(index, tabText);
 
     // To avoid having & replaced with _ (shortcut indicator)
     tabText.replace(QLatin1Char('&'), QLatin1String("&&"));
@@ -876,6 +877,22 @@ void TabbedViewContainer::updateProgress(ViewProperties *item)
     const int index = indexOf(topLevelSplitter);
 
     Q_EMIT setProgress(index, item->progress());
+}
+
+void TabbedViewContainer::setTerminalTabStatus(int index, TerminalTabStatus status)
+{
+    if (auto *detachableTabBar = qobject_cast<DetachableTabBar *>(tabBar())) {
+        detachableTabBar->setStatus(index, status);
+    }
+}
+
+TerminalTabStatus TabbedViewContainer::terminalTabStatus(int index) const
+{
+    if (auto *detachableTabBar = qobject_cast<DetachableTabBar *>(tabBar())) {
+        return detachableTabBar->status(index);
+    }
+
+    return TerminalTabStatus::None;
 }
 
 void TabbedViewContainer::currentSessionControllerChanged(SessionController *controller)

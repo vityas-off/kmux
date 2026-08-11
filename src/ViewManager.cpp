@@ -68,6 +68,7 @@
 
 #include "terminalDisplay/TerminalDisplay.h"
 #include "widgets/ProjectWorkspaceContainer.h"
+#include "widgets/TerminalTabStatus.h"
 #include "widgets/ViewContainer.h"
 #include "widgets/ViewSplitter.h"
 
@@ -139,6 +140,44 @@ ProjectWorkspaceContainer::ProjectStatus higherPriorityProjectStatus(ProjectWork
         case ProjectWorkspaceContainer::ProjectStatus::Idle:
             return 1;
         case ProjectWorkspaceContainer::ProjectStatus::None:
+            return 0;
+        }
+
+        return 0;
+    };
+
+    return priority(candidate) > priority(current) ? candidate : current;
+}
+
+TerminalTabStatus terminalTabStatusFromProjectStatus(ProjectWorkspaceContainer::ProjectStatus status)
+{
+    switch (status) {
+    case ProjectWorkspaceContainer::ProjectStatus::NeedsInput:
+        return TerminalTabStatus::NeedsInput;
+    case ProjectWorkspaceContainer::ProjectStatus::Running:
+        return TerminalTabStatus::AgentRunning;
+    case ProjectWorkspaceContainer::ProjectStatus::Idle:
+        return TerminalTabStatus::AgentIdle;
+    case ProjectWorkspaceContainer::ProjectStatus::None:
+        return TerminalTabStatus::None;
+    }
+
+    return TerminalTabStatus::None;
+}
+
+TerminalTabStatus higherPriorityTerminalTabStatus(TerminalTabStatus current, TerminalTabStatus candidate)
+{
+    auto priority = [](TerminalTabStatus status) {
+        switch (status) {
+        case TerminalTabStatus::NeedsInput:
+            return 4;
+        case TerminalTabStatus::AgentRunning:
+            return 3;
+        case TerminalTabStatus::AgentIdle:
+            return 2;
+        case TerminalTabStatus::ForegroundProcess:
+            return 1;
+        case TerminalTabStatus::None:
             return 0;
         }
 
@@ -3150,6 +3189,44 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
         subtitle = activeDirectory;
     }
 
+    QHash<Session *, bool> foregroundProcessStates;
+    auto hasForegroundProcess = [&foregroundProcessStates](Session *session) {
+        const auto knownState = foregroundProcessStates.constFind(session);
+        if (knownState != foregroundProcessStates.cend()) {
+            return knownState.value();
+        }
+
+        bool hasForegroundProcess = false;
+        if (session != nullptr && session->isRunning() && session->isForegroundProcessActive()) {
+            const QString defaultProcess = QFileInfo(session->program()).fileName();
+            const QString currentProcess = QFileInfo(session->foregroundProcessName()).fileName();
+            hasForegroundProcess = !currentProcess.isEmpty() && currentProcess != defaultProcess;
+        }
+        foregroundProcessStates.insert(session, hasForegroundProcess);
+        return hasForegroundProcess;
+    };
+
+    for (int tabIndex = 0; tabIndex < container->count(); ++tabIndex) {
+        auto tabStatus = TerminalTabStatus::None;
+        auto *splitter = container->viewSplitterAt(tabIndex);
+        QSet<Session *> seenTabSessions;
+        const auto tabTerminals = splitter != nullptr ? splitter->findChildren<TerminalDisplay *>() : QList<TerminalDisplay *>();
+        for (TerminalDisplay *terminal : tabTerminals) {
+            Session *session = _sessionMap.value(terminal);
+            if (session == nullptr || seenTabSessions.contains(session)) {
+                continue;
+            }
+
+            seenTabSessions.insert(session);
+            const auto reportedStatus = _sessionProjectStatuses.constFind(session);
+            const auto candidateStatus = reportedStatus != _sessionProjectStatuses.cend()
+                ? terminalTabStatusFromProjectStatus(reportedStatus->status)
+                : (hasForegroundProcess(session) ? TerminalTabStatus::ForegroundProcess : TerminalTabStatus::None);
+            tabStatus = higherPriorityTerminalTabStatus(tabStatus, candidateStatus);
+        }
+        container->setTerminalTabStatus(tabIndex, tabStatus);
+    }
+
     int activeProcessCount = 0;
     bool hasActivity = false;
     auto projectStatus = ProjectWorkspaceContainer::ProjectStatus::None;
@@ -3163,14 +3240,10 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
 
         seenSessions.insert(session);
         hasActivity = hasActivity || session->activeNotifications() != Session::NoNotification || _sessionsNeedingAttention.contains(session);
-        projectStatus = higherPriorityProjectStatus(projectStatus, _sessionProjectStatuses.value(session).status);
-        if (!session->isRunning() || !session->isForegroundProcessActive()) {
-            continue;
-        }
-
-        const QString defaultProcess = QFileInfo(session->program()).fileName();
-        const QString currentProcess = QFileInfo(session->foregroundProcessName()).fileName();
-        if (!currentProcess.isEmpty() && currentProcess != defaultProcess) {
+        const auto reportedStatus = _sessionProjectStatuses.constFind(session);
+        if (reportedStatus != _sessionProjectStatuses.cend()) {
+            projectStatus = higherPriorityProjectStatus(projectStatus, reportedStatus->status);
+        } else if (hasForegroundProcess(session)) {
             ++activeProcessCount;
         }
     }

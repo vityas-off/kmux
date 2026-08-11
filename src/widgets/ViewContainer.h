@@ -15,6 +15,7 @@
 #include "ViewManager.h"
 #include "containers/ContainerInfo.h"
 #include "session/Session.h"
+#include "widgets/TerminalTabStatus.h"
 
 // Qt
 class QPoint;
@@ -81,6 +82,10 @@ public:
     void updateSpecialState(ViewProperties *item);
     /** Sets tab progress */
     void updateProgress(ViewProperties *item);
+
+    /** Sets the aggregated process or agent status shown on a terminal tab. */
+    void setTerminalTabStatus(int index, TerminalTabStatus status);
+    TerminalTabStatus terminalTabStatus(int index) const;
 
     /** Changes the active view to the next view */
     void activateNextView();
