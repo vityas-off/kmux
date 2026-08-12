@@ -9,7 +9,6 @@
 
 #include <QCursor>
 #include <QTabBar>
-#include <QTimer>
 
 #include <optional>
 
@@ -64,11 +63,9 @@ protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
-    void tabRemoved(int index) override;
 
 private:
     void setDetachableTabData(int idx, const DetachableTabData &data);
-    void updateStatusAnimationTimer();
     void updateTabToolTip(int idx, const DetachableTabData &data);
 
     DragType dragType;
@@ -76,7 +73,6 @@ private:
     QList<TabbedViewContainer *> _containers;
     int tabId;
     QColor _activityColor;
-    QTimer _statusAnimationTimer;
 };
 }
 

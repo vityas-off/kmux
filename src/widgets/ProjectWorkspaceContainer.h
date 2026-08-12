@@ -51,9 +51,11 @@ public:
     int projectTabCount(TabbedViewContainer *container) const;
     int projectActiveProcessCount(TabbedViewContainer *container) const;
     bool projectHasActivity(TabbedViewContainer *container) const;
+    bool projectIsLoaded(TabbedViewContainer *container) const;
     ProjectStatus projectStatus(TabbedViewContainer *container) const;
     QString projectNotification(TabbedViewContainer *container) const;
     void setProjectNotification(TabbedViewContainer *container, const QString &notification);
+    void setProjectLoaded(TabbedViewContainer *container, bool loaded);
     void setProjectSummary(TabbedViewContainer *container,
                            const QString &subtitle,
                            int tabCount,

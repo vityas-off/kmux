@@ -186,6 +186,22 @@ TerminalTabStatus higherPriorityTerminalTabStatus(TerminalTabStatus current, Ter
 
     return priority(candidate) > priority(current) ? candidate : current;
 }
+
+QString displayWorkingDirectory(QString directory)
+{
+    if (directory.isEmpty()) {
+        return {};
+    }
+
+    const QString homePath = QDir::homePath();
+    if (directory == homePath) {
+        return QStringLiteral("~");
+    }
+    if (directory.startsWith(homePath + QLatin1Char('/'))) {
+        return QStringLiteral("~/") + directory.mid(homePath.length() + 1);
+    }
+    return directory;
+}
 }
 
 ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
@@ -1856,6 +1872,47 @@ QJsonArray saveContainerSessions(TabbedViewContainer *container)
     return rootArray;
 }
 
+QString activeContainerWorkingDirectory(TabbedViewContainer *container)
+{
+    if (container == nullptr) {
+        return {};
+    }
+
+    auto *splitter = container->activeViewSplitter();
+    auto *terminal = splitter != nullptr ? splitter->activeTerminalDisplay() : nullptr;
+    auto *controller = terminal != nullptr ? terminal->sessionController() : nullptr;
+    return controller != nullptr ? controller->currentDir() : QString();
+}
+
+QString firstSavedWorkingDirectory(const QJsonObject &object)
+{
+    if (object.contains(QStringLiteral("WorkingDirectory"))) {
+        const QString directory = object[QStringLiteral("WorkingDirectory")].toString();
+        if (!directory.isEmpty()) {
+            return directory;
+        }
+    }
+
+    const QJsonArray widgets = object[QStringLiteral("Widgets")].toArray();
+    for (const QJsonValue &widget : widgets) {
+        const QString directory = firstSavedWorkingDirectory(widget.toObject());
+        if (!directory.isEmpty()) {
+            return directory;
+        }
+    }
+    return {};
+}
+
+QString savedProjectWorkingDirectory(const QJsonArray &tabs, int activeTab)
+{
+    if (tabs.isEmpty()) {
+        return {};
+    }
+
+    const int tabIndex = qBound(0, activeTab, int(tabs.size()) - 1);
+    return firstSavedWorkingDirectory(tabs.at(tabIndex).toObject());
+}
+
 } // namespace
 
 void ViewManager::saveLayoutFile()
@@ -1912,9 +1969,17 @@ void ViewManager::saveSessions(KConfigGroup &group)
             }
 
             QJsonObject project;
+            const QJsonArray tabs = projectTabsForSaving(projectContainer);
+            const int activeTab = projectActiveTabForSaving(projectContainer);
             project.insert(QStringLiteral("Title"), _workspaceContainer->projectTitle(projectContainer));
-            project.insert(QStringLiteral("Tabs"), projectTabsForSaving(projectContainer));
-            project.insert(QStringLiteral("Active"), projectActiveTabForSaving(projectContainer));
+            project.insert(QStringLiteral("Tabs"), tabs);
+            project.insert(QStringLiteral("Active"), activeTab);
+            const auto deferred = _deferredProjects.constFind(projectContainer);
+            QString lastDirectory = deferred != _deferredProjects.cend() ? deferred->lastDirectory : activeContainerWorkingDirectory(projectContainer);
+            if (lastDirectory.isEmpty()) {
+                lastDirectory = savedProjectWorkingDirectory(tabs, activeTab);
+            }
+            project.insert(QStringLiteral("LastDirectory"), lastDirectory);
             projectArray.append(project);
         }
     }
@@ -2181,6 +2246,9 @@ void ViewManager::restoreProjectIfNeeded(TabbedViewContainer *container)
     _deferredProjects.erase(deferred);
     const auto *restoredSessions = state.useSessionIds ? &state.restoredSessions : nullptr;
     restoreTabsIntoContainer(this, container, state.tabs, state.activeTab, state.useSessionIds, restoredSessions);
+    if (!_workspaceContainer.isNull()) {
+        _workspaceContainer->setProjectLoaded(container, true);
+    }
     refreshProjectSummary(container);
 }
 
@@ -2305,6 +2373,10 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
             DeferredProjectRestore deferred;
             deferred.tabs = tabs;
             deferred.activeTab = activeTab;
+            deferred.lastDirectory = projectObject[QStringLiteral("LastDirectory")].toString();
+            if (deferred.lastDirectory.isEmpty()) {
+                deferred.lastDirectory = savedProjectWorkingDirectory(tabs, activeTab);
+            }
             deferred.useSessionIds = useSessionIds;
             if (useSessionIds) {
                 for (const QJsonValue &splitter : tabs) {
@@ -2312,7 +2384,8 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
                 }
             }
             _deferredProjects.insert(container, deferred);
-            _workspaceContainer->setProjectSummary(container, QString(), qMax(1, int(tabs.size())), 0, false);
+            _workspaceContainer->setProjectSummary(container, displayWorkingDirectory(deferred.lastDirectory), qMax(1, int(tabs.size())), 0, false);
+            _workspaceContainer->setProjectLoaded(container, false);
             restoredContainers.append(container);
         }
 
@@ -3317,14 +3390,7 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
         }
     }
 
-    if (!activeDirectory.isEmpty()) {
-        const QString homePath = QDir::homePath();
-        if (activeDirectory == homePath) {
-            activeDirectory = QStringLiteral("~");
-        } else if (activeDirectory.startsWith(homePath + QLatin1Char('/'))) {
-            activeDirectory = QStringLiteral("~/") + activeDirectory.mid(homePath.length() + 1);
-        }
-    }
+    activeDirectory = displayWorkingDirectory(activeDirectory);
 
     QString subtitle;
     if (!activeTitle.isEmpty() && !activeDirectory.isEmpty()) {

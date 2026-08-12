@@ -8,6 +8,7 @@
 #define VIEWCONTAINER_H
 
 // Qt
+#include <QIcon>
 #include <QObject>
 #include <QTabWidget>
 
@@ -254,16 +255,19 @@ private:
             : readOnly(false)
             , broadcast(false)
             , notification(Session::NoNotification)
+            , status(TerminalTabStatus::None)
         {
         }
 
         bool readOnly;
         bool broadcast;
         Session::Notification notification;
+        TerminalTabStatus status;
+        QIcon statusIcon;
 
         bool isAnyStateActive() const
         {
-            return readOnly || broadcast || (notification != Session::NoNotification);
+            return readOnly || broadcast || (notification != Session::NoNotification) || status != TerminalTabStatus::None;
         }
     };
 

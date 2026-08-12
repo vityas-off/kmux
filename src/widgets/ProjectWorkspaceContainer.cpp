@@ -51,6 +51,7 @@ enum ProjectRoles {
     TabCountRole,
     ActiveProcessCountRole,
     HasActivityRole,
+    LoadedRole,
     ProjectStatusRole,
 };
 
@@ -218,6 +219,7 @@ public:
         const int tabCount = index.data(TabCountRole).toInt();
         const int processCount = index.data(ActiveProcessCountRole).toInt();
         const bool hasActivity = index.data(HasActivityRole).toBool();
+        const bool loaded = index.data(LoadedRole).toBool();
         const auto projectStatus = static_cast<ProjectWorkspaceContainer::ProjectStatus>(index.data(ProjectStatusRole).toInt());
 
         const QRect contentRect = rect;
@@ -267,6 +269,10 @@ public:
             activityRect = QRect(indicatorLeft, indicatorsRect.center().y() - 3, 7, 7);
         }
 
+        if (!loaded) {
+            painter->setOpacity(0.62);
+        }
+
         QFont titleFont = itemOption.font;
         titleFont.setBold(true);
         painter->setFont(titleFont);
@@ -277,6 +283,7 @@ public:
         if (!selected) {
             subtitleFont.setPointSize(qMax(1, subtitleFont.pointSize() - 1));
         }
+
         painter->setFont(subtitleFont);
         painter->setPen(subtleColor);
         const QFontMetrics subtitleMetrics(subtitleFont);
@@ -298,7 +305,8 @@ public:
             } else if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running) {
                 statusColor = runningPulseColor(indicatorColor, highlightColor, selected);
             } else {
-                statusColor = blendedColor(indicatorColor, highlightColor, selected ? 0.58 : 0.44);
+                const KColorScheme viewScheme(itemOption.palette.currentColorGroup(), KColorScheme::View);
+                statusColor = viewScheme.foreground(KColorScheme::PositiveText).color();
             }
             drawInlineIndicator(painter, statusIndicatorRect, statusBadge, statusColor, indicatorFont, drawProcessIndicatorIcon);
         } else if (!activityRect.isNull()) {
@@ -574,6 +582,16 @@ bool ProjectWorkspaceContainer::projectHasActivity(TabbedViewContainer *containe
     return _model->projectAt(index).hasActivity;
 }
 
+bool ProjectWorkspaceContainer::projectIsLoaded(TabbedViewContainer *container) const
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return false;
+    }
+
+    return _model->projectAt(index).loaded;
+}
+
 ProjectWorkspaceContainer::ProjectStatus ProjectWorkspaceContainer::projectStatus(TabbedViewContainer *container) const
 {
     const int index = indexOf(container);
@@ -602,6 +620,16 @@ void ProjectWorkspaceContainer::setProjectNotification(TabbedViewContainer *cont
     }
 
     _model->setProjectNotification(projectId(container), notification);
+}
+
+void ProjectWorkspaceContainer::setProjectLoaded(TabbedViewContainer *container, bool loaded)
+{
+    const int index = indexOf(container);
+    if (index < 0) {
+        return;
+    }
+
+    _model->setProjectLoaded(projectId(container), loaded);
 }
 
 void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container,
@@ -795,6 +823,7 @@ void ProjectWorkspaceContainer::updateListItem(int index)
     item->setData(TabCountRole, project.tabCount);
     item->setData(ActiveProcessCountRole, project.activeProcessCount);
     item->setData(HasActivityRole, project.hasActivity);
+    item->setData(LoadedRole, project.loaded);
     item->setData(ProjectStatusRole, static_cast<int>(project.status));
     QString tooltip = project.subtitle.isEmpty() ? project.title : QStringLiteral("%1\n%2").arg(project.title, project.subtitle);
     const QString statusText = projectStatusText(project.status);

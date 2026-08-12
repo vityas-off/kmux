@@ -15,6 +15,9 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPixmap>
 #include <QTabBar>
 
 // KDE
@@ -42,6 +45,68 @@
 // TODO Perhaps move everything which is Konsole-specific into different files
 
 using namespace Konsole;
+
+static QIcon terminalTabStatusIcon(TerminalTabStatus status, const QPalette &palette)
+{
+    if (status == TerminalTabStatus::None) {
+        return {};
+    }
+
+    QPixmap pixmap(16, 16);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    const KColorScheme viewScheme(palette.currentColorGroup(), KColorScheme::View);
+    switch (status) {
+    case TerminalTabStatus::ForegroundProcess: {
+        QColor color = palette.color(QPalette::Text);
+        color.setAlpha(190);
+        QPen pen(color, 1.4);
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        painter.setPen(pen);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(QRectF(1.5, 2.5, 13.0, 11.0), 1.5, 1.5);
+        painter.drawPolyline(QPolygonF({QPointF(4.0, 6.0), QPointF(6.5, 8.0), QPointF(4.0, 10.0)}));
+        painter.drawLine(QPointF(8.0, 10.0), QPointF(11.0, 10.0));
+        break;
+    }
+    case TerminalTabStatus::AgentIdle: {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(viewScheme.foreground(KColorScheme::PositiveText).color());
+        painter.drawRoundedRect(QRectF(3.5, 2.5, 3.5, 11.0), 1.0, 1.0);
+        painter.drawRoundedRect(QRectF(9.0, 2.5, 3.5, 11.0), 1.0, 1.0);
+        break;
+    }
+    case TerminalTabStatus::AgentRunning: {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(palette.color(QPalette::Highlight));
+        QPainterPath path;
+        path.moveTo(4.0, 2.5);
+        path.lineTo(13.0, 8.0);
+        path.lineTo(4.0, 13.5);
+        path.closeSubpath();
+        painter.drawPath(path);
+        break;
+    }
+    case TerminalTabStatus::NeedsInput: {
+        const QColor color = viewScheme.foreground(KColorScheme::NeutralText).color();
+        painter.setPen(QPen(color, 1.5));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(QRectF(2.0, 2.0, 12.0, 12.0));
+        painter.setPen(QPen(color, 2.0, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(QPointF(8.0, 5.0), QPointF(8.0, 9.0));
+        painter.drawPoint(QPointF(8.0, 11.5));
+        break;
+    }
+    case TerminalTabStatus::None:
+        break;
+    }
+
+    return QIcon(pixmap);
+}
 
 static QString containerBadgeColorStyle(const QColor &color)
 {
@@ -816,9 +881,13 @@ void TabbedViewContainer::updateIcon(ViewProperties *item)
         icon = QIcon::fromTheme(QLatin1String("irc-voice"));
     } else if (state.readOnly) {
         icon = QIcon::fromTheme(QLatin1String("object-locked"));
+    } else if (state.status != TerminalTabStatus::None) {
+        icon = state.statusIcon;
     }
 
-    if (tabIcon(index).name() != icon.name()) {
+    const QIcon currentIcon = tabIcon(index);
+    const bool sameNamedIcon = !icon.name().isEmpty() && currentIcon.name() == icon.name();
+    if (!sameNamedIcon && currentIcon.cacheKey() != icon.cacheKey()) {
         setTabIcon(index, icon);
     }
 }
@@ -883,6 +952,23 @@ void TabbedViewContainer::setTerminalTabStatus(int index, TerminalTabStatus stat
 {
     if (auto *detachableTabBar = qobject_cast<DetachableTabBar *>(tabBar())) {
         detachableTabBar->setStatus(index, status);
+    }
+
+    auto *splitter = viewSplitterAt(index);
+    if (splitter == nullptr) {
+        return;
+    }
+
+    auto &state = _tabIconState[splitter];
+    if (state.status == status) {
+        return;
+    }
+
+    state.status = status;
+    state.statusIcon = terminalTabStatusIcon(status, tabBar()->palette());
+    auto *terminal = splitter->activeTerminalDisplay();
+    if (terminal != nullptr && terminal->sessionController() != nullptr) {
+        updateIcon(terminal->sessionController());
     }
 }
 

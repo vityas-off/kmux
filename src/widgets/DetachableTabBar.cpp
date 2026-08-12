@@ -9,44 +9,19 @@
 #include "widgets/ViewContainer.h"
 
 #include <QApplication>
-#include <QDateTime>
 #include <QMimeData>
 #include <QMouseEvent>
 
 #include <KAcceleratorManager>
-#include <KColorScheme>
 #include <KLocalizedString>
 
 #include <QColor>
 #include <QPainter>
 
-#include <cmath>
-
 namespace Konsole
 {
 namespace
 {
-QColor blendedColor(const QColor &background, const QColor &foreground, qreal foregroundOpacity)
-{
-    const qreal backgroundOpacity = 1.0 - foregroundOpacity;
-    return QColor::fromRgbF((background.redF() * backgroundOpacity) + (foreground.redF() * foregroundOpacity),
-                            (background.greenF() * backgroundOpacity) + (foreground.greenF() * foregroundOpacity),
-                            (background.blueF() * backgroundOpacity) + (foreground.blueF() * foregroundOpacity),
-                            1.0);
-}
-
-QColor runningPulseColor(const QColor &baseColor, const QColor &highlightColor, bool selected)
-{
-    constexpr qint64 PulseDurationMs = 1400;
-    constexpr qreal FullTurn = 6.2831853071795864769;
-
-    const qreal progress = static_cast<qreal>(QDateTime::currentMSecsSinceEpoch() % PulseDurationMs) / PulseDurationMs;
-    const qreal wave = (std::sin(progress * FullTurn) + 1.0) / 2.0;
-    const qreal minimumOpacity = selected ? 0.50 : 0.34;
-    const qreal maximumOpacity = selected ? 0.88 : 0.72;
-    return blendedColor(baseColor, highlightColor, minimumOpacity + ((maximumOpacity - minimumOpacity) * wave));
-}
-
 QString terminalTabStatusText(TerminalTabStatus status)
 {
     switch (status) {
@@ -72,16 +47,10 @@ DetachableTabBar::DetachableTabBar(QWidget *parent)
     , _originalCursor(cursor())
     , tabId(-1)
     , _activityColor(QColor::Invalid)
-    , _statusAnimationTimer(this)
 {
     setAcceptDrops(true);
     setElideMode(Qt::TextElideMode::ElideLeft);
     KAcceleratorManager::setNoAccel(this);
-
-    _statusAnimationTimer.setInterval(80);
-    connect(&_statusAnimationTimer, &QTimer::timeout, this, [this]() {
-        update();
-    });
 }
 
 void DetachableTabBar::setColor(int idx, const QColor &color)
@@ -135,7 +104,6 @@ void DetachableTabBar::setStatus(int idx, TerminalTabStatus status)
     data.status = status;
     setDetachableTabData(idx, data);
     updateTabToolTip(idx, data);
-    updateStatusAnimationTimer();
     update(tabRect(idx));
 }
 
@@ -171,25 +139,6 @@ void DetachableTabBar::setDetachableTabData(int idx, const DetachableTabData &da
         setTabData(idx, QVariant::fromValue(data));
     } else {
         setTabData(idx, QVariant());
-    }
-}
-
-void DetachableTabBar::updateStatusAnimationTimer()
-{
-    bool hasRunningAgent = false;
-    for (int tabIndex = 0; tabIndex < count(); ++tabIndex) {
-        if (status(tabIndex) == TerminalTabStatus::AgentRunning) {
-            hasRunningAgent = true;
-            break;
-        }
-    }
-
-    if (hasRunningAgent) {
-        if (!_statusAnimationTimer.isActive()) {
-            _statusAnimationTimer.start();
-        }
-    } else {
-        _statusAnimationTimer.stop();
     }
 }
 
@@ -312,7 +261,7 @@ void DetachableTabBar::paintEvent(QPaintEvent *event)
 
         const bool colorValid = tabData.color.isValid() && tabData.color.alpha() > 0;
 
-        if (!colorValid && !tabData.progress.has_value() && tabData.status == TerminalTabStatus::None) {
+        if (!colorValid && !tabData.progress.has_value()) {
             continue;
         }
 
@@ -338,49 +287,7 @@ void DetachableTabBar::paintEvent(QPaintEvent *event)
                 painter.drawRect(colorRect);
             }
         }
-
-        if (tabData.status != TerminalTabStatus::None) {
-            const QRect tabRectangle = tabRect(tabIndex);
-            QRect statusRect(tabRectangle.right() - 17, tabRectangle.bottom() - 5, 14, 3);
-            QColor statusColor = blendedColor(palette().color(QPalette::PlaceholderText), palette().color(QPalette::Text), 0.48);
-
-            switch (tabData.status) {
-            case TerminalTabStatus::ForegroundProcess:
-                painter.setBrush(Qt::NoBrush);
-                painter.setPen(QPen(statusColor, 1.0));
-                painter.drawRoundedRect(QRectF(statusRect).adjusted(0.5, 0.5, -0.5, -0.5), 1.0, 1.0);
-                break;
-            case TerminalTabStatus::AgentIdle:
-                statusColor = blendedColor(statusColor, palette().highlight().color(), 0.52);
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(statusColor);
-                painter.drawRoundedRect(statusRect, 1.0, 1.0);
-                break;
-            case TerminalTabStatus::AgentRunning:
-                statusColor = runningPulseColor(statusColor, palette().highlight().color(), tabIndex == currentIndex());
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(statusColor);
-                painter.drawRoundedRect(statusRect, 1.0, 1.0);
-                break;
-            case TerminalTabStatus::NeedsInput: {
-                const KColorScheme viewScheme(palette().currentColorGroup(), KColorScheme::View);
-                statusColor = viewScheme.foreground(KColorScheme::NeutralText).color();
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(statusColor);
-                painter.drawRoundedRect(statusRect, 1.0, 1.0);
-                break;
-            }
-            case TerminalTabStatus::None:
-                break;
-            }
-        }
     }
-}
-
-void DetachableTabBar::tabRemoved(int index)
-{
-    QTabBar::tabRemoved(index);
-    updateStatusAnimationTimer();
 }
 }
 

@@ -617,6 +617,7 @@ private:
     struct DeferredProjectRestore {
         QJsonArray tabs;
         int activeTab = 0;
+        QString lastDirectory;
         bool useSessionIds = false;
         QHash<int, QPointer<Session>> restoredSessions;
     };

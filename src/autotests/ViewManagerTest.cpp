@@ -580,18 +580,35 @@ void ViewManagerTest::testTerminalTabsTrackSessionStatusesIndependently()
     QVERIFY(secondSession != nullptr);
     QVERIFY(secondSession != firstSession);
 
+    const qint64 firstBaseIcon = project->tabIcon(firstTabIndex).cacheKey();
+    const qint64 secondBaseIcon = project->tabIcon(secondTabIndex).cacheKey();
+
     firstSession->setProjectStatus(QStringLiteral("needsInput"));
     secondSession->setProjectStatus(QStringLiteral("idle"));
     QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::NeedsInput);
     QCOMPARE(project->terminalTabStatus(secondTabIndex), TerminalTabStatus::AgentIdle);
+    QVERIFY(!project->tabIcon(firstTabIndex).isNull());
+    QVERIFY(!project->tabIcon(secondTabIndex).isNull());
+    QVERIFY(project->tabIcon(firstTabIndex).cacheKey() != firstBaseIcon);
+    QVERIFY(project->tabIcon(secondTabIndex).cacheKey() != secondBaseIcon);
 
+    const qint64 needsInputIcon = project->tabIcon(firstTabIndex).cacheKey();
+    project->updateNotification(firstTerminal->sessionController(), Session::Activity, true);
+    QVERIFY(project->tabIcon(firstTabIndex).cacheKey() != needsInputIcon);
+    project->setCurrentIndex(firstTabIndex);
+    QCOMPARE(project->tabIcon(firstTabIndex).cacheKey(), needsInputIcon);
+    project->setCurrentIndex(secondTabIndex);
+
+    const qint64 idleIcon = project->tabIcon(secondTabIndex).cacheKey();
     secondSession->setProjectStatus(QStringLiteral("running"));
     QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::NeedsInput);
     QCOMPARE(project->terminalTabStatus(secondTabIndex), TerminalTabStatus::AgentRunning);
+    QVERIFY(project->tabIcon(secondTabIndex).cacheKey() != idleIcon);
 
     firstSession->setProjectStatus(QStringLiteral("none"));
     QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::None);
     QCOMPARE(project->terminalTabStatus(secondTabIndex), TerminalTabStatus::AgentRunning);
+    QCOMPARE(project->tabIcon(firstTabIndex).cacheKey(), firstBaseIcon);
 
     project->setCurrentIndex(firstTabIndex);
     viewManager->splitLeftRight();
@@ -1708,6 +1725,13 @@ void ViewManagerTest::testRestoreSessionsLazilyCreatesProjectWorkspacesWithoutSe
         sourceManager->saveSessions(group);
     }
 
+    const QString cachedDirectory = m_testDir->path();
+    QJsonArray savedProjects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+    QJsonObject firstSavedProject = savedProjects.at(0).toObject();
+    firstSavedProject.insert(QStringLiteral("LastDirectory"), cachedDirectory);
+    savedProjects[0] = firstSavedProject;
+    group.writeEntry("Projects", QJsonDocument(savedProjects).toJson(QJsonDocument::Compact));
+
     auto restoredWindow = MainWindow();
     auto *restoredManager = restoredWindow.viewManager();
     auto *restoredWorkspaces = restoredManager->_workspaceContainer.data();
@@ -1720,15 +1744,19 @@ void ViewManagerTest::testRestoreSessionsLazilyCreatesProjectWorkspacesWithoutSe
     QCOMPARE(restoredProjects.count(), 2);
     QCOMPARE(restoredProjects.at(0)->count(), 0);
     QCOMPARE(restoredWorkspaces->projectTabCount(restoredProjects.at(0)), 2);
+    QCOMPARE(restoredWorkspaces->projectSubtitle(restoredProjects.at(0)), cachedDirectory);
+    QVERIFY(!restoredWorkspaces->projectIsLoaded(restoredProjects.at(0)));
     QCOMPARE(restoredProjects.at(1)->count(), 2);
     QCOMPARE(restoredProjects.at(1)->currentIndex(), 1);
     QCOMPARE(restoredManager->activeContainer(), restoredProjects.at(1));
     QCOMPARE(restoredManager->sessionList().count(), 2);
+    QVERIFY(restoredWorkspaces->projectIsLoaded(restoredProjects.at(1)));
 
     restoredWorkspaces->activateProject(restoredProjects.at(0));
     QCOMPARE(restoredProjects.at(0)->count(), 2);
     QCOMPARE(restoredProjects.at(0)->currentIndex(), 1);
     QCOMPARE(restoredManager->sessionList().count(), 4);
+    QVERIFY(restoredWorkspaces->projectIsLoaded(restoredProjects.at(0)));
 
     restoredWorkspaces->activateProject(restoredProjects.at(1));
     QCOMPARE(restoredProjects.at(1)->currentIndex(), 1);
@@ -1777,6 +1805,7 @@ void ViewManagerTest::testSaveSessionsPreservesDeferredProjectWorkspaces()
     QCOMPARE(savedProjects.count(), 2);
     QCOMPARE(savedProjects.at(0).toObject()[QStringLiteral("Tabs")], originalProjects.at(0).toObject()[QStringLiteral("Tabs")]);
     QCOMPARE(savedProjects.at(0).toObject()[QStringLiteral("Active")], originalProjects.at(0).toObject()[QStringLiteral("Active")]);
+    QCOMPARE(savedProjects.at(0).toObject()[QStringLiteral("LastDirectory")], originalProjects.at(0).toObject()[QStringLiteral("LastDirectory")]);
 }
 
 void ViewManagerTest::testRestoredProjectTitlesDoNotDuplicateDefaultTitle()

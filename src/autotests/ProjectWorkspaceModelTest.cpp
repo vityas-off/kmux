@@ -30,11 +30,13 @@ void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
     QVERIFY(firstProject != secondProject);
     QCOMPARE(model.projectIds(), QList<ProjectWorkspaceModel::ProjectId>({firstProject, secondProject}));
     QCOMPARE(model.nextProjectNumber(), 3);
+    QVERIFY(model.project(firstProject).loaded);
 
     QVERIFY(model.setProjectTitle(firstProject, QStringLiteral("  Renamed  ")));
     QVERIFY(model.setProjectNotification(firstProject, QStringLiteral("  Build   finished  ")));
     QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("active tab"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::Running));
-    QCOMPARE(changedSpy.count(), 3);
+    QVERIFY(model.setProjectLoaded(firstProject, false));
+    QCOMPARE(changedSpy.count(), 4);
 
     const auto project = model.project(firstProject);
     QCOMPARE(project.title, QStringLiteral("Renamed"));
@@ -43,6 +45,7 @@ void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
     QCOMPARE(project.tabCount, 4);
     QCOMPARE(project.activeProcessCount, 2);
     QVERIFY(project.hasActivity);
+    QVERIFY(!project.loaded);
     QCOMPARE(project.status, ProjectWorkspaceModel::ProjectStatus::Running);
     QVERIFY(model.hasRunningProject());
     QVERIFY(!model.hasProjectNeedingInput());

@@ -38,6 +38,7 @@ public:
         int tabCount = 0;
         int activeProcessCount = 0;
         bool hasActivity = false;
+        bool loaded = true;
         ProjectStatus status = ProjectStatus::None;
         QString notification;
     };
@@ -56,6 +57,7 @@ public:
 
     bool setProjectTitle(const ProjectId &id, const QString &title);
     bool setProjectNotification(const ProjectId &id, const QString &notification);
+    bool setProjectLoaded(const ProjectId &id, bool loaded);
     bool setProjectSummary(const ProjectId &id,
                            const QString &subtitle,
                            int tabCount,

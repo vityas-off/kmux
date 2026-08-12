@@ -122,6 +122,23 @@ bool ProjectWorkspaceModel::setProjectNotification(const ProjectId &id, const QS
     return true;
 }
 
+bool ProjectWorkspaceModel::setProjectLoaded(const ProjectId &id, bool loaded)
+{
+    const int index = indexOf(id);
+    if (index < 0) {
+        return false;
+    }
+
+    auto &project = _projects[index];
+    if (project.loaded == loaded) {
+        return true;
+    }
+
+    project.loaded = loaded;
+    Q_EMIT projectChanged(id);
+    return true;
+}
+
 bool ProjectWorkspaceModel::setProjectSummary(const ProjectId &id,
                                               const QString &subtitle,
                                               int tabCount,
