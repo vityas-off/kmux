@@ -3058,11 +3058,12 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const QString normalizedAgent = agent.trimmed().toLower();
     const bool isSessionStart = event.compare(QLatin1String("SessionStart"), Qt::CaseInsensitive) == 0;
     const bool isUserPromptSubmit = event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0;
+    const bool isPreCompact = event.compare(QLatin1String("PreCompact"), Qt::CaseInsensitive) == 0;
     const bool agentChanged = normalizedAgent != previousStatus.agent && (!normalizedAgent.isEmpty() || !previousStatus.agent.isEmpty());
     const bool isClaudeEvent = normalizedAgent == QLatin1String("claude");
     const bool isClaudeSubagentEvent = isClaudeEvent && !agentId.trimmed().isEmpty();
     const bool isSupportedAgent = normalizedAgent == QLatin1String("codex") || normalizedAgent == QLatin1String("claude");
-    const bool beginsTurn = isSessionStart || isUserPromptSubmit || event.compare(QLatin1String("PreCompact"), Qt::CaseInsensitive) == 0;
+    const bool beginsTurn = isSessionStart || isUserPromptSubmit || isPreCompact;
 
     // Codex does not emit Stop when a turn is interrupted. Ignore lifecycle
     // hooks from that turn until an event explicitly begins new work.
@@ -3080,7 +3081,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     if (isClaudeEvent && !isSessionStart && !previousSessionId.isEmpty() && !normalizedSessionId.isEmpty() && normalizedSessionId != previousSessionId) {
         return;
     }
-    if (isClaudeEvent && !isSessionStart && !isUserPromptSubmit && !previousPromptId.isEmpty() && !normalizedPromptId.isEmpty()
+    if (isClaudeEvent && !isSessionStart && !isUserPromptSubmit && !isPreCompact && !previousPromptId.isEmpty() && !normalizedPromptId.isEmpty()
         && normalizedPromptId != previousPromptId) {
         return;
     }
@@ -3113,7 +3114,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     QString agentPromptId;
     if (isClaudeEvent) {
         agentSessionId = isSessionStart || previousSessionId.isEmpty() ? normalizedSessionId : previousSessionId;
-        agentPromptId = isSessionStart ? QString() : (isUserPromptSubmit ? normalizedPromptId : previousPromptId);
+        agentPromptId = isSessionStart ? QString() : (isUserPromptSubmit || isPreCompact ? normalizedPromptId : previousPromptId);
     }
 
     auto projectStatus = projectStatusFromString(status);
@@ -3135,7 +3136,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
     const bool isIdlePrompt = event.compare(QLatin1String("IdlePrompt"), Qt::CaseInsensitive) == 0;
     const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
-    const bool startsTurn = isSessionStart || isUserPromptSubmit;
+    const bool startsTurn = beginsTurn;
     const bool stopsTurn = event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
     const bool endsAgentSession = event.compare(QLatin1String("SessionEnd"), Qt::CaseInsensitive) == 0;
     const bool resetsPendingDecisions = startsTurn || stopsTurn;

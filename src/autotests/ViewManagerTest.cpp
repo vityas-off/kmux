@@ -1150,6 +1150,43 @@ void ViewManagerTest::testProjectWorkspaceClaudeRateLimitNeedsInput()
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
+void ViewManagerTest::testProjectWorkspaceClaudeCompactionStartsNewPrompt()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    const QString claude = QStringLiteral("claude");
+    const QString sessionId = QStringLiteral("session-1");
+    const QString previousPromptId = QStringLiteral("prompt-1");
+    const QString compactPromptId = QStringLiteral("prompt-2");
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("SessionStart"), sessionId, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("UserPromptSubmit"), sessionId, previousPromptId, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("Stop"), sessionId, previousPromptId, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("PreCompact"), sessionId, compactPromptId, {});
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentPromptId, compactPromptId);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("PostCompact"), sessionId, previousPromptId, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("PostCompact"), sessionId, compactPromptId, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+}
+
 void ViewManagerTest::testProjectWorkspaceClaudeRejectsStaleHookIdentities()
 {
     auto mw = MainWindow();
