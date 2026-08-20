@@ -53,7 +53,7 @@ void SessionTest::testEmulation()
 void SessionTest::testVersionEnvironment()
 {
     QVERIFY(QLatin1String(KMUX_VERSION) != QLatin1String(KONSOLE_VERSION));
-    QCOMPARE(QLatin1String(KONSOLE_VERSION), QLatin1String("26.07.70"));
+    QCOMPARE(QLatin1String(KONSOLE_VERSION), QLatin1String("26.11.70"));
 
     Session session;
     Profile::Ptr profile(new Profile);
@@ -61,7 +61,7 @@ void SessionTest::testVersionEnvironment()
     SessionManager manager;
     manager.setSessionProfile(&session, profile);
 
-    QVERIFY(session.environment().contains(QLatin1String("KONSOLE_VERSION=260770")));
+    QVERIFY(session.environment().contains(QLatin1String("KONSOLE_VERSION=261170")));
     QVERIFY(!session.environment().contains(QLatin1String("KONSOLE_VERSION=000100")));
 }
 

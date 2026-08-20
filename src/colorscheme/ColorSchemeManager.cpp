@@ -18,7 +18,7 @@
 #include <QFileInfo>
 #include <QSet>
 
-// KDE
+// KF
 #include <KConfig>
 
 using namespace Konsole;

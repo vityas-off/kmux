@@ -40,7 +40,7 @@
 #include <QDBusMetaType>
 #endif
 
-// KDE
+// KF
 #include <KActionCollection>
 #include <KActionMenu>
 #include <KConfigGroup>
@@ -971,6 +971,16 @@ Session *ViewManager::createSession(const Profile::Ptr &profile, const QString &
         Session *activeSession = _pluggedController->session();
         if (activeSession && activeSession->isInContainer()) {
             session->setContainerContext(activeSession->containerContext());
+        }
+    }
+    // If we are not in container, set it according to profile
+    if (!session->isInContainer()) {
+        const QString configuredContainer = profile ? profile->containerName() : QString();
+        if (!configuredContainer.isEmpty() && ContainerRegistry::instance()->isEnabled()) {
+            const ContainerInfo container = ContainerRegistry::instance()->containerInfoFromKey(configuredContainer);
+            if (container.isValid()) {
+                session->setContainerContext(container);
+            }
         }
     }
 

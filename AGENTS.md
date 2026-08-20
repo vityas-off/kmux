@@ -49,7 +49,7 @@ unless a change is explicitly part of the fork's workspace UI.
 
 ## Coding Style
 
-- Use C++17 and Qt/KF6 idioms already present in the touched files.
+- Use C++20 and Qt/KF6 idioms already present in the touched files.
 - Match local formatting and naming. Existing private members commonly use a
   leading underscore.
 - Use descriptive names; avoid short abbreviations for project/tab/workspace

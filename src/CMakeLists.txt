@@ -1,5 +1,3 @@
-# cmake-options : -DCMAKE_DISABLE_FIND_PACKAGE_LibKonq=TRUE or FALSE; default is FALSE
-
 add_definitions(-DTRANSLATION_DOMAIN=\"kmux\")
 
 ### Handle DragonFlyBSD here instead of using __DragonFly__
@@ -9,7 +7,6 @@ else()
   set(HAVE_OS_DRAGONFLYBSD 0)
 endif()
 
-include(CheckIncludeFiles)
 include(ECMAddAppIcon)
 
 configure_file(config-konsole.h.cmake
@@ -74,76 +71,16 @@ if(HAVE_DBUS)
     )
 endif()
 
-set(konsole_LIBS
-    KF6::XmlGui
-    Qt::Multimedia
-    Qt::PrintSupport
-    Qt::Xml
-    KF6::Notifications
-    KF6::WindowSystem
-    KF6::TextWidgets
-    KF6::GuiAddons
-    KF6::IconThemes
-    KF6::Bookmarks
-    KF6::I18n
-    KF6::KIOWidgets
-    KF6::NewStuffCore
-)
+add_library(konsolelogging OBJECT)
+set_target_properties(konsolelogging PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(konsolelogging PUBLIC Qt::Core)
 
-if(NOT WIN32)
-    list(APPEND konsole_LIBS
-        KF6::Pty
-    )
-endif()
-
-if(HAVE_DBUS)
-    list(APPEND konsole_LIBS
-        KF6::DBusAddons
-        KF6::GlobalAccel
-    )
-endif()
-
-if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-    #kinfo_getfile() is in libutil
-    list(APPEND konsole_LIBS util)
-endif()
-
-if(HAIKU)
-    list(APPEND konsole_LIBS network) # for undefined reference to `inet_aton'
-endif()
-
-# TODO: Move this to an internal folder if it grows too much.
-# This konsoleprivate_core is the "core" library that depends in nothing from konsole itself
-# so we can start to detangle the codebase.
-set(konsoleprivate_core_SRCS
-    ShellCommand.cpp
-)
-
-ecm_qt_declare_logging_category(
-    konsoleprivate_core_SRCS
+ecm_qt_declare_logging_category(konsolelogging
     HEADER konsoledebug.h
     IDENTIFIER KonsoleDebug
     CATEGORY_NAME io.github.vityas_off.kmux
     DESCRIPTION "Kmux"
     EXPORT KONSOLE
-)
-
-add_library(konsoleprivate_core STATIC ${konsoleprivate_core_SRCS})
-# Needed to link this static lib to shared libs
-set_target_properties(konsoleprivate_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(konsoleprivate_core KF6::CoreAddons)
-
-set(konsolehelpers_SRCS
-    LabelsAligner.cpp
-)
-add_library(konsolehelpers
-    STATIC
-    ${konsolehelpers_SRCS}
-)
-set_target_properties(konsolehelpers PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(konsolehelpers
-    Qt::Core
-    Qt::Widgets
 )
 
 add_subdirectory(colorscheme)
@@ -152,127 +89,132 @@ add_subdirectory(characters)
 add_subdirectory(decoders)
 add_subdirectory(containers)
 add_subdirectory(plugins)
-set(ptyqt_srcs)
+
+add_library(konsoleprivate)
+
+target_sources(konsoleprivate PRIVATE
+    ${windowadaptors_SRCS}
+    BookmarkHandler.cpp
+    BookmarkMenu.cpp
+    CheckableSessionModel.cpp
+    CopyInputDialog.cpp
+    Emulation.cpp
+    EscapeSequenceUrlExtractor.cpp
+    FontDialog.cpp
+    HistorySizeDialog.cpp
+    KeyBindingEditor.cpp
+    LabelsAligner.cpp
+    NullProcessInfo.cpp
+    PrintOptions.cpp
+    ProcessInfo.cpp
+    Pty.cpp
+    RenameTabDialog.cpp
+    SSHProcessInfo.cpp
+    SaveHistoryTask.cpp
+    SaveHistoryAutoTask.cpp
+    Screen.cpp
+    ScreenWindow.cpp
+    ScrollState.cpp
+    SearchHistoryTask.cpp
+    ShellCommand.cpp
+    ShouldApplyProperty.cpp
+    UnixProcessInfo.cpp
+    ViewManager.cpp
+    ViewProperties.cpp
+    Vt102Emulation.cpp
+    KittyKeyMap.cpp
+    WindowSystemInfo.cpp
+    WinKeys.h
+    ZModemDialog.cpp
+    filterHotSpots/EscapeSequenceUrlFilter.cpp
+    filterHotSpots/EscapeSequenceUrlFilterHotSpot.cpp
+    filterHotSpots/FileFilter.cpp
+    filterHotSpots/FileFilterHotspot.cpp
+    filterHotSpots/Filter.cpp
+    filterHotSpots/FilterChain.cpp
+    filterHotSpots/HotSpot.cpp
+    filterHotSpots/RegExpFilter.cpp
+    filterHotSpots/RegExpFilterHotspot.cpp
+    filterHotSpots/TerminalImageFilterChain.cpp
+    filterHotSpots/UrlFilter.cpp
+    filterHotSpots/UrlFilterHotspot.cpp
+    filterHotSpots/ColorFilter.cpp
+    filterHotSpots/ColorFilterHotSpot.cpp
+    history/HistoryFile.cpp
+    history/HistoryScroll.cpp
+    history/HistoryScrollFile.cpp
+    history/HistoryScrollNone.cpp
+    history/HistoryType.cpp
+    history/HistoryTypeFile.cpp
+    history/HistoryTypeNone.cpp
+    history/compact/CompactHistoryScroll.cpp
+    history/compact/CompactHistoryType.cpp
+    widgets/DetachableTabBar.cpp
+    widgets/EditProfileDialog.cpp
+    widgets/HistorySizeWidget.cpp
+    widgets/IncrementalSearchBar.cpp
+    widgets/IncrementalSearchBarSizeGrip.cpp
+    widgets/ProjectWorkspaceContainer.cpp
+    workspaces/AgentSleepInhibitor.cpp
+    workspaces/ProjectWorkspaceModel.cpp
+    widgets/RenameTabWidget.cpp
+    widgets/TabTitleFormatButton.cpp
+
+    searchtabs/SearchTabs.cpp
+    searchtabs/SearchTabsModel.cpp
+
+    terminalDisplay/extras/CompositeWidgetFocusWatcher.cpp
+    terminalDisplay/extras/AutoScrollHandler.cpp
+    terminalDisplay/extras/HighlightScrolledLines.cpp
+
+    terminalDisplay/TerminalDisplay.cpp
+    terminalDisplay/TerminalPainter.cpp
+    terminalDisplay/TerminalScrollBar.cpp
+    terminalDisplay/TerminalColor.cpp
+    terminalDisplay/TerminalFonts.cpp
+    terminalDisplay/TerminalBell.cpp
+
+    profile/Profile.cpp
+    profile/ProfileCommandParser.cpp
+    profile/ProfileGroup.cpp
+    profile/ProfileList.cpp
+    profile/ProfileReader.cpp
+    profile/ProfileWriter.cpp
+    profile/ProfileManager.cpp
+    profile/ProfileModel.cpp
+
+    ${sessionadaptors_SRCS}
+    session/Session.cpp
+    session/SessionController.cpp
+    session/SessionDisplayConnection.cpp
+    session/SessionGroup.cpp
+    session/SessionListModel.cpp
+    session/SessionManager.cpp
+    session/SessionTask.cpp
+
+    widgets/TerminalDisplayAccessible.cpp
+    widgets/TerminalHeaderBar.cpp
+    widgets/ViewContainer.cpp
+    widgets/ViewSplitter.cpp
+    widgets/KonsolePrintManager.cpp
+
+    ${dbus_xml_srcs}
+
+    ../data/data.qrc
+    ../desktop/kmux.qrc
+)
+
 if(WIN32)
-    set(ptyqt_srcs ptyqt/iptyprocess.cpp ptyqt/conptyprocess.cpp)
+    # windows conpty backend
+    target_sources(konsoleprivate PRIVATE
+        ptyqt/iptyprocess.cpp
+        ptyqt/conptyprocess.cpp
+    )
 endif()
 
-set(konsoleprivate_SRCS ${windowadaptors_SRCS}
-                        BookmarkHandler.cpp
-                        BookmarkMenu.cpp
-                        CheckableSessionModel.cpp
-                        CopyInputDialog.cpp
-                        Emulation.cpp
-                        EscapeSequenceUrlExtractor.cpp
-                        FontDialog.cpp
-                        HistorySizeDialog.cpp
-                        KeyBindingEditor.cpp
-                        LabelsAligner.cpp
-                        NullProcessInfo.cpp
-                        PrintOptions.cpp
-                        ProcessInfo.cpp
-                        Pty.cpp
-                        RenameTabDialog.cpp
-                        SSHProcessInfo.cpp
-                        SaveHistoryTask.cpp
-                        SaveHistoryAutoTask.cpp
-                        Screen.cpp
-                        ScreenWindow.cpp
-                        ScrollState.cpp
-                        SearchHistoryTask.cpp
-                        ShouldApplyProperty.cpp
-                        UnixProcessInfo.cpp
-                        ViewManager.cpp
-                        ViewProperties.cpp
-                        Vt102Emulation.cpp
-                        KittyKeyMap.cpp
-                        WindowSystemInfo.cpp
-                        WinKeys.h
-                        ZModemDialog.cpp
-                        filterHotSpots/EscapeSequenceUrlFilter.cpp
-                        filterHotSpots/EscapeSequenceUrlFilterHotSpot.cpp
-                        filterHotSpots/FileFilter.cpp
-                        filterHotSpots/FileFilterHotspot.cpp
-                        filterHotSpots/Filter.cpp
-                        filterHotSpots/FilterChain.cpp
-                        filterHotSpots/HotSpot.cpp
-                        filterHotSpots/RegExpFilter.cpp
-                        filterHotSpots/RegExpFilterHotspot.cpp
-                        filterHotSpots/TerminalImageFilterChain.cpp
-                        filterHotSpots/UrlFilter.cpp
-                        filterHotSpots/UrlFilterHotspot.cpp
-                        filterHotSpots/ColorFilter.cpp
-                        filterHotSpots/ColorFilterHotSpot.cpp
-                        history/HistoryFile.cpp
-                        history/HistoryScroll.cpp
-                        history/HistoryScrollFile.cpp
-                        history/HistoryScrollNone.cpp
-                        history/HistoryType.cpp
-                        history/HistoryTypeFile.cpp
-                        history/HistoryTypeNone.cpp
-                        history/compact/CompactHistoryScroll.cpp
-                        history/compact/CompactHistoryType.cpp
-                        widgets/DetachableTabBar.cpp
-                        widgets/EditProfileDialog.cpp
-                        widgets/HistorySizeWidget.cpp
-                        widgets/IncrementalSearchBar.cpp
-                        widgets/IncrementalSearchBarSizeGrip.cpp
-                        widgets/ProjectWorkspaceContainer.cpp
-                        workspaces/AgentSleepInhibitor.cpp
-                        workspaces/ProjectWorkspaceModel.cpp
-                        widgets/RenameTabWidget.cpp
-                        widgets/TabTitleFormatButton.cpp
+kconfig_add_kcfg_files(konsoleprivate settings/KonsoleSettings.kcfgc)
 
-                        searchtabs/SearchTabs.cpp
-                        searchtabs/SearchTabsModel.cpp
-
-                        terminalDisplay/extras/CompositeWidgetFocusWatcher.cpp
-                        terminalDisplay/extras/AutoScrollHandler.cpp
-                        terminalDisplay/extras/HighlightScrolledLines.cpp
-
-                        terminalDisplay/TerminalDisplay.cpp
-                        terminalDisplay/TerminalPainter.cpp
-                        terminalDisplay/TerminalScrollBar.cpp
-                        terminalDisplay/TerminalColor.cpp
-                        terminalDisplay/TerminalFonts.cpp
-                        terminalDisplay/TerminalBell.cpp
-
-                        profile/Profile.cpp
-                        profile/ProfileCommandParser.cpp
-                        profile/ProfileGroup.cpp
-                        profile/ProfileList.cpp
-                        profile/ProfileReader.cpp
-                        profile/ProfileWriter.cpp
-                        profile/ProfileManager.cpp
-                        profile/ProfileModel.cpp
-
-                        ${ptyqt_srcs} # windows conpty backend
-
-                        ${sessionadaptors_SRCS}
-                        session/Session.cpp
-                        session/SessionController.cpp
-                        session/SessionDisplayConnection.cpp
-                        session/SessionGroup.cpp
-                        session/SessionListModel.cpp
-                        session/SessionManager.cpp
-                        session/SessionTask.cpp
-
-                        widgets/TerminalDisplayAccessible.cpp
-                        widgets/TerminalHeaderBar.cpp
-                        widgets/ViewContainer.cpp
-                        widgets/ViewSplitter.cpp
-                        widgets/KonsolePrintManager.cpp
-
-                        ${dbus_xml_srcs}
-
-                        ../data/data.qrc
-                        ../desktop/kmux.qrc)
-
-kconfig_add_kcfg_files(konsoleprivate_SRCS settings/KonsoleSettings.kcfgc)
-
-### Konsole Application
-
-ki18n_wrap_ui(konsoleprivate_SRCS
+ki18n_wrap_ui(konsoleprivate
     CopyInputDialog.ui
     HistorySizeDialog.ui
     KeyBindingEditor.ui
@@ -296,8 +238,7 @@ ki18n_wrap_ui(konsoleprivate_SRCS
     widgets/RenameTabWidget.ui
 )
 
-add_library(konsoleprivate ${konsoleprivate_SRCS})
-generate_export_header(konsoleprivate BASE_NAME konsoleprivate)
+generate_export_header(konsoleprivate)
 
 if(KONSOLE_HAVE_XKBCOMMON)
     target_compile_definitions(konsoleprivate PUBLIC HAVE_XKBCOMMON)
@@ -307,29 +248,48 @@ endif()
 
 target_link_libraries(konsoleprivate
     PUBLIC
-    konsoleprivate_core
-    konsolecolorscheme
-    keyboardtranslator
-    konsolehelpers
-    konsolecharacters
-    konsoledecoders
-    konsolecontainers
-    KF6::NewStuffCore
-    KF6::NewStuffWidgets
-    ${konsole_LIBS}
-    ZLIB::ZLIB
-    ICU::uc
-    ICU::i18n
-)
-
-target_link_libraries(konsoleprivate
+        KF6::ConfigCore
+        KF6::XmlGui
     PRIVATE
-    KF6::IconWidgets
-    KF6::BookmarksWidgets
+        konsolecolorscheme
+        keyboardtranslator
+        konsolecharacters
+        konsoledecoders
+        konsolecontainers
+        konsolelogging
+        KF6::Bookmarks
+        KF6::BookmarksWidgets
+        KF6::GuiAddons
+        KF6::I18n
+        KF6::IconWidgets
+        KF6::KIOWidgets
+        KF6::NewStuffCore
+        KF6::NewStuffWidgets
+        KF6::Notifications
+        KF6::TextWidgets
+        KF6::WindowSystem
+        Qt::Multimedia
+        Qt::PrintSupport
+        Qt::Xml
+        ICU::uc
+        ICU::i18n
 )
 
 if (HAVE_LIBSSH)
     target_link_libraries(konsoleprivate PRIVATE ssh)
+endif()
+
+if(NOT WIN32)
+    target_link_libraries(konsoleprivate PRIVATE KF6::Pty)
+endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+    #kinfo_getfile() is in libutil
+    target_link_libraries(konsoleprivate PRIVATE util)
+endif()
+
+if(HAIKU)
+    target_link_libraries(konsoleprivate PRIVATE network) # for undefined reference to `inet_aton'
 endif()
 
 set_target_properties(konsoleprivate PROPERTIES
@@ -339,7 +299,10 @@ set_target_properties(konsoleprivate PROPERTIES
 
 install(TARGETS konsoleprivate ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} LIBRARY NAMELINK_SKIP)
 
-add_library(konsoleapp SHARED Application.cpp
+### Konsole Application
+
+add_library(konsoleapp
+    Application.cpp
     MainWindow.cpp
     settings/ConfigurationDialog.cpp
     settings/ConfigDialogButtonGroupManager.cpp
@@ -354,18 +317,25 @@ add_library(konsoleapp SHARED Application.cpp
     delegates/ProfileShortcutDelegate.cpp
 )
 
-generate_export_header(konsoleapp BASE_NAME konsoleapp)
+generate_export_header(konsoleapp)
 
 target_link_libraries(konsoleapp
-  konsoleprivate
-  KF6::XmlGui
-  KF6::WindowSystem
-  KF6::Bookmarks
-  KF6::I18n
-  KF6::KIOWidgets
-  KF6::NotifyConfig
-  KF6::Crash
+    PRIVATE
+        konsoleprivate
+        konsolelogging
+        KF6::Bookmarks
+        KF6::Crash
+        KF6::I18n
+        KF6::KIOWidgets
+        KF6::NotifyConfig
+        KF6::WindowSystem
 )
+if(HAVE_DBUS)
+    target_link_libraries(konsoleapp
+        PRIVATE
+            KF6::GlobalAccel
+    )
+endif()
 
 set_target_properties(konsoleapp PROPERTIES
     OUTPUT_NAME kmuxapp
@@ -374,10 +344,6 @@ set_target_properties(konsoleapp PROPERTIES
 
 install(TARGETS konsoleapp ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} LIBRARY NAMELINK_SKIP)
 
-set(konsole_SRCS
-    LocalActivationServer.cpp
-    main.cpp
-)
 
 set(KMUX_GIT_REVISION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/kmux-git-revision.h")
 add_custom_target(kmux_git_revision_header
@@ -394,20 +360,29 @@ set_source_files_properties("${KMUX_GIT_REVISION_HEADER}" PROPERTIES GENERATED T
 # Sets the icon on Windows and OSX
 ecm_add_app_icon(ICONS_SOURCES ICONS ${KMUX_ICON_SVG} ${PLATFORM_ICONS_SRCS})
 
-add_executable(kmux ${konsole_SRCS} ${ICONS_SOURCES} "${KMUX_GIT_REVISION_HEADER}")
-add_dependencies(kmux kmux_git_revision_header)
-target_link_libraries(kmux
-  konsoleprivate
-  konsoleapp
-  KF6::XmlGui
-  KF6::WindowSystem
-  KF6::Bookmarks
-  KF6::I18n
-  KF6::KIOWidgets
-  KF6::NotifyConfig
-  KF6::Crash
-  Qt::Network
+add_executable(kmux
+    LocalActivationServer.cpp
+    main.cpp
+    ${ICONS_SOURCES}
+    "${KMUX_GIT_REVISION_HEADER}"
 )
+add_dependencies(kmux kmux_git_revision_header)
+
+target_link_libraries(kmux
+    konsoleprivate
+    konsoleapp
+    KF6::CoreAddons
+    KF6::Crash
+    KF6::I18n
+    KF6::IconThemes
+    KF6::WindowSystem
+    Qt::Network
+)
+if(HAVE_DBUS)
+    target_link_libraries(kmux
+        KF6::DBusAddons
+    )
+endif()
 
 if(APPLE)
     set_target_properties(kmux PROPERTIES
@@ -422,6 +397,9 @@ if(APPLE)
 endif()
 
 install(TARGETS kmux ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+install(FILES settings/konsole.kcfg
+        DESTINATION ${KDE_INSTALL_KCFGDIR}
+        RENAME kmux.kcfg)
 
 if(HAVE_DBUS)
     add_executable(kmux-project-status konsole-project-status.cpp)
@@ -477,19 +455,18 @@ endif()
 
 ### Embedded Konsole KPart
 
-set(kmuxpart_PART_SRCS Part.cpp
+add_library(kmuxpart MODULE
+    Part.cpp
     settings/PartInfo.cpp
     settings/ProfileSettings.cpp
     delegates/ProfileShortcutDelegate.cpp
 )
 
-add_library(kmuxpart MODULE ${kmuxpart_PART_SRCS})
-generate_export_header(kmuxpart BASE_NAME konsole)
-set_target_properties(kmuxpart PROPERTIES DEFINE_SYMBOL KONSOLE_PART)
 target_link_libraries(kmuxpart
-    KF6::Parts
-    KF6::XmlGui
     konsoleprivate
+    konsolelogging
+    KF6::I18n
+    KF6::Parts
 )
 
 install(TARGETS kmuxpart DESTINATION ${KDE_INSTALL_PLUGINDIR}/kf6/parts)

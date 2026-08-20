@@ -21,8 +21,11 @@
 #include <QTimer>
 #include <QToolTip>
 
+#include <KFileItem>
+#include <KFileItemActions>
 #include <KIO/ApplicationLauncherJob>
 #include <KIO/OpenUrlJob>
+#include <KIO/PreviewJob>
 
 #include <KFileItemListProperties>
 #include <KIO/JobUiDelegateFactory>
@@ -262,6 +265,8 @@ void FileFilterHotSpot::thumbnailRequested()
         return;
     }
 
+    // TODO: check (async) if file actually exists, to prevent a warning from KIO::PreviewJob
+
     _thumbnailPos = QPoint(_eventPos.x() + 100, _eventPos.y() - settings->thumbnailSize() / 2);
 
     const int size = KonsoleSettings::thumbnailSize();
@@ -270,11 +275,6 @@ void FileFilterHotSpot::thumbnailRequested()
     }
 
     _thumbnailFinished = false;
-
-    const auto fileItem = this->fileItem();
-    if (!fileItem.exists()) {
-        return;
-    }
 
     // Show a "Loading" if Preview takes a long time.
     QTimer::singleShot(10, this, [this] {
@@ -286,7 +286,7 @@ void FileFilterHotSpot::thumbnailRequested()
         }
     });
 
-    _previewJob = new KIO::PreviewJob(KFileItemList({fileItem}), QSize(size, size));
+    _previewJob = new KIO::PreviewJob(KFileItemList({fileItem()}), QSize(size, size));
     connect(_previewJob, &KIO::PreviewJob::gotPreview, this, &FileFilterHotSpot::showThumbnail);
     connect(_previewJob, &KIO::PreviewJob::failed, this, [] {
         qCDebug(KonsoleDebug) << "Error generating the preview" << _previewJob->errorString();

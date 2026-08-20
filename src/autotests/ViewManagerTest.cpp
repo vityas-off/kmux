@@ -636,19 +636,27 @@ void ViewManagerTest::testForegroundProcessAndIdleAgentUseDifferentStatuses()
     auto *workspaces = viewManager->_workspaceContainer.data();
     QVERIFY(workspaces != nullptr);
 
-    mw.newTab();
+    const QString shell = QStandardPaths::findExecutable(QStringLiteral("bash"));
+    QVERIFY(!shell.isEmpty());
+    Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+    profile->setProperty(Profile::Command, shell);
+    profile->setProperty(Profile::Arguments, QStringList{shell, QStringLiteral("--noprofile"), QStringLiteral("--norc")});
+    Session *session = mw.createSession(profile, m_testDir->path());
+    QVERIFY(session != nullptr);
     auto *project = viewManager->activeContainer();
     QVERIFY(project != nullptr);
     const int tabIndex = project->currentIndex();
     auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
     QVERIFY(terminal != nullptr);
-    Session *session = terminal->sessionController()->session();
-    QVERIFY(session != nullptr);
+    QCOMPARE(terminal->sessionController()->session(), session);
+    QSignalSpy outputSpy(session->emulation(), &Emulation::outputChanged);
+    QVERIFY(outputSpy.isValid());
     session->run();
     QTRY_VERIFY(session->isRunning());
+    QTRY_VERIFY_WITH_TIMEOUT(!outputSpy.isEmpty(), 5000);
     QTRY_VERIFY(!session->isForegroundProcessActive());
 
-    session->sendTextToTerminal(QStringLiteral("sleep 30\n"));
+    session->sendTextToTerminal(QStringLiteral("sleep 30"), QLatin1Char('\r'));
     QTRY_VERIFY(session->isForegroundProcessActive());
     viewManager->refreshProjectSummary(project);
     QCOMPARE(project->terminalTabStatus(tabIndex), TerminalTabStatus::ForegroundProcess);
@@ -780,18 +788,26 @@ void ViewManagerTest::testProjectWorkspaceStatusClearsWhenAgentReturnsToShell()
     auto *workspaces = viewManager->_workspaceContainer.data();
     QVERIFY(workspaces != nullptr);
 
-    mw.newTab();
+    const QString shell = QStandardPaths::findExecutable(QStringLiteral("bash"));
+    QVERIFY(!shell.isEmpty());
+    Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+    profile->setProperty(Profile::Command, shell);
+    profile->setProperty(Profile::Arguments, QStringList{shell, QStringLiteral("--noprofile"), QStringLiteral("--norc")});
+    Session *session = mw.createSession(profile, m_testDir->path());
+    QVERIFY(session != nullptr);
     auto *project = viewManager->activeContainer();
     QVERIFY(project != nullptr);
     auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
     QVERIFY(terminal != nullptr);
-    Session *session = terminal->sessionController()->session();
-    QVERIFY(session != nullptr);
+    QCOMPARE(terminal->sessionController()->session(), session);
+    QSignalSpy outputSpy(session->emulation(), &Emulation::outputChanged);
+    QVERIFY(outputSpy.isValid());
     session->run();
     QTRY_VERIFY(session->isRunning());
+    QTRY_VERIFY_WITH_TIMEOUT(!outputSpy.isEmpty(), 5000);
     QTRY_VERIFY(!session->isForegroundProcessActive());
 
-    session->sendTextToTerminal(QStringLiteral("sleep 30\n"));
+    session->sendTextToTerminal(QStringLiteral("sleep 30"), QLatin1Char('\r'));
     QTRY_VERIFY(session->isForegroundProcessActive());
     session->setProjectStatusForAgentEvent(QStringLiteral("running"), 0, QStringLiteral("claude"), QStringLiteral("Stop"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);

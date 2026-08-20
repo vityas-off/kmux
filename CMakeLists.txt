@@ -10,7 +10,7 @@ set(KMUX_VERSION "${KMUX_VERSION_MAJOR}.${KMUX_VERSION_MINOR}.${KMUX_VERSION_PAT
 # Version of the upstream Konsole base with which shell integrations and
 # terminal clients can expect compatibility. Update this when rebasing onto a
 # newer upstream release; it is intentionally independent of KMUX_VERSION.
-set(KONSOLE_COMPAT_VERSION "26.07.70")
+set(KONSOLE_COMPAT_VERSION "26.11.70")
 
 # Do not increase these requirements without a merge-request or/and
 # approval from maintainer(s).
@@ -20,9 +20,13 @@ set(KONSOLE_COMPAT_VERSION "26.07.70")
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
 set(QT_MIN_VERSION "6.5.0")
-set(KF6_DEP_VERSION "6.0.0")
+set(KF6_DEP_VERSION "6.6.0")
 
 project(kmux VERSION ${KMUX_VERSION})
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(ECM ${KF6_DEP_VERSION} REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
@@ -30,17 +34,11 @@ set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 include(KDEInstallDirs)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
-include(ECMOptionalAddSubdirectory)
-include(ECMInstallIcons)
-include(ECMSetupVersion)
-include(ECMMarkNonGuiExecutable)
-include(ECMGenerateHeaders)
 include(GenerateExportHeader)
 include(FeatureSummary)
 include(ECMQtDeclareLoggingCategory)
 include(KDEClangFormat)
 include(CheckFunctionExists)
-include(CheckIncludeFiles)
 find_package(Git QUIET)
 
 # Allows passing e.g. -DECM_ENABLE_SANITIZERS='address;undefined' to cmake.
@@ -107,8 +105,6 @@ set_package_properties(KF6DocTools PROPERTIES DESCRIPTION
 )
 
 find_package(ICU 61.0 COMPONENTS uc i18n REQUIRED)
-find_package(ZLIB REQUIRED)
-
 option(WITH_KAPSULE "Build with Kapsule container support" OFF)
 if(WITH_KAPSULE)
     find_package(QCoro6 REQUIRED COMPONENTS Core)
@@ -136,19 +132,6 @@ endif()
 check_symbol_exists(getpwuid "pwd.h" HAVE_GETPWUID)
 
 check_function_exists(malloc_trim HAVE_MALLOC_TRIM)
-
-# See above includes for defaults
-add_definitions(
-  -DQT_NO_FOREACH
-  -DQT_STRICT_ITERATORS
-  -DQT_NO_URL_CAST_FROM_STRING
-)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
 
 set(KMUX_ICON_SVG "${CMAKE_CURRENT_SOURCE_DIR}/data/icons/sc-apps-kmux.svg")
 file(GLOB ICONS_SRCS "data/icons/*-apps-kmux.png")
@@ -180,9 +163,7 @@ ecm_qt_install_logging_categories(
 # Konsole packages can be installed side by side.
 ki18n_install(po)
 
-if(ECM_VERSION VERSION_GREATER_EQUAL 5.101.0)
-  install(FILES completions/kmux.zsh RENAME _kmux DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
-endif()
+install(FILES completions/kmux.zsh RENAME _kmux DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
 

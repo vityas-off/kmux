@@ -14,7 +14,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 
-// KDE
+// KF
 #include <KConfig>
 #include <KConfigGroup>
 

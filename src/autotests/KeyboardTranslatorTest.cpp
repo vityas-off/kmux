@@ -7,10 +7,10 @@
 // Own
 #include "KeyboardTranslatorTest.h"
 
-#include "keyboardtranslator/KeyboardTranslatorManager.h"
-#include "keyboardtranslator/KeyboardTranslatorReader.h"
+#include "../keyboardtranslator/KeyboardTranslatorManager.h"
+#include "../keyboardtranslator/KeyboardTranslatorReader.h"
 
-// KDE
+// Qt
 #include <QDir>
 #include <QFile>
 #include <QStandardPaths>

@@ -9,8 +9,7 @@
 #define EDITPROFILEDIALOG_H
 
 #include <QtGlobal>
-// KDE
-#include <KNSCore/Entry>
+// KF
 #include <KPageDialog>
 
 // Konsole
@@ -27,7 +26,11 @@
 #include "LabelsAligner.h"
 #include "keyboardtranslator/KeyboardTranslatorManager.h"
 
-class KPluralHandlingSpinBox;
+namespace KNSCore
+{
+class Entry;
+}
+class QSpinBox;
 class KLocalizedString;
 class QItemSelectionModel;
 class QTextCodec;
@@ -286,7 +289,7 @@ private:
 
     void setMessageGeneralPage(const QString &msg);
 
-    int maxSpinBoxWidth(const KPluralHandlingSpinBox *spinBox, const KLocalizedString &suffix);
+    int maxSpinBoxWidth(const QSpinBox *spinBox, const KLocalizedString &suffix);
 
     // Returns the name of the colorScheme used in the current profile
     const QString currentColorSchemeName() const;

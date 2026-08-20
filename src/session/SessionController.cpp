@@ -8,8 +8,8 @@
 // Own
 #include "SessionController.h"
 
+#include "SearchHistoryTask.h"
 #include "profile/ProfileManager.h"
-#include "src/SearchHistoryTask.h"
 #include "terminalDisplay/TerminalColor.h"
 #include "terminalDisplay/TerminalFonts.h"
 
@@ -25,7 +25,7 @@
 #include <QStandardPaths>
 #include <QUrl>
 
-// KDE
+// KF
 #include <KActionCollection>
 #include <KActionMenu>
 #include <KCodecAction>
@@ -49,6 +49,7 @@
 #include <KIO/OpenFileManagerWindowJob>
 #include <KIO/OpenUrlJob>
 
+#include <KFileItemActions>
 #include <KFileItemListProperties>
 
 // Konsole
@@ -1103,7 +1104,7 @@ void SessionController::renameSession()
         dialog->focusTabTitleText();
     }
 
-    connect(dialog, &QDialog::accepted, this, [=]() {
+    connect(dialog, &QDialog::accepted, this, [=, this]() {
         const QString tabTitle = dialog->tabTitleText();
         const QString remoteTabTitle = dialog->remoteTabTitleText();
         const QColor tabColor = dialog->color();
@@ -1427,7 +1428,7 @@ void SessionController::copyInputToSelectedTabs(QList<Session *> *sessions)
         dialog->setMasterSession(session());
         dialog->setChosenSessions(currentGroup);
 
-        connect(dialog, &QDialog::accepted, this, [=]() {
+        connect(dialog, &QDialog::accepted, this, [=, this]() {
             QSet<Session *> newGroup = dialog->chosenSessions();
             newGroup.remove(session());
             update(newGroup, currentGroup);

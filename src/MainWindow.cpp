@@ -23,7 +23,7 @@
 #include <QDBusMessage>
 #endif
 
-// KDE
+// KF
 #include <KAcceleratorManager>
 #include <KActionCollection>
 #include <KActionMenu>
@@ -204,7 +204,7 @@ bool MainWindow::wasWindowGeometrySaved() const
         return false;
     }
 
-    return KWindowConfig::hasSavedWindowSize(cg) || KWindowConfig::hasSavedWindowPosition(cg);
+    return KWindowConfig::hasSavedWindowSize(cg);
 }
 
 void MainWindow::updateUseTransparency()
@@ -498,11 +498,7 @@ void MainWindow::setupActions()
     });
 
     // Set up themes
-#if KCOLORSCHEME_VERSION < QT_VERSION_CHECK(6, 6, 0)
-    auto *manager = new KColorSchemeManager(actionCollection());
-#else
     auto *manager = KColorSchemeManager::instance();
-#endif
     manager->setAutosaveChanges(true);
     KActionMenu *selectionMenu = KColorSchemeMenu::createMenu(manager, this);
     auto winColorSchemeMenu = new QAction(this);

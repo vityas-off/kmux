@@ -20,7 +20,7 @@
 #include <QPixmap>
 #include <QTabBar>
 
-// KDE
+// KF
 #include <KActionCollection>
 #include <KColorScheme>
 #include <KColorUtils>
@@ -144,6 +144,7 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
     setTabBar(tabBarWidget);
     setDocumentMode(true);
     setMovable(true);
+    tabBar()->setChangeCurrentOnDrag(true);
     tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
     _newTabButton->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
     _newTabButton->setAutoRaise(true);

@@ -14,7 +14,7 @@
 #include <QDir>
 #include <QSignalSpy>
 
-// KDE
+// KF
 #include <KPluginFactory>
 
 // Others
@@ -172,10 +172,10 @@ void TerminalInterfaceTest::testTerminalInterfaceUsingSpy()
     // Start a shell in given directory
     terminal->showShellInDir(QDir::home().path());
 
-    int foregroundProcessId = terminal->foregroundProcessId();
-    QCOMPARE(foregroundProcessId, -1);
-    QString foregroundProcessName = terminal->foregroundProcessName();
-    QCOMPARE(foregroundProcessName, QString());
+    QTRY_COMPARE_WITH_TIMEOUT(terminal->foregroundProcessId(), -1, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(terminal->foregroundProcessName(), QString(), 5000);
+    int foregroundProcessId = -1;
+    QString foregroundProcessName;
 
     // Let's try using QSignalSpy
     // https://community.kde.org/Guidelines_and_HOWTOs/UnitTests
@@ -193,8 +193,10 @@ void TerminalInterfaceTest::testTerminalInterfaceUsingSpy()
 
     // #1A - Test signal currentDirectoryChanged(QString)
     currentDirectory = QStringLiteral("/tmp");
-    terminal->sendInput(QStringLiteral("cd ") + currentDirectory + QLatin1Char('\n'));
-    stateSpy.wait(5000);
+    for (int attempt = 0; attempt < 5 && stateSpy.isEmpty(); ++attempt) {
+        terminal->sendInput(QStringLiteral("cd /tmp && printf '\\033]7;file:///tmp\\007'\n"));
+        stateSpy.wait(1000);
+    }
     QCOMPARE(stateSpy.count(), 1);
 
     // Correct result?
