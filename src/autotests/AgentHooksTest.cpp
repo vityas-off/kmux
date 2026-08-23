@@ -700,7 +700,7 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
                                  {QStringLiteral("type"), QStringLiteral("monitor")},
                                  {QStringLiteral("status"), QStringLiteral("running")},
                              }}}},
-                QStringLiteral("running"));
+                QStringLiteral("idle"));
     runStopHook(QJsonObject{{QStringLiteral("background_tasks"),
                              QJsonArray{QJsonObject{
                                  {QStringLiteral("type"), QStringLiteral("subagent")},
@@ -708,6 +708,18 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
                              }}}},
                 QStringLiteral("running"));
     runStopHook(QJsonObject{{QStringLiteral("session_crons"), QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("cron-1")}}}}},
+                QStringLiteral("idle"));
+    runStopHook(QJsonObject{{QStringLiteral("background_tasks"),
+                             QJsonArray{
+                                 QJsonObject{
+                                     {QStringLiteral("type"), QStringLiteral("monitor")},
+                                     {QStringLiteral("status"), QStringLiteral("running")},
+                                 },
+                                 QJsonObject{
+                                     {QStringLiteral("type"), QStringLiteral("shell")},
+                                     {QStringLiteral("status"), QStringLiteral("running")},
+                                 },
+                             }}},
                 QStringLiteral("running"));
     runHook(stopFailureCommand,
             QJsonObject{{QStringLiteral("error"), QStringLiteral("rate_limit")}},

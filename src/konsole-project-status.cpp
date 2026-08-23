@@ -225,13 +225,15 @@ QJsonObject hookPayload()
 
 bool hasClaudeBackgroundWork(const QJsonObject &payload)
 {
-    if (!payload.value(QStringLiteral("session_crons")).toArray().isEmpty()) {
-        return true;
-    }
-
+    // Session crons wait for a future wakeup rather than doing work now.
     const QJsonArray backgroundTasks = payload.value(QStringLiteral("background_tasks")).toArray();
     return std::any_of(backgroundTasks.cbegin(), backgroundTasks.cend(), [](const QJsonValue &task) {
-        return task.toObject().value(QStringLiteral("status")).toString().compare(QLatin1String("running"), Qt::CaseInsensitive) == 0;
+        const QJsonObject taskObject = task.toObject();
+        const bool isRunning = taskObject.value(QStringLiteral("status")).toString().compare(QLatin1String("running"), Qt::CaseInsensitive) == 0;
+        const bool isMonitor = taskObject.value(QStringLiteral("type")).toString().compare(QLatin1String("monitor"), Qt::CaseInsensitive) == 0;
+
+        // Monitors also wait for future activity and may remain registered indefinitely.
+        return isRunning && !isMonitor;
     });
 }
 
@@ -411,7 +413,7 @@ int main(int argc, char **argv)
     const QCommandLineOption codexPermissionRequestOption(QStringLiteral("codex-permission-request"),
                                                           QStringLiteral("Resolve PermissionRequest status from the effective Codex approval reviewer."));
     const QCommandLineOption claudeStopOption(QStringLiteral("claude-stop"),
-                                              QStringLiteral("Keep Claude running when a Stop event has active background work."));
+                                              QStringLiteral("Keep Claude running when a Stop event has active non-monitor background work."));
     const QCommandLineOption claudeNotificationOption(QStringLiteral("claude-notification"),
                                                       QStringLiteral("Preserve the Claude notification subtype for project-status handling."));
     const QCommandLineOption claudeStopFailureOption(QStringLiteral("claude-stop-failure"),
