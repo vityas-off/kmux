@@ -232,11 +232,12 @@ private:
     // what saveProfile() does.
     void saveDefaultProfile();
 
-    // saves a profile to a file
+    // saves a profile to a file, preserving an existing owned path unless
+    // forceNewPath is requested (for example, when renaming the profile)
     // returns the path to which the profile was saved, which will
     // be the same as the path property of profile if valid or a newly generated path
     // otherwise
-    QString saveProfile(const Profile::Ptr &profile);
+    QString saveProfile(const Profile::Ptr &profile, bool forceNewPath = false);
 
     // Sorts _profiles by profile name
     void sortProfiles();

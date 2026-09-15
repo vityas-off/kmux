@@ -39,16 +39,21 @@ QStringList ProfileReader::findProfiles()
     QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kmux"), QStandardPaths::LocateDirectory);
     dirs.append(QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole"), QStandardPaths::LocateDirectory));
     profiles.reserve(dirs.size());
-    QSet<QString> profileNames;
+    QSet<QString> profileIdentities;
 
     for (const QString &dir : dirs) {
         const QStringList fileNames = QDir(dir).entryList(QStringList() << QStringLiteral("*.profile"));
         for (const QString &file : fileNames) {
-            if (profileNames.contains(file)) {
+            const QString path = dir + QLatin1Char('/') + file;
+            const KConfig config(path, KConfig::NoGlobals);
+            const KConfigGroup general = config.group(QLatin1String(GENERAL_GROUP));
+            const QString untranslatedName = general.readEntryUntranslated("Name");
+            const QString profileIdentity = untranslatedName.isEmpty() ? file : untranslatedName;
+            if (profileIdentities.contains(profileIdentity)) {
                 continue;
             }
-            profileNames.insert(file);
-            profiles.append(dir + QLatin1Char('/') + file);
+            profileIdentities.insert(profileIdentity);
+            profiles.append(path);
         }
     }
     return profiles;

@@ -26,7 +26,9 @@ private Q_SLOTS:
     void testBuiltinProfileUsesAccountShellWithoutEnvironment();
     void testLoadProfileNamedAsBuiltin();
     void testInvalidParentProfile();
+    void testSavingPreservesExistingFileName();
     void testLegacyProfileFallbackIsReadOnly();
+    void testKmuxProfileShadowsLegacyAlias();
 };
 
 }

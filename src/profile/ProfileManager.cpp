@@ -358,11 +358,14 @@ QString ProfileManager::generateUniqueName() const
     return uniqueProfileName;
 }
 
-QString ProfileManager::saveProfile(const Profile::Ptr &profile)
+QString ProfileManager::saveProfile(const Profile::Ptr &profile, bool forceNewPath)
 {
     ProfileWriter writer;
 
-    QString newPath = writer.getPath(profile);
+    QString newPath = profile->path();
+    if (forceNewPath || !ProfileWriter::isUserProfilePath(newPath)) {
+        newPath = writer.getPath(profile);
+    }
 
     if (!writer.writeProfile(newPath, profile)) {
         KMessageBox::error(nullptr, i18n("Konsole does not have permission to save this profile to %1", newPath));
@@ -408,7 +411,7 @@ void ProfileManager::changeProfile(Profile::Ptr profile, const Profile::Property
     // save changes to disk, unless the profile is hidden, in which case
     // it has no file on disk
     if (persistent && !profile->isHidden()) {
-        profile->setProperty(Profile::Path, saveProfile(profile));
+        profile->setProperty(Profile::Path, saveProfile(profile, isRenamed));
     }
 
     if (isRenamed) {

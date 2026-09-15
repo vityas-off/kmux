@@ -335,6 +335,58 @@ void ProfileTest::testInvalidParentProfile()
     QCOMPARE(parent->property<QString>(Profile::Name), QStringLiteral("Built-in"));
 }
 
+void ProfileTest::testSavingPreservesExistingFileName()
+{
+    const QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString profileDirectory = dataLocation + QStringLiteral("/kmux");
+    const QString profileName = QStringLiteral("Kmux Preserve Path");
+    const QString renamedProfileName = QStringLiteral("Kmux Renamed Profile");
+    const QString existingPath = profileDirectory + QStringLiteral("/Kmux-Preserve-Path.profile");
+    const QString generatedPath = profileDirectory + QLatin1Char('/') + profileName + QStringLiteral(".profile");
+    const QString renamedPath = profileDirectory + QLatin1Char('/') + renamedProfileName + QStringLiteral(".profile");
+    QFile::remove(existingPath);
+    QFile::remove(generatedPath);
+    QFile::remove(renamedPath);
+    const auto cleanup = qScopeGuard([&]() {
+        QFile::remove(existingPath);
+        QFile::remove(generatedPath);
+        QFile::remove(renamedPath);
+    });
+
+    QVERIFY(QDir().mkpath(profileDirectory));
+    QFile profileFile(existingPath);
+    QVERIFY(profileFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray originalContent = QStringLiteral("[General]\nName=%1\nParent=FALLBACK/\n").arg(profileName).toUtf8();
+    QCOMPARE(profileFile.write(originalContent), originalContent.size());
+    profileFile.close();
+
+    auto *manager = ProfileManager::instance();
+    Profile::Ptr profile = manager->loadProfile(existingPath);
+    QVERIFY(profile);
+
+    manager->changeProfile(profile, {{Profile::AllowEscapedLinks, true}}, true);
+    QCOMPARE(profile->path(), existingPath);
+    QVERIFY(QFile::exists(existingPath));
+    QVERIFY(!QFile::exists(generatedPath));
+
+    Profile::Ptr savedProfile(new Profile(manager->builtinProfile()));
+    ProfileReader reader;
+    QString parentProfilePath;
+    QVERIFY(reader.readProfile(existingPath, savedProfile, parentProfilePath));
+    QVERIFY(savedProfile->allowEscapedLinks());
+
+    const Profile::PropertyMap renameChanges = {
+        {Profile::Name, renamedProfileName},
+        {Profile::UntranslatedName, renamedProfileName},
+    };
+    manager->changeProfile(profile, renameChanges, true);
+    QCOMPARE(profile->path(), renamedPath);
+    QVERIFY(!QFile::exists(existingPath));
+    QVERIFY(QFile::exists(renamedPath));
+
+    QVERIFY(manager->deleteProfile(profile));
+}
+
 void ProfileTest::testLegacyProfileFallbackIsReadOnly()
 {
     const QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
@@ -343,11 +395,14 @@ void ProfileTest::testLegacyProfileFallbackIsReadOnly()
     const QString originalName = QStringLiteral("KmuxLegacyFallbackTest");
     const QString renamedName = QStringLiteral("KmuxLegacyFallbackRenamed");
     const QString legacyPath = legacyDirectory + QLatin1Char('/') + originalName + QStringLiteral(".profile");
+    const QString copiedOriginalPath = kmuxDirectory + QLatin1Char('/') + originalName + QStringLiteral(".profile");
     const QString copiedPath = kmuxDirectory + QLatin1Char('/') + renamedName + QStringLiteral(".profile");
     QFile::remove(legacyPath);
+    QFile::remove(copiedOriginalPath);
     QFile::remove(copiedPath);
     const auto cleanup = qScopeGuard([&]() {
         QFile::remove(legacyPath);
+        QFile::remove(copiedOriginalPath);
         QFile::remove(copiedPath);
     });
 
@@ -367,12 +422,18 @@ void ProfileTest::testLegacyProfileFallbackIsReadOnly()
     QCOMPARE(profile->path(), legacyPath);
     QVERIFY(!profile->isDeletable());
 
+    manager->changeProfile(profile, {{Profile::HistorySize, 4321}}, true);
+    QCOMPARE(profile->path(), copiedOriginalPath);
+    QVERIFY(QFile::exists(copiedOriginalPath));
+    QVERIFY(QFile::exists(legacyPath));
+
     const Profile::PropertyMap changes = {
         {Profile::Name, renamedName},
         {Profile::UntranslatedName, renamedName},
     };
     manager->changeProfile(profile, changes, true);
     QCOMPARE(profile->path(), copiedPath);
+    QVERIFY(!QFile::exists(copiedOriginalPath));
     QVERIFY(QFile::exists(copiedPath));
     QVERIFY(QFile::exists(legacyPath));
     QVERIFY(legacyFile.open(QIODevice::ReadOnly | QIODevice::Text));
@@ -382,6 +443,41 @@ void ProfileTest::testLegacyProfileFallbackIsReadOnly()
     QVERIFY(manager->deleteProfile(profile));
     QVERIFY(!QFile::exists(copiedPath));
     QVERIFY(QFile::exists(legacyPath));
+}
+
+void ProfileTest::testKmuxProfileShadowsLegacyAlias()
+{
+    const QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString kmuxDirectory = dataLocation + QStringLiteral("/kmux");
+    const QString legacyDirectory = dataLocation + QStringLiteral("/konsole");
+    const QString profileName = QStringLiteral("Kmux Shadowed Legacy Profile");
+    const QString kmuxPath = kmuxDirectory + QStringLiteral("/Kmux-Shadow.profile");
+    const QString legacyPath = legacyDirectory + QStringLiteral("/Legacy Alias.profile");
+    QFile::remove(kmuxPath);
+    QFile::remove(legacyPath);
+    const auto cleanup = qScopeGuard([&]() {
+        QFile::remove(kmuxPath);
+        QFile::remove(legacyPath);
+    });
+
+    QVERIFY(QDir().mkpath(kmuxDirectory));
+    QVERIFY(QDir().mkpath(legacyDirectory));
+    const QByteArray profileContent = QStringLiteral("[General]\nName=%1\nParent=FALLBACK/\n").arg(profileName).toUtf8();
+
+    QFile kmuxFile(kmuxPath);
+    QVERIFY(kmuxFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    QCOMPARE(kmuxFile.write(profileContent), profileContent.size());
+    kmuxFile.close();
+
+    QFile legacyFile(legacyPath);
+    QVERIFY(legacyFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    QCOMPARE(legacyFile.write(profileContent), profileContent.size());
+    legacyFile.close();
+
+    ProfileReader reader;
+    const QStringList profiles = reader.findProfiles();
+    QVERIFY(profiles.contains(kmuxPath));
+    QVERIFY(!profiles.contains(legacyPath));
 }
 
 QTEST_GUILESS_MAIN(ProfileTest)

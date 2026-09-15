@@ -29,6 +29,9 @@ public:
      */
     QString getPath(const Profile::Ptr &profile);
 
+    /** Returns whether @p path is in Kmux's writable user profile directory. */
+    static bool isUserProfilePath(const QString &path);
+
     /** Returns whether @p path belongs to Kmux's profile namespace. */
     static bool isOwnedProfilePath(const QString &path);
 

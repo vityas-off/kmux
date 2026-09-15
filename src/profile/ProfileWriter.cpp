@@ -50,6 +50,13 @@ bool ProfileWriter::isOwnedProfilePath(const QString &path)
     });
 }
 
+bool ProfileWriter::isUserProfilePath(const QString &path)
+{
+    const QString profileDirectory = QDir::cleanPath(QFileInfo(path).absolutePath());
+    const QString userProfileDirectory = QDir::cleanPath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kmux"));
+    return profileDirectory == userProfileDirectory;
+}
+
 void ProfileWriter::writeProperties(KConfig &config, const Profile::Ptr &profile)
 {
     const char *groupName = nullptr;
