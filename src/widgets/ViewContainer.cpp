@@ -12,6 +12,7 @@
 #include <QBoxLayout>
 #include <QFile>
 #include <QIcon>
+#include <QIconEngine>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
@@ -46,66 +47,121 @@
 
 using namespace Konsole;
 
-static QIcon terminalTabStatusIcon(TerminalTabStatus status, const QPalette &palette)
+namespace
 {
-    if (status == TerminalTabStatus::None) {
-        return {};
+class TerminalTabStatusIconEngine : public QIconEngine
+{
+public:
+    TerminalTabStatusIconEngine(TerminalTabStatus status, const QPalette &palette)
+        : _status(status)
+        , _palette(palette)
+    {
     }
 
-    QPixmap pixmap(16, 16);
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
-
-    const KColorScheme viewScheme(palette.currentColorGroup(), KColorScheme::View);
-    switch (status) {
-    case TerminalTabStatus::ForegroundProcess: {
-        QColor color = palette.color(QPalette::Text);
-        color.setAlpha(190);
-        QPen pen(color, 1.4);
-        pen.setCapStyle(Qt::RoundCap);
-        pen.setJoinStyle(Qt::RoundJoin);
-        painter.setPen(pen);
-        painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(QRectF(1.5, 2.5, 13.0, 11.0), 1.5, 1.5);
-        painter.drawPolyline(QPolygonF({QPointF(4.0, 6.0), QPointF(6.5, 8.0), QPointF(4.0, 10.0)}));
-        painter.drawLine(QPointF(8.0, 10.0), QPointF(11.0, 10.0));
-        break;
-    }
-    case TerminalTabStatus::AgentIdle: {
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(viewScheme.foreground(KColorScheme::PositiveText).color());
-        painter.drawRoundedRect(QRectF(3.5, 2.5, 3.5, 11.0), 1.0, 1.0);
-        painter.drawRoundedRect(QRectF(9.0, 2.5, 3.5, 11.0), 1.0, 1.0);
-        break;
-    }
-    case TerminalTabStatus::AgentRunning: {
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(palette.color(QPalette::Highlight));
-        QPainterPath path;
-        path.moveTo(4.0, 2.5);
-        path.lineTo(13.0, 8.0);
-        path.lineTo(4.0, 13.5);
-        path.closeSubpath();
-        painter.drawPath(path);
-        break;
-    }
-    case TerminalTabStatus::NeedsInput: {
-        const QColor color = viewScheme.foreground(KColorScheme::NeutralText).color();
-        painter.setPen(QPen(color, 1.5));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawEllipse(QRectF(2.0, 2.0, 12.0, 12.0));
-        painter.setPen(QPen(color, 2.0, Qt::SolidLine, Qt::RoundCap));
-        painter.drawLine(QPointF(8.0, 5.0), QPointF(8.0, 9.0));
-        painter.drawPoint(QPointF(8.0, 11.5));
-        break;
-    }
-    case TerminalTabStatus::None:
-        break;
+    QIconEngine *clone() const override
+    {
+        return new TerminalTabStatusIconEngine(*this);
     }
 
-    return QIcon(pixmap);
+    QPixmap pixmap(const QSize &size, QIcon::Mode mode, QIcon::State state) override
+    {
+        return renderPixmap(size, mode, state);
+    }
+
+    QPixmap scaledPixmap(const QSize &size, QIcon::Mode mode, QIcon::State state, qreal scale) override
+    {
+        const QSize pixelSize(qRound(size.width() * scale), qRound(size.height() * scale));
+        QPixmap pixmap = renderPixmap(pixelSize, mode, state);
+        pixmap.setDevicePixelRatio(scale);
+        return pixmap;
+    }
+
+    void paint(QPainter *painter, const QRect &rect, QIcon::Mode, QIcon::State) override
+    {
+        constexpr qreal iconExtent = 16.0;
+        const qreal renderedExtent = qMin(rect.width(), rect.height());
+        const QRectF renderedRect(rect.x() + (rect.width() - renderedExtent) / 2.0,
+                                  rect.y() + (rect.height() - renderedExtent) / 2.0,
+                                  renderedExtent,
+                                  renderedExtent);
+
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing);
+        painter->translate(renderedRect.topLeft());
+        painter->scale(renderedExtent / iconExtent, renderedExtent / iconExtent);
+
+        const KColorScheme viewScheme(_palette.currentColorGroup(), KColorScheme::View);
+        switch (_status) {
+        case TerminalTabStatus::ForegroundProcess: {
+            QColor color = _palette.color(QPalette::Text);
+            color.setAlpha(190);
+            QPen pen(color, 1.4);
+            pen.setCapStyle(Qt::RoundCap);
+            pen.setJoinStyle(Qt::RoundJoin);
+            painter->setPen(pen);
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRoundedRect(QRectF(1.5, 2.5, 13.0, 11.0), 1.5, 1.5);
+            painter->drawPolyline(QPolygonF({QPointF(4.0, 6.0), QPointF(6.5, 8.0), QPointF(4.0, 10.0)}));
+            painter->drawLine(QPointF(8.0, 10.0), QPointF(11.0, 10.0));
+            break;
+        }
+        case TerminalTabStatus::AgentIdle: {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(viewScheme.foreground(KColorScheme::PositiveText).color());
+            painter->drawRoundedRect(QRectF(3.5, 2.5, 3.5, 11.0), 1.0, 1.0);
+            painter->drawRoundedRect(QRectF(9.0, 2.5, 3.5, 11.0), 1.0, 1.0);
+            break;
+        }
+        case TerminalTabStatus::AgentRunning: {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(_palette.color(QPalette::Highlight));
+            QPainterPath path;
+            path.moveTo(4.0, 2.5);
+            path.lineTo(13.0, 8.0);
+            path.lineTo(4.0, 13.5);
+            path.closeSubpath();
+            painter->drawPath(path);
+            break;
+        }
+        case TerminalTabStatus::NeedsInput: {
+            const QColor color = viewScheme.foreground(KColorScheme::NeutralText).color();
+            painter->setPen(QPen(color, 1.5));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawEllipse(QRectF(2.0, 2.0, 12.0, 12.0));
+            painter->setPen(QPen(color, 2.0, Qt::SolidLine, Qt::RoundCap));
+            painter->drawLine(QPointF(8.0, 5.0), QPointF(8.0, 9.0));
+            painter->drawPoint(QPointF(8.0, 11.5));
+            break;
+        }
+        case TerminalTabStatus::None:
+            break;
+        }
+
+        painter->restore();
+    }
+
+private:
+    QPixmap renderPixmap(const QSize &size, QIcon::Mode mode, QIcon::State state)
+    {
+        if (size.isEmpty()) {
+            return {};
+        }
+
+        QPixmap pixmap(size);
+        pixmap.fill(Qt::transparent);
+        QPainter painter(&pixmap);
+        paint(&painter, QRect(QPoint(0, 0), size), mode, state);
+        return pixmap;
+    }
+
+    TerminalTabStatus _status;
+    QPalette _palette;
+};
+
+QIcon terminalTabStatusIcon(TerminalTabStatus status, const QPalette &palette)
+{
+    return status == TerminalTabStatus::None ? QIcon() : QIcon(new TerminalTabStatusIconEngine(status, palette));
+}
 }
 
 static QString containerBadgeColorStyle(const QColor &color)

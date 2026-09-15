@@ -14,6 +14,7 @@
 #include <QKeyEvent>
 #include <QListWidget>
 #include <QMenu>
+#include <QPixmap>
 #include <QPointer>
 #include <QProcess>
 #include <QScopeGuard>
@@ -591,6 +592,13 @@ void ViewManagerTest::testTerminalTabsTrackSessionStatusesIndependently()
     QVERIFY(!project->tabIcon(secondTabIndex).isNull());
     QVERIFY(project->tabIcon(firstTabIndex).cacheKey() != firstBaseIcon);
     QVERIFY(project->tabIcon(secondTabIndex).cacheKey() != secondBaseIcon);
+
+    const QPixmap needsInputPixmap = project->tabIcon(firstTabIndex).pixmap(QSize(16, 16), 2.0);
+    const QPixmap idlePixmap = project->tabIcon(secondTabIndex).pixmap(QSize(16, 16), 2.0);
+    QCOMPARE(needsInputPixmap.size(), QSize(32, 32));
+    QCOMPARE(idlePixmap.size(), QSize(32, 32));
+    QCOMPARE(needsInputPixmap.toImage().pixelColor(0, 0).alpha(), 0);
+    QCOMPARE(idlePixmap.toImage().pixelColor(0, 0).alpha(), 0);
 
     const qint64 needsInputIcon = project->tabIcon(firstTabIndex).cacheKey();
     project->updateNotification(firstTerminal->sessionController(), Session::Activity, true);
