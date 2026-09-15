@@ -355,7 +355,11 @@ void AgentHooksTest::testClaudeCommandUsesTransparentLauncher()
     hookProcess.setProcessEnvironment(environment);
     hookProcess.start(hookCommand);
     QVERIFY(hookProcess.waitForStarted());
-    const QByteArray hookPayload = QJsonDocument(QJsonObject{{QStringLiteral("session_id"), QStringLiteral("session-1")}}).toJson(QJsonDocument::Compact);
+    const QJsonObject hookInput{
+        {QStringLiteral("session_id"), QStringLiteral("session-1")},
+        {QStringLiteral("prompt_id"), QStringLiteral("prompt-1")},
+    };
+    const QByteArray hookPayload = QJsonDocument(hookInput).toJson(QJsonDocument::Compact);
     QCOMPARE(hookProcess.write(hookPayload), hookPayload.size());
     hookProcess.closeWriteChannel();
     QVERIFY(hookProcess.waitForFinished());
@@ -367,6 +371,8 @@ void AgentHooksTest::testClaudeCommandUsesTransparentLauncher()
     QCOMPARE(firstTraceRecord.value(QStringLiteral("phase")).toString(), QStringLiteral("received"));
     QCOMPARE(firstTraceRecord.value(QStringLiteral("event")).toString(), QStringLiteral("UserPromptSubmit"));
     QCOMPARE(firstTraceRecord.value(QStringLiteral("status")).toString(), QStringLiteral("running"));
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("session_id")).toString(), QStringLiteral("session-1"));
+    QCOMPARE(firstTraceRecord.value(QStringLiteral("prompt_id")).toString(), QStringLiteral("prompt-1"));
 }
 
 void AgentHooksTest::testCodexPermissionRequestUsesConfiguredReviewer()

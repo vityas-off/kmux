@@ -362,6 +362,7 @@ void appendHookTrace(const QString &phase,
                      const QString &status,
                      qlonglong agentPid,
                      const QString &sessionPath,
+                     const QJsonObject &payload,
                      const QString &error = {})
 {
     const QString tracePath = qEnvironmentVariable("KMUX_AGENT_HOOK_LOG");
@@ -378,6 +379,9 @@ void appendHookTrace(const QString &phase,
         {QStringLiteral("agent_pid"), agentPid > 0 ? QString::number(agentPid) : QString()},
         {QStringLiteral("helper_pid"), QString::number(QCoreApplication::applicationPid())},
         {QStringLiteral("terminal_session"), sessionPath},
+        {QStringLiteral("session_id"), payload.value(QStringLiteral("session_id")).toString()},
+        {QStringLiteral("prompt_id"), payload.value(QStringLiteral("prompt_id")).toString()},
+        {QStringLiteral("agent_id"), payload.value(QStringLiteral("agent_id")).toString()},
     };
     if (!error.isEmpty()) {
         record.insert(QStringLiteral("error"), error);
@@ -468,7 +472,7 @@ int main(int argc, char **argv)
         event = QStringLiteral("RateLimit");
         status = QStringLiteral("needsInput");
     }
-    appendHookTrace(QStringLiteral("received"), agent, event, status, validAgentPid ? agentPid : 0, objectPath);
+    appendHookTrace(QStringLiteral("received"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, payload);
     if (isClaudeHook && !payload.value(QStringLiteral("agent_id")).toString().trimmed().isEmpty() && !isClaudeSubagentResolutionEvent(event)) {
         appendHookTrace(QStringLiteral("ignored"),
                         agent,
@@ -476,6 +480,7 @@ int main(int argc, char **argv)
                         status,
                         validAgentPid ? agentPid : 0,
                         objectPath,
+                        payload,
                         QStringLiteral("Hook belongs to a Claude subagent."));
         return finishForHook(hookMode, 0);
     }
@@ -484,14 +489,14 @@ int main(int argc, char **argv)
     const QString agentId = payload.value(QStringLiteral("agent_id")).toString();
     if (service.isEmpty() || objectPath.isEmpty()) {
         const QString error = QStringLiteral("KMUX_DBUS_SERVICE and KMUX_DBUS_SESSION must be set.");
-        appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, error);
+        appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, payload, error);
         printError(hookMode, error);
         return finishForHook(hookMode, 2);
     }
 
     QDBusInterface session(service, objectPath, QStringLiteral("io.github.vityas_off.kmux.Session"), QDBusConnection::sessionBus());
     if (!session.isValid()) {
-        appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, session.lastError().message());
+        appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, payload, session.lastError().message());
         printError(hookMode, session.lastError().message());
         return finishForHook(hookMode, 3);
     }
@@ -501,11 +506,11 @@ int main(int argc, char **argv)
         : validAgentPid && agentPid > 0 ? session.call(QStringLiteral("setProjectStatusWithProcess"), status, agentPid)
                                         : session.call(QStringLiteral("setProjectStatus"), status);
     if (!reply.isValid()) {
-        appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, reply.error().message());
+        appendHookTrace(QStringLiteral("failed"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, payload, reply.error().message());
         printError(hookMode, reply.error().message());
         return finishForHook(hookMode, 3);
     }
 
-    appendHookTrace(QStringLiteral("applied"), agent, event, status, validAgentPid ? agentPid : 0, objectPath);
+    appendHookTrace(QStringLiteral("applied"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, payload);
     return finishForHook(hookMode, 0);
 }
