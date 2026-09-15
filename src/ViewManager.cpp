@@ -81,6 +81,7 @@ Q_DECLARE_METATYPE(QList<double>);
 namespace
 {
 constexpr int ProjectStatusProcessCheckIntervalMs = 2000;
+constexpr qsizetype RetiredClaudePromptIdLimit = 8;
 
 bool projectStatusProcessIsAlive(qlonglong processId)
 {
@@ -3073,14 +3074,6 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool isClaudeEvent = normalizedAgent == QLatin1String("claude");
     const bool isClaudeSubagentEvent = isClaudeEvent && !agentId.trimmed().isEmpty();
     const bool isSupportedAgent = normalizedAgent == QLatin1String("codex") || normalizedAgent == QLatin1String("claude");
-    const bool beginsTurn = isSessionStart || isUserPromptSubmit || isPreCompact;
-
-    // Codex does not emit Stop when a turn is interrupted. Ignore lifecycle
-    // hooks from that turn until an event explicitly begins new work.
-    if (previousStatus.turnInterrupted && !agentChanged && normalizedAgent == previousStatus.agent && isSupportedAgent && !beginsTurn
-        && projectStatusFromString(status) != ProjectWorkspaceContainer::ProjectStatus::None) {
-        return;
-    }
 
     // Hook helpers may finish out of order. Bind Claude's session and prompt
     // identities at their start events, then discard mutations from older work.
@@ -3088,11 +3081,31 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const QString normalizedPromptId = promptId.trimmed();
     const QString previousSessionId = agentChanged ? QString() : previousStatus.agentSessionId;
     const QString previousPromptId = agentChanged ? QString() : previousStatus.agentPromptId;
-    if (isClaudeEvent && !isSessionStart && !previousSessionId.isEmpty() && !normalizedSessionId.isEmpty() && normalizedSessionId != previousSessionId) {
+    const QStringList previousRetiredPromptIds = agentChanged ? QStringList() : previousStatus.retiredAgentPromptIds;
+    const bool isOtherClaudeSession =
+        isClaudeEvent && !isSessionStart && !previousSessionId.isEmpty() && !normalizedSessionId.isEmpty() && normalizedSessionId != previousSessionId;
+    const bool isOtherClaudePrompt = isClaudeEvent && !isSessionStart && !isUserPromptSubmit && !isPreCompact && !previousPromptId.isEmpty()
+        && !normalizedPromptId.isEmpty() && normalizedPromptId != previousPromptId;
+    // Claude starts turns for background task notifications without
+    // UserPromptSubmit, so a main-agent hook with an unseen prompt begins one.
+    const bool beginsNotifiedTurn =
+        isOtherClaudePrompt && !isOtherClaudeSession && !isClaudeSubagentEvent && !previousRetiredPromptIds.contains(normalizedPromptId);
+    const bool beginsTurn = isSessionStart || isUserPromptSubmit || isPreCompact || beginsNotifiedTurn;
+
+    // Codex does not emit Stop when a turn is interrupted. Ignore lifecycle
+    // hooks from that turn until an event explicitly begins new work.
+    if (previousStatus.turnInterrupted && !agentChanged && normalizedAgent == previousStatus.agent && isSupportedAgent && !beginsTurn
+        && projectStatusFromString(status) != ProjectWorkspaceContainer::ProjectStatus::None) {
+        qCDebug(KonsoleDebug) << "Ignoring agent hook from an interrupted turn:" << normalizedAgent << event;
         return;
     }
-    if (isClaudeEvent && !isSessionStart && !isUserPromptSubmit && !isPreCompact && !previousPromptId.isEmpty() && !normalizedPromptId.isEmpty()
-        && normalizedPromptId != previousPromptId) {
+
+    if (isOtherClaudeSession) {
+        qCDebug(KonsoleDebug) << "Ignoring Claude hook from another session:" << event << normalizedSessionId << "bound:" << previousSessionId;
+        return;
+    }
+    if (isOtherClaudePrompt && !beginsNotifiedTurn) {
+        qCDebug(KonsoleDebug) << "Ignoring Claude hook from an earlier prompt:" << event << normalizedPromptId << "bound:" << previousPromptId;
         return;
     }
 
@@ -3122,9 +3135,20 @@ void ViewManager::setSessionProjectStatus(Session *session,
 
     QString agentSessionId;
     QString agentPromptId;
+    QStringList retiredAgentPromptIds;
     if (isClaudeEvent) {
         agentSessionId = isSessionStart || previousSessionId.isEmpty() ? normalizedSessionId : previousSessionId;
-        agentPromptId = isSessionStart ? QString() : (isUserPromptSubmit || isPreCompact ? normalizedPromptId : previousPromptId);
+        agentPromptId = isSessionStart ? QString() : (isUserPromptSubmit || isPreCompact || beginsNotifiedTurn ? normalizedPromptId : previousPromptId);
+        if (!isSessionStart) {
+            retiredAgentPromptIds = previousRetiredPromptIds;
+            if (!previousPromptId.isEmpty() && agentPromptId != previousPromptId && !retiredAgentPromptIds.contains(previousPromptId)) {
+                retiredAgentPromptIds.append(previousPromptId);
+            }
+            retiredAgentPromptIds.removeAll(agentPromptId);
+            while (retiredAgentPromptIds.size() > RetiredClaudePromptIdLimit) {
+                retiredAgentPromptIds.removeFirst();
+            }
+        }
     }
 
     auto projectStatus = projectStatusFromString(status);
@@ -3204,6 +3228,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     nextStatus.turnInterrupted = previousStatus.turnInterrupted && !agentProcessChanged && !beginsTurn;
     nextStatus.agentSessionId = agentSessionId;
     nextStatus.agentPromptId = agentPromptId;
+    nextStatus.retiredAgentPromptIds = retiredAgentPromptIds;
     _sessionProjectStatuses.insert(session, nextStatus);
     if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
         markSessionAttention(session, container);

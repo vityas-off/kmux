@@ -1260,6 +1260,55 @@ void ViewManagerTest::testProjectWorkspaceClaudeRejectsStaleHookIdentities()
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
 }
 
+void ViewManagerTest::testProjectWorkspaceClaudeTaskNotificationBeginsTurn()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    const QString claude = QStringLiteral("claude");
+    const QString sessionId = QStringLiteral("session-1");
+    const QString userPrompt = QStringLiteral("prompt-1");
+    const QString firstNotificationPrompt = QStringLiteral("prompt-2");
+    const QString secondNotificationPrompt = QStringLiteral("prompt-3");
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("SessionStart"), sessionId, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("UserPromptSubmit"), sessionId, userPrompt, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("Stop"), sessionId, userPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(viewManager->_sessionProjectStatuses.value(session).claudeBackgroundWork);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("PreToolUse"), sessionId, firstNotificationPrompt, {});
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentPromptId, firstNotificationPrompt);
+    QVERIFY(!viewManager->_sessionProjectStatuses.value(session).claudeBackgroundWork);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("Stop"), sessionId, firstNotificationPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("PostToolUse"), sessionId, userPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("IdlePrompt"), sessionId, firstNotificationPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, claude, QStringLiteral("Stop"), sessionId, secondNotificationPrompt, {});
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentPromptId, secondNotificationPrompt);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, claude, QStringLiteral("PreToolUse"), sessionId, firstNotificationPrompt, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+}
+
 void ViewManagerTest::testProjectWorkspaceClaudeSubagentResolutionClearsOnlyNotification()
 {
     auto mw = MainWindow();

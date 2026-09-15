@@ -612,6 +612,7 @@ private:
         bool turnInterrupted = false;
         QString agentSessionId;
         QString agentPromptId;
+        QStringList retiredAgentPromptIds;
     };
     QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
     struct DeferredProjectRestore {
