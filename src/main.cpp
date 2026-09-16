@@ -141,6 +141,10 @@ int main(int argc, char *argv[])
     timer.start();
 #endif
 
+    // Match plugins to the libraries in this installation, including when
+    // launched from the desktop without the development prefix environment.
+    QCoreApplication::addLibraryPath(QStringLiteral(KMUX_PLUGIN_DIRECTORY));
+
     /**
      * trigger initialisation of proper icon theme
      */

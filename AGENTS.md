@@ -81,6 +81,10 @@ cmake --install build --prefix /home/w/kde/usr
 Do not install this checkout into the configured `/usr` prefix unless the user
 explicitly requests a system installation.
 
+Startup must include the configured KDE plugin directory before discovering
+plugins. Desktop launches do not inherit `build/prefix.sh`; mixing system KIO
+plugins with libraries from the user prefix can terminate the application.
+
 For UI changes, manually verify at least:
 
 - creating multiple project side tabs;
