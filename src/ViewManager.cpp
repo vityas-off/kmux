@@ -1983,6 +1983,7 @@ void ViewManager::saveSessions(KConfigGroup &group)
             const QJsonArray tabs = projectTabsForSaving(projectContainer);
             const int activeTab = projectActiveTabForSaving(projectContainer);
             project.insert(QStringLiteral("Title"), _workspaceContainer->projectTitle(projectContainer));
+            project.insert(QStringLiteral("Icon"), _workspaceContainer->projectIconName(projectContainer));
             project.insert(QStringLiteral("Tabs"), tabs);
             project.insert(QStringLiteral("Active"), activeTab);
             const auto deferred = _deferredProjects.constFind(projectContainer);
@@ -2378,6 +2379,8 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
                 container = createContainer();
                 _workspaceContainer->addProject(container, title, ProjectWorkspaceContainer::ActivationPolicy::KeepCurrent);
             }
+
+            _workspaceContainer->setProjectIconName(container, projectObject[QStringLiteral("Icon")].toString());
 
             const auto tabs = projectObject[QStringLiteral("Tabs")].toArray();
             const int activeTab = projectObject[QStringLiteral("Active")].toInt(0);

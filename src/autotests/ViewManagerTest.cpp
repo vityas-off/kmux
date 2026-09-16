@@ -1810,6 +1810,68 @@ void ViewManagerTest::testProjectWorkspaceRailWidthPersists()
     QCOMPARE(restoredWorkspaces->projectRailWidth(), 320);
 }
 
+void ViewManagerTest::testProjectIconsPersistWithoutLoadingInactiveProjects()
+{
+    KConfig config(m_testDir->filePath(QStringLiteral("project-icons-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+    const QString customPath = m_testDir->filePath(QStringLiteral("project-icon.png"));
+    QPixmap custom(24, 24);
+    custom.fill(Qt::red);
+    QVERIFY(custom.save(customPath));
+    const QStringList icons = {QStringLiteral(":/project-icons/material/code.svg"),
+                               customPath,
+                               QStringLiteral("folder"),
+                               QStringLiteral(":/project-icons/devicon/python.svg"),
+                               QStringLiteral(":/project-icons/devicon/monochrome/rust.svg")};
+
+    {
+        auto sourceWindow = MainWindow();
+        auto *manager = sourceWindow.viewManager();
+        auto *workspaces = manager->_workspaceContainer.data();
+        sourceWindow.newTab();
+        for (int i = 0; i < icons.size(); ++i) {
+            if (i > 0) {
+                manager->createProject();
+            }
+            workspaces->setProjectIconName(manager->activeContainer(), icons.at(i));
+            sourceWindow.newTab();
+            QCOMPARE(workspaces->projectIconName(manager->activeContainer()), icons.at(i));
+        }
+        manager->saveSessions(group);
+    }
+
+    auto restoredWindow = MainWindow();
+    auto *manager = restoredWindow.viewManager();
+    auto *workspaces = manager->_workspaceContainer.data();
+    manager->restoreSessions(group, false);
+    const auto projects = workspaces->containers();
+    QCOMPARE(projects.size(), icons.size());
+    QCOMPARE(projects.at(0)->count(), 0);
+    QCOMPARE(projects.at(1)->count(), 0);
+    auto *list = workspaces->findChild<QListWidget *>(QStringLiteral("projectList"));
+    QVERIFY(list != nullptr);
+    for (int i = 0; i < icons.size(); ++i) {
+        QCOMPARE(workspaces->projectIconName(projects.at(i)), icons.at(i));
+        QVERIFY(!list->item(i)->icon().pixmap(20).isNull());
+    }
+    QCOMPARE(list->item(1)->icon().pixmap(20).toImage().pixelColor(10, 10), QColor(Qt::red));
+
+    manager->saveSessions(group);
+    QCOMPARE(projects.at(0)->count(), 0);
+    const auto savedProjects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+    for (int i = 0; i < icons.size(); ++i) {
+        QCOMPARE(savedProjects.at(i).toObject()[QStringLiteral("Icon")].toString(), icons.at(i));
+        workspaces->activateProject(projects.at(i));
+        QCOMPARE(workspaces->projectIconName(projects.at(i)), icons.at(i));
+    }
+
+    workspaces->setProjectIconName(projects.at(0), {});
+    manager->saveSessions(group);
+    const auto resetProjects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+    QVERIFY(resetProjects.at(0).toObject()[QStringLiteral("Icon")].toString().isEmpty());
+    QCOMPARE(workspaces->projectIconName(projects.at(1)), customPath);
+}
+
 void ViewManagerTest::testRestoreSessionsLazilyCreatesProjectWorkspacesWithoutSessionIds()
 {
     KConfig config(m_testDir->filePath(QStringLiteral("workspaces-restore-testrc")), KConfig::SimpleConfig);

@@ -47,6 +47,8 @@ public:
     TabbedViewContainer *containerForWidget(QWidget *widget) const;
     QString projectTitle(TabbedViewContainer *container) const;
     void setProjectTitle(TabbedViewContainer *container, const QString &title);
+    QString projectIconName(TabbedViewContainer *container) const;
+    void setProjectIconName(TabbedViewContainer *container, const QString &iconName);
     QString projectSubtitle(TabbedViewContainer *container) const;
     int projectTabCount(TabbedViewContainer *container) const;
     int projectActiveProcessCount(TabbedViewContainer *container) const;

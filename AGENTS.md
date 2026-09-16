@@ -24,6 +24,10 @@ unless a change is explicitly part of the fork's workspace UI.
   current profile choices, and persisted metadata when persistence is added.
 - Project switching should feel cheap: keep model changes separate from terminal
   process lifecycle changes.
+- Project icons are persistent project metadata, independent of terminal icons
+  and activity statuses. Offer searchable bundled Material Symbols and Devicon
+  logos, KDE theme icons, and custom files copied into the application's data
+  directory.
 - Prefer predictable, dense terminal UI over marketing-style or decorative
   screens.
 

@@ -4,7 +4,9 @@
 
 #include "widgets/ProjectWorkspaceContainer.h"
 
+#include "widgets/ProjectIconDialog.h"
 #include "widgets/ViewContainer.h"
+#include "workspaces/ProjectIcon.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -41,6 +43,7 @@ using namespace Konsole;
 namespace
 {
 constexpr int ProjectItemHeight = 56;
+constexpr int ProjectIconSize = 20;
 constexpr int ProjectRailDefaultWidth = 164;
 constexpr int ProjectRailMinimumWidth = 120;
 constexpr int ProjectRailMaximumWidth = 320;
@@ -53,6 +56,7 @@ enum ProjectRoles {
     HasActivityRole,
     LoadedRole,
     ProjectStatusRole,
+    ProjectIconNameRole,
 };
 
 QString badgeText(int count)
@@ -224,6 +228,12 @@ public:
 
         const QRect contentRect = rect;
         QRect titleRect = contentRect;
+        QRect subtitleRect(contentRect.left(), rect.center().y(), contentRect.width(), rect.height() / 2);
+        const QRect iconRect(rect.left(), rect.top() + (rect.height() / 2 - ProjectIconSize) / 2, ProjectIconSize, ProjectIconSize);
+        titleRect.setLeft(iconRect.right() + 7);
+        QFont titleFont = itemOption.font;
+        titleFont.setBold(true);
+        const QFontMetrics titleMetrics(titleFont);
         QFont indicatorFont = itemOption.font;
         indicatorFont.setPointSize(qMax(1, indicatorFont.pointSize() - 1));
         const QFontMetrics indicatorMetrics(indicatorFont);
@@ -244,10 +254,16 @@ public:
         QRect indicatorsRect;
         if (indicatorsWidth > 0) {
             indicatorsRect = QRect(rect.right() - indicatorsWidth, rect.top() + 1, indicatorsWidth, 18);
-            titleRect.setRight(indicatorsRect.left() - 8);
+            // Keep the project's identity readable when the rail is narrow or several badges are visible.
+            const int minimumTitleWidth = titleMetrics.horizontalAdvance(QStringLiteral("MMMM"));
+            if (indicatorsRect.left() - 8 - titleRect.left() < minimumTitleWidth) {
+                indicatorsRect.moveTop(subtitleRect.top() + 1);
+                subtitleRect.setRight(indicatorsRect.left() - 8);
+            } else {
+                titleRect.setRight(indicatorsRect.left() - 8);
+            }
         }
 
-        const QFontMetrics titleMetrics(itemOption.font);
         const QString title = titleMetrics.elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight, qMax(0, titleRect.width()));
 
         QRect tabsIndicatorRect;
@@ -273,8 +289,13 @@ public:
             painter->setOpacity(0.62);
         }
 
-        QFont titleFont = itemOption.font;
-        titleFont.setBold(true);
+        const QString iconName = index.data(ProjectIconNameRole).toString();
+        const QIcon icon = iconName.isEmpty() || iconName.startsWith(QLatin1String(":/project-icons/material/"))
+                || iconName.startsWith(QLatin1String(":/project-icons/devicon/monochrome/"))
+            ? ProjectIcon::icon(iconName, textColor)
+            : qvariant_cast<QIcon>(index.data(Qt::DecorationRole));
+        icon.paint(painter, iconRect);
+
         painter->setFont(titleFont);
         painter->setPen(textColor);
         painter->drawText(titleRect.left(), titleRect.top(), titleRect.width(), titleRect.height() / 2, Qt::AlignLeft | Qt::AlignVCenter, title);
@@ -287,9 +308,10 @@ public:
         painter->setFont(subtitleFont);
         painter->setPen(subtleColor);
         const QFontMetrics subtitleMetrics(subtitleFont);
-        const QString subtitle = subtitleMetrics.elidedText(index.data(SubtitleRole).toString(), Qt::ElideRight, qMax(0, contentRect.width()));
-        painter->drawText(contentRect.left(), rect.center().y(), contentRect.width(), rect.height() / 2, Qt::AlignLeft | Qt::AlignVCenter, subtitle);
+        const QString subtitle = subtitleMetrics.elidedText(index.data(SubtitleRole).toString(), Qt::ElideRight, qMax(0, subtitleRect.width()));
+        painter->drawText(subtitleRect, Qt::AlignLeft | Qt::AlignVCenter, subtitle);
 
+        painter->setClipRect(rect, Qt::IntersectClip);
         QColor indicatorColor = blendedColor(itemOption.palette.color(QPalette::PlaceholderText), textColor, selected ? 0.75 : 0.48);
         if (!tabsIndicatorRect.isNull()) {
             drawInlineIndicator(painter, tabsIndicatorRect, tabsBadge, indicatorColor, indicatorFont, drawTabIndicatorIcon);
@@ -542,6 +564,16 @@ void ProjectWorkspaceContainer::setProjectTitle(TabbedViewContainer *container, 
     _model->setProjectTitle(projectId(container), title);
 }
 
+QString ProjectWorkspaceContainer::projectIconName(TabbedViewContainer *container) const
+{
+    return _model->project(projectId(container)).iconName;
+}
+
+void ProjectWorkspaceContainer::setProjectIconName(TabbedViewContainer *container, const QString &iconName)
+{
+    _model->setProjectIconName(projectId(container), iconName);
+}
+
 QString ProjectWorkspaceContainer::projectSubtitle(TabbedViewContainer *container) const
 {
     const int index = indexOf(container);
@@ -723,6 +755,16 @@ void ProjectWorkspaceContainer::openProjectContextMenu(const QPoint &point)
     });
     renameAction->setEnabled(activeContainer() != nullptr);
 
+    const auto selectedProjectId = item != nullptr ? item->data(ProjectIdRole).toUuid() : ProjectWorkspaceModel::ProjectId();
+    auto *iconAction =
+        menu.addAction(QIcon::fromTheme(QStringLiteral("insert-image")), i18nc("@action:inmenu", "Change Project Icon…"), this, [this, selectedProjectId] {
+            const auto iconName = chooseProjectIcon(_model->project(selectedProjectId).iconName, this);
+            if (iconName.has_value()) {
+                _model->setProjectIconName(selectedProjectId, *iconName);
+            }
+        });
+    iconAction->setEnabled(!selectedProjectId.isNull());
+
     auto *closeAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-close")), i18nc("@action:inmenu", "Close Project"), this, [this] {
         if (auto *container = activeContainer()) {
             Q_EMIT closeProjectRequested(container);
@@ -834,7 +876,10 @@ void ProjectWorkspaceContainer::updateListItem(int index)
         tooltip += QStringLiteral("\n%1").arg(i18nc("@info:tooltip", "Last notification: %1", project.notification));
     }
     item->setToolTip(tooltip);
-    item->setIcon(project.icon.isNull() ? QIcon::fromTheme(QStringLiteral("folder")) : project.icon);
+    if (item->icon().isNull() || item->data(ProjectIconNameRole).toString() != project.iconName) {
+        item->setIcon(ProjectIcon::icon(project.iconName));
+        item->setData(ProjectIconNameRole, project.iconName);
+    }
 }
 
 void ProjectWorkspaceContainer::applyRailStyle()

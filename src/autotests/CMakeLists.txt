@@ -49,6 +49,16 @@ ecm_add_test(
     LINK_LIBRARIES konsoleprivate Qt::Test
 )
 
+ecm_add_test(
+    ProjectIconTest.cpp
+    LINK_LIBRARIES konsoleprivate Qt::Test
+)
+
+ecm_add_test(
+    ProjectIconDialogTest.cpp
+    LINK_LIBRARIES konsoleprivate Qt::Test
+)
+
 ecm_add_tests(
     CharacterColorTest.cpp
     CharacterTest.cpp

@@ -62,6 +62,7 @@ private Q_SLOTS:
     void testMoveTabBetweenProjectWorkspaces();
     void testSaveSessionsStoresProjectWorkspaces();
     void testProjectWorkspaceRailWidthPersists();
+    void testProjectIconsPersistWithoutLoadingInactiveProjects();
     void testRestoreSessionsLazilyCreatesProjectWorkspacesWithoutSessionIds();
     void testSaveSessionsPreservesDeferredProjectWorkspaces();
     void testRestoredProjectTitlesDoNotDuplicateDefaultTitle();

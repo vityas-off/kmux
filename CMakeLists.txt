@@ -165,6 +165,14 @@ ki18n_install(po)
 
 install(FILES completions/kmux.zsh RENAME _kmux DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
 
+install(FILES LICENSES/Apache-2.0.txt
+        DESTINATION ${KDE_INSTALL_DATADIR}/kmux/licenses
+        RENAME MaterialSymbols-Apache-2.0.txt)
+
+install(FILES data/project-icons/devicon/LICENSE
+        DESTINATION ${KDE_INSTALL_DATADIR}/kmux/licenses
+        RENAME Devicon-MIT.txt)
+
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
 
 # add clang-format target for all our real source files

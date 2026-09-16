@@ -110,6 +110,20 @@ bool ProjectWorkspaceModel::setProjectTitle(const ProjectId &id, const QString &
     return true;
 }
 
+bool ProjectWorkspaceModel::setProjectIconName(const ProjectId &id, const QString &iconName)
+{
+    const int index = indexOf(id);
+    if (index < 0) {
+        return false;
+    }
+
+    if (_projects[index].iconName != iconName) {
+        _projects[index].iconName = iconName;
+        Q_EMIT projectChanged(id);
+    }
+    return true;
+}
+
 bool ProjectWorkspaceModel::setProjectNotification(const ProjectId &id, const QString &notification)
 {
     const int index = indexOf(id);

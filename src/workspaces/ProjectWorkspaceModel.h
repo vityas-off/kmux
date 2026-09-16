@@ -35,6 +35,8 @@ public:
         QString title;
         QString subtitle;
         QIcon icon;
+        // A persistent project icon (theme name, bundled resource, or imported file).
+        QString iconName;
         int tabCount = 0;
         int activeProcessCount = 0;
         bool hasActivity = false;
@@ -56,6 +58,7 @@ public:
     QList<ProjectId> projectIds() const;
 
     bool setProjectTitle(const ProjectId &id, const QString &title);
+    bool setProjectIconName(const ProjectId &id, const QString &iconName);
     bool setProjectNotification(const ProjectId &id, const QString &notification);
     bool setProjectLoaded(const ProjectId &id, bool loaded);
     bool setProjectSummary(const ProjectId &id,

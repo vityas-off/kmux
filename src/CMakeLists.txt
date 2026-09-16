@@ -155,7 +155,10 @@ target_sources(konsoleprivate PRIVATE
     widgets/IncrementalSearchBar.cpp
     widgets/IncrementalSearchBarSizeGrip.cpp
     widgets/ProjectWorkspaceContainer.cpp
+    widgets/ProjectIconDialog.cpp
     workspaces/AgentSleepInhibitor.cpp
+    workspaces/ProjectIcon.cpp
+    workspaces/ProjectIconCatalog.cpp
     workspaces/ProjectWorkspaceModel.cpp
     widgets/RenameTabWidget.cpp
     widgets/TabTitleFormatButton.cpp
@@ -201,6 +204,7 @@ target_sources(konsoleprivate PRIVATE
     ${dbus_xml_srcs}
 
     ../data/data.qrc
+    ../data/project-icons/project-icons.qrc
     ../desktop/kmux.qrc
 )
 
