@@ -1001,7 +1001,7 @@ void ViewManager::sessionFinished(Session *session)
     if (_navigationMethod == TabbedNavigation) {
         // The last session/view in the whole window, emit empty()
         // so that close() is called in MainWindow, fixes #432077
-        if (_sessionMap.size() == 1) {
+        if (_sessionMap.size() == 1 && _deferredProjects.isEmpty()) {
             Q_EMIT empty();
             return;
         }

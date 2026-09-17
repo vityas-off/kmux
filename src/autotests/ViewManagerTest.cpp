@@ -2004,6 +2004,65 @@ void ViewManagerTest::testRestoredTerminalActionsStayInProject()
     QVERIFY(!workspaces->projectIsLoaded(firstProject));
 }
 
+void ViewManagerTest::testLastLoadedSessionExitsWithDeferredProject_data()
+{
+    QTest::addColumn<int>("activeProject");
+    QTest::newRow("first-project-active") << 0;
+    QTest::newRow("second-project-active") << 1;
+}
+
+void ViewManagerTest::testLastLoadedSessionExitsWithDeferredProject()
+{
+    QFETCH(int, activeProject);
+
+    KConfig config(m_testDir->filePath(QStringLiteral("last-loaded-session-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+    QJsonArray projects;
+    for (int i = 0; i < 2; ++i) {
+        const QJsonObject terminal{{QStringLiteral("SessionRestoreId"), i + 1},
+                                   {QStringLiteral("Command"), QStringLiteral("/bin/sh")},
+                                   {QStringLiteral("Arguments"), QJsonArray{QStringLiteral("/bin/sh")}},
+                                   {QStringLiteral("WorkingDirectory"), m_testDir->path()}};
+        const QJsonObject tab{{QStringLiteral("Orientation"), QStringLiteral("Horizontal")}, {QStringLiteral("Widgets"), QJsonArray{terminal}}};
+        projects.append(QJsonObject{{QStringLiteral("Title"), QStringLiteral("Project %1").arg(i + 1)}, {QStringLiteral("Tabs"), QJsonArray{tab}}});
+    }
+    group.writeEntry("Projects", QJsonDocument(projects).toJson(QJsonDocument::Compact));
+    group.writeEntry("ActiveProject", activeProject);
+
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    disconnect(manager, &ViewManager::empty, &window, &QWidget::close);
+    QSignalSpy emptySpy(manager, &ViewManager::empty);
+    auto *workspaces = manager->_workspaceContainer.data();
+    manager->restoreSessions(group, false);
+
+    QCOMPARE(workspaces->projectCount(), 2);
+    QCOMPARE(manager->sessions().count(), 1);
+    QPointer<TabbedViewContainer> closingProject = workspaces->containers().at(activeProject);
+    QCOMPARE(manager->activeContainer(), closingProject.data());
+    auto *remainingProject = workspaces->containers().at(1 - activeProject);
+    QCOMPARE(remainingProject->count(), 0);
+    QVERIFY(!workspaces->projectIsLoaded(remainingProject));
+
+    auto *session = manager->sessions().constFirst();
+    QVERIFY(session->isRunning());
+    QSignalSpy finishedSpy(session, &Session::finished);
+    session->sendText(QStringLiteral("exit\n"));
+    QTRY_COMPARE(finishedSpy.count(), 1);
+    QCOMPARE(emptySpy.count(), 0);
+    QTRY_VERIFY(closingProject.isNull());
+    QCOMPARE(workspaces->projectCount(), 1);
+    QCOMPARE(manager->activeContainer(), remainingProject);
+    QVERIFY(workspaces->projectIsLoaded(remainingProject));
+    QCOMPARE(remainingProject->count(), 1);
+    QCOMPARE(manager->sessions().count(), 1);
+
+    auto *remainingSession = manager->sessions().constFirst();
+    QVERIFY(remainingSession->isRunning());
+    remainingSession->sendText(QStringLiteral("exit\n"));
+    QTRY_COMPARE(emptySpy.count(), 1);
+}
+
 void ViewManagerTest::testSaveSessionsPreservesDeferredProjectWorkspaces()
 {
     KConfig sourceConfig(m_testDir->filePath(QStringLiteral("deferred-workspaces-source-testrc")), KConfig::SimpleConfig);
