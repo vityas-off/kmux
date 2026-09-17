@@ -1395,14 +1395,14 @@ void ViewManager::handleActivationRequest(const QString &xdgActivationToken)
     Q_EMIT activationRequest(xdgActivationToken);
 }
 
-TerminalDisplay *ViewManager::createView(Session *session)
+TerminalDisplay *ViewManager::createView(Session *session, TabbedViewContainer *container)
 {
     // notify this view manager when the session finishes so that its view
     // can be deleted
     //
     // Use Qt::UniqueConnection to avoid duplicate connection
     connect(session, &Konsole::Session::finished, this, &Konsole::ViewManager::sessionFinished, Qt::UniqueConnection);
-    TerminalDisplay *display = createTerminalDisplay();
+    TerminalDisplay *display = createTerminalDisplay(container);
     createController(session, display);
 
     const Profile::Ptr profile = SessionManager::instance()->sessionProfile(session);
@@ -1719,10 +1719,10 @@ void ViewManager::viewDestroyed(QWidget *view)
     //        Q_EMIT unplugController(_pluggedController);
 }
 
-TerminalDisplay *ViewManager::createTerminalDisplay()
+TerminalDisplay *ViewManager::createTerminalDisplay(TabbedViewContainer *container)
 {
     auto display = new TerminalDisplay(nullptr);
-    registerTerminal(display);
+    registerTerminal(display, container);
 
     return display;
 }
@@ -2103,6 +2103,7 @@ void restoreColdSessionState(Session *session, const QJsonObject &sessionObject)
 
 ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter,
                                              ViewManager *manager,
+                                             TabbedViewContainer *container,
                                              bool useSessionId,
                                              const QHash<int, QPointer<Session>> *restoredSessions = nullptr)
 {
@@ -2135,7 +2136,7 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter,
                 restoreColdSessionState(session, widgetJsonObject);
             }
 
-            auto newView = manager->createView(session);
+            auto newView = manager->createView(session, container);
             currentSplitter->addTerminalDisplay(newView, -1);
 
             int columns = newView->columns();
@@ -2169,7 +2170,7 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter,
             }
 
         } else {
-            auto nextSplitter = restoreSessionsSplitterRecurse(widgetJsonObject, manager, useSessionId, restoredSessions);
+            auto nextSplitter = restoreSessionsSplitterRecurse(widgetJsonObject, manager, container, useSessionId, restoredSessions);
             currentSplitter->addWidget(nextSplitter);
         }
     }
@@ -2188,14 +2189,14 @@ void restoreTabsIntoContainer(ViewManager *manager,
                               const QHash<int, QPointer<Session>> *restoredSessions = nullptr)
 {
     for (const auto &jsonSplitter : jsonTabs) {
-        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, useSessionIds, restoredSessions);
+        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, container, useSessionIds, restoredSessions);
         container->addSplitter(topLevelSplitter, container->count());
     }
 
     if (jsonTabs.isEmpty()) {
         Profile::Ptr profile = ProfileManager::instance()->defaultProfile();
         Session *session = SessionManager::instance()->createSession(profile);
-        container->addView(manager->createView(session));
+        container->addView(manager->createView(session, container));
         if (!session->isRunning()) {
             session->run();
         }
@@ -2335,7 +2336,7 @@ void ViewManager::loadLayout(QString file)
     }
     auto json = QJsonDocument::fromJson(jsonFile.readAll());
     if (!json.isEmpty()) {
-        auto splitter = restoreSessionsSplitterRecurse(json.object(), this, false);
+        auto splitter = restoreSessionsSplitterRecurse(json.object(), this, activeContainer(), false);
         activeContainer()->addSplitter(splitter, activeContainer()->count());
     }
 }
@@ -2413,7 +2414,7 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
     const auto tabList = group.readEntry("Tabs", QByteArray("[]"));
     const auto jsonTabs = QJsonDocument::fromJson(tabList).array();
     for (const auto &jsonSplitter : jsonTabs) {
-        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), this, useSessionIds);
+        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), this, activeContainer(), useSessionIds);
         activeContainer()->addSplitter(topLevelSplitter, activeContainer()->count());
     }
 

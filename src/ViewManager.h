@@ -188,7 +188,7 @@ public:
     /** returns the active tab from the view
      */
     TabbedViewContainer *activeContainer() const;
-    TerminalDisplay *createView(Session *session);
+    TerminalDisplay *createView(Session *session, TabbedViewContainer *container = nullptr);
     void attachView(TerminalDisplay *terminal, Session *session);
 
     static std::shared_ptr<const ColorScheme> colorSchemeForProfile(const QExplicitlySharedDataPointer<Profile> &profile);
@@ -529,7 +529,7 @@ private:
     TabbedViewContainer *containerForTerminal(TerminalDisplay *terminal) const;
 
     // creates a new terminal display
-    TerminalDisplay *createTerminalDisplay();
+    TerminalDisplay *createTerminalDisplay(TabbedViewContainer *container);
 
     // creates a new controller for a session/display pair which provides the menu
     // actions associated with that view, and exposes basic information

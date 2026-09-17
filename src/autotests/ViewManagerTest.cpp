@@ -1937,6 +1937,73 @@ void ViewManagerTest::testRestoreSessionsLazilyCreatesProjectWorkspacesWithoutSe
     QCOMPARE(restoredManager->sessionList().count(), 4);
 }
 
+void ViewManagerTest::testRestoredTerminalActionsStayInProject_data()
+{
+    QTest::addColumn<bool>("emptyProject");
+    QTest::newRow("nested-splits") << false;
+    QTest::newRow("empty-project") << true;
+}
+
+void ViewManagerTest::testRestoredTerminalActionsStayInProject()
+{
+    QFETCH(bool, emptyProject);
+
+    KConfig config(m_testDir->filePath(QStringLiteral("restored-terminal-actions-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+    {
+        auto sourceWindow = MainWindow();
+        sourceWindow.newTab();
+        auto *sourceManager = sourceWindow.viewManager();
+        sourceManager->createProject();
+        sourceManager->splitLeftRight();
+        sourceManager->splitTopBottom();
+        sourceManager->saveSessions(group);
+    }
+    QCOMPARE(group.readEntry("ActiveProject", -1), 1);
+    if (emptyProject) {
+        auto projects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+        auto project = projects.at(1).toObject();
+        project[QStringLiteral("Tabs")] = QJsonArray{};
+        projects[1] = project;
+        group.writeEntry("Projects", QJsonDocument(projects).toJson(QJsonDocument::Compact));
+    }
+
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *workspaces = manager->_workspaceContainer.data();
+    manager->restoreSessions(group, false);
+
+    QCOMPARE(workspaces->projectCount(), 2);
+    auto *firstProject = workspaces->containers().at(0);
+    auto *restoredProject = workspaces->containers().at(1);
+    QCOMPARE(manager->activeContainer(), restoredProject);
+    QCOMPARE(firstProject->count(), 0);
+    QVERIFY(!workspaces->projectIsLoaded(firstProject));
+    QCOMPARE(restoredProject->count(), 1);
+
+    auto *splitter = restoredProject->activeViewSplitter();
+    QVERIFY(splitter != nullptr);
+    const auto restoredTerminals = splitter->findChildren<TerminalDisplay *>();
+    QCOMPARE(restoredTerminals.count(), emptyProject ? 1 : 3);
+    if (emptyProject) {
+        manager->splitLeftRight();
+    }
+    for (auto *terminal : restoredTerminals) {
+        Q_EMIT terminal->requestToggleExpansion();
+        QVERIFY(splitter->terminalMaximized());
+        Q_EMIT terminal->requestToggleExpansion();
+        QVERIFY(!splitter->terminalMaximized());
+    }
+
+    auto *movedTerminal = restoredTerminals.constLast();
+    Q_EMIT movedTerminal->requestMoveToNewTab(movedTerminal);
+    QCOMPARE(restoredProject->count(), 2);
+    QCOMPARE(manager->containerForTerminal(movedTerminal), restoredProject);
+    QCOMPARE(manager->activeContainer(), restoredProject);
+    QCOMPARE(firstProject->count(), 0);
+    QVERIFY(!workspaces->projectIsLoaded(firstProject));
+}
+
 void ViewManagerTest::testSaveSessionsPreservesDeferredProjectWorkspaces()
 {
     KConfig sourceConfig(m_testDir->filePath(QStringLiteral("deferred-workspaces-source-testrc")), KConfig::SimpleConfig);
