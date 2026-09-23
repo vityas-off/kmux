@@ -30,6 +30,7 @@ private Q_SLOTS:
     void testCodexLauncherHookInstallation_data();
     void testCodexLauncherHookInstallation();
     void testCodexLauncherSkipsSelfSymlink();
+    void testCodexLauncherReportsMissingAgent();
     void testCodexCommandUsesTransparentLauncher();
     void testCodexTrustHashesMatchCurrentIdentity();
     void testClaudeCommandUsesTransparentLauncher();
@@ -128,6 +129,30 @@ void AgentHooksTest::testCodexLauncherSkipsSelfSymlink()
     QCOMPARE(process.exitStatus(), QProcess::NormalExit);
     QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
     QCOMPARE(process.readAllStandardOutput().trimmed(), QByteArrayLiteral("real-codex:argument"));
+}
+
+void AgentHooksTest::testCodexLauncherReportsMissingAgent()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString launcherBinDir = temporaryDir.filePath(QStringLiteral("launcher-bin"));
+    QVERIFY(QDir().mkpath(launcherBinDir));
+    QVERIFY(QFile::link(QStringLiteral(KMUX_CODEX_EXECUTABLE), QDir(launcherBinDir).filePath(QStringLiteral("codex"))));
+
+    // The launcher is the only codex in PATH, as inside Kmux without Codex.
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("PATH"), launcherBinDir);
+    environment.insert(QStringLiteral("KMUX_CODEX_HOOKS_DISABLED"), QStringLiteral("1"));
+
+    QProcess process;
+    process.setProcessEnvironment(environment);
+    process.start(QStringLiteral(KMUX_CODEX_EXECUTABLE), {});
+    QVERIFY(process.waitForStarted());
+    QVERIFY(process.waitForFinished(5000));
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QCOMPARE(process.exitCode(), 127);
+    const QByteArray error = process.readAllStandardError();
+    QVERIFY2(error.contains("No such file or directory"), error.constData());
 }
 
 void AgentHooksTest::testCodexCommandUsesTransparentLauncher()

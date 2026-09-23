@@ -138,14 +138,12 @@ void execAgent(const char *launcherPath, const std::vector<char *> &args)
 {
     struct stat launcherIdentity;
     const bool hasLauncherIdentity = executableIdentity(launcherPath, launcherIdentity);
-    bool skippedLauncher = false;
     bool permissionDenied = false;
 
     for (const std::string &candidate : executableCandidates(KMUX_AGENT_NAME)) {
         struct stat candidateIdentity;
         if (hasLauncherIdentity && stat(candidate.c_str(), &candidateIdentity) == 0 && candidateIdentity.st_dev == launcherIdentity.st_dev
             && candidateIdentity.st_ino == launcherIdentity.st_ino) {
-            skippedLauncher = true;
             continue;
         }
 
@@ -161,7 +159,8 @@ void execAgent(const char *launcherPath, const std::vector<char *> &args)
         }
     }
 
-    errno = permissionDenied ? EACCES : skippedLauncher ? ELOOP : ENOENT;
+    // Finding only this launcher means that the agent is not installed.
+    errno = permissionDenied ? EACCES : ENOENT;
 }
 }
 
