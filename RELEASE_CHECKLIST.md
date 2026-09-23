@@ -550,8 +550,11 @@ The checks found three more problems:
   Konsole. Kmux no longer declares a default global shortcut; the user guide
   explains how to assign one. Not yet re-checked in the VM.
 - Logging out with several terminals open shows Kmux's close confirmation and
-  blocks the logout until Plasma forces it after two minutes, which loses the
-  state since the last normal close. Undecided.
+  blocks the logout until Plasma forces it after two minutes, which lost the
+  state since the last normal close. On Wayland, Qt does not report the logout
+  as session saving, so the `isSavingSession()` path in `queryClose()` is not
+  taken. Kmux now saves the workspace before asking; the confirmation itself
+  remains and the user guide describes it.
 
 `kmuxprofile` still needs a check.
 
