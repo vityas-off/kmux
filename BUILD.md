@@ -1,18 +1,95 @@
-# Kmux
+# Building Kmux
 
-Kmux is a Konsole-based terminal for KDE with cmux-style project workspaces.
+Kmux builds with CMake against Qt 6 and KDE Frameworks 6. It installs next to
+KDE Konsole and does not need the `konsole` package.
 
+## Requirements
 
-## HOWTO Build
+- CMake 3.16 and a C++20 compiler;
+- Extra CMake Modules 6.6;
+- Qt 6.5: Core, DBus, Multimedia, Network, PrintSupport, Widgets, and Xml;
+- KDE Frameworks 6.6: Bookmarks, Config, ConfigWidgets, CoreAddons, Crash,
+  DBusAddons, GlobalAccel, GuiAddons, I18n, IconThemes, KIO, NewStuff,
+  Notifications, NotifyConfig, Parts, Pty, Service, TextWidgets,
+  WidgetsAddons, WindowSystem, and XmlGui;
+- ICU 61;
+- libssh 0.9.8, unless libssh support is disabled (`-DWITH_LIBSSH=OFF`);
+- optionally xkbcommon, found through pkg-config, for the win32-input-mode
+  keyboard protocol.
 
-1. Install dependencies. On neon:
+### Arch Linux
+
+This is the package set CI builds and tests with:
+
+```sh
+sudo pacman -S --needed git cmake ninja gcc pkgconf extra-cmake-modules \
+    qt6-base qt6-multimedia kbookmarks kconfig kconfigwidgets kcoreaddons \
+    kcrash kdbusaddons kglobalaccel kguiaddons ki18n kiconthemes kio \
+    knewstuff knotifications knotifyconfig kparts kpty kservice \
+    ktextwidgets kwidgetsaddons kwindowsystem kxmlgui icu libssh \
+    libxkbcommon
 ```
-apt install git cmake make g++ extra-cmake-modules libkf6config-dev libkf6auth-dev libkf6package-dev libkf6declarative-dev libkf6coreaddons-dev libkf6kcmutils-dev libkf6i18n-dev libkf6crash-dev libkf6newstuff-dev libkf6textwidgets-dev libkf6iconthemes-dev libkf6dbusaddons-dev libkf6notifyconfig-dev libkf6pty-dev libkf6notifications-dev libkf6parts-dev qt6-base-dev libqt6core6t64 libqt6widgets6 libqt6gui6 libqt6qml6 qt6-multimedia-dev libicu-dev
-```
-2. Clone with `git clone https://github.com/vityas-off/kmux.git`
-3. Make _build_ directory: `mkdir kmux/build`
-4. Change into _build_ directory: `cd kmux/build`
-5. Configure: `cmake ..` (or `cmake .. -DCMAKE_INSTALL_PREFIX=/where/your/want/to/install`)
-6. Build: `make`
-7. Install: `make install`
 
+To run the tests, also install `dbus` and `which`; with `appstream`
+installed, CTest also validates the AppStream metadata.
+
+To install Kmux as a package instead, build it from
+`packaging/aur/kmux-workspaces` with `makepkg -si`. The `PKGBUILD` downloads
+the source archive of the release tag it names.
+
+### Other distributions
+
+Install the development packages for the components listed above. On
+Debian-based and RPM-based distributions they are usually named after the
+component, for example `libkf6pty-dev` or `kf6-kpty-devel`.
+
+## Build
+
+```sh
+git clone https://github.com/vityas-off/kmux.git
+cd kmux
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build
+```
+
+Build options:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `WITH_LIBSSH` | `ON` on Linux and BSD | Resolve host aliases from SSH configuration in the titles of tabs running `ssh`. |
+| `USE_DBUS` | `ON` on Linux and BSD | DBus interfaces, global shortcuts, agent status integration, and sleep inhibition. |
+| `WITH_X11` | `ON` on Linux and BSD | X11-specific window integration. |
+| `WITH_KAPSULE` | `OFF` | Kapsule container support; needs QCoro6 and Kapsule. |
+| `BUILD_TESTING` | `ON` | Build the test suite. |
+
+## Test
+
+```sh
+QT_QPA_PLATFORM=offscreen dbus-run-session -- \
+    ctest --test-dir build --output-on-failure
+```
+
+Run the suite serially: `TerminalInterfaceTest` can time out when CTest runs
+tests in parallel with `-j`.
+
+## Run and install
+
+To try the build without installing it, run `./build/bin/kmux`. Kmux runs as a
+single instance: if another Kmux is already running, the new launch opens a tab
+in the running instance instead of starting the build.
+
+To install into `/usr`:
+
+```sh
+sudo cmake --install build
+```
+
+A manual installation bypasses the package manager. To remove it later,
+delete the installed files:
+
+```sh
+xargs -d '\n' sudo rm -f -- < build/install_manifest.txt
+```
+
+When installing into another prefix, source `build/prefix.sh` before starting
+Kmux so that Qt and KDE Frameworks find its plugins and data files.
