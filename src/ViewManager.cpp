@@ -2103,6 +2103,15 @@ void restoreColdSessionState(Session *session, const QJsonObject &sessionObject)
     }
 }
 
+// Saved terminals carry a SessionRestoreId and saved splitters carry Widgets.
+// Treat any other object as a terminal, so incomplete or hand-written state
+// opens a shell instead of an empty, non-interactive tab.
+bool isSavedTerminal(const QJsonObject &widget)
+{
+    return widget.contains(QStringLiteral("SessionRestoreId")) || !widget.contains(QStringLiteral("Widgets"));
+}
+
+// Returns nullptr when the saved splitter contains no terminal.
 ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter,
                                              ViewManager *manager,
                                              TabbedViewContainer *container,
@@ -2123,9 +2132,9 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter,
         const auto commandIterator = widgetJsonObject.constFind(QStringLiteral("Command"));
         const auto cwdIterator = widgetJsonObject.constFind(QStringLiteral("WorkingDirectory"));
 
-        if (sessionIterator != widgetJsonObject.constEnd()) {
+        if (isSavedTerminal(widgetJsonObject)) {
             Session *session = nullptr;
-            if (useSessionId) {
+            if (useSessionId && sessionIterator != widgetJsonObject.constEnd()) {
                 session = restoredSessions != nullptr ? restoredSessions->value(sessionIterator->toInt()).data()
                                                       : SessionManager::instance()->idToSession(sessionIterator->toInt());
             }
@@ -2171,10 +2180,14 @@ ViewSplitter *restoreSessionsSplitterRecurse(const QJsonObject &jsonSplitter,
                 }
             }
 
-        } else {
-            auto nextSplitter = restoreSessionsSplitterRecurse(widgetJsonObject, manager, container, useSessionId, restoredSessions);
+        } else if (auto *nextSplitter = restoreSessionsSplitterRecurse(widgetJsonObject, manager, container, useSessionId, restoredSessions)) {
             currentSplitter->addWidget(nextSplitter);
         }
+    }
+
+    if (currentSplitter->count() == 0) {
+        delete currentSplitter;
+        return nullptr;
     }
     return currentSplitter;
 }
@@ -2190,12 +2203,21 @@ void restoreTabsIntoContainer(ViewManager *manager,
                               bool useSessionIds,
                               const QHash<int, QPointer<Session>> *restoredSessions = nullptr)
 {
-    for (const auto &jsonSplitter : jsonTabs) {
-        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), manager, container, useSessionIds, restoredSessions);
+    // Unusable tabs are skipped, so map the saved active tab to the last
+    // restored tab at or before it.
+    int restoredActiveTab = 0;
+    for (qsizetype savedTab = 0; savedTab < jsonTabs.size(); ++savedTab) {
+        auto *topLevelSplitter = restoreSessionsSplitterRecurse(jsonTabs.at(savedTab).toObject(), manager, container, useSessionIds, restoredSessions);
+        if (topLevelSplitter == nullptr) {
+            continue;
+        }
+        if (savedTab <= activeTab) {
+            restoredActiveTab = container->count();
+        }
         container->addSplitter(topLevelSplitter, container->count());
     }
 
-    if (jsonTabs.isEmpty()) {
+    if (container->count() == 0) {
         Profile::Ptr profile = ProfileManager::instance()->defaultProfile();
         Session *session = SessionManager::instance()->createSession(profile);
         container->addView(manager->createView(session, container));
@@ -2205,7 +2227,7 @@ void restoreTabsIntoContainer(ViewManager *manager,
     }
 
     if (container->count() > 0) {
-        container->setCurrentIndex(qBound(0, activeTab, container->count() - 1));
+        container->setCurrentIndex(qBound(0, restoredActiveTab, container->count() - 1));
     }
 }
 
@@ -2214,7 +2236,10 @@ void collectRestoredSessions(const QJsonObject &splitter, QHash<int, QPointer<Se
     const QJsonArray widgets = splitter[QStringLiteral("Widgets")].toArray();
     for (const QJsonValue &widgetValue : widgets) {
         const QJsonObject widget = widgetValue.toObject();
-        if (widget.contains(QStringLiteral("SessionRestoreId"))) {
+        if (isSavedTerminal(widget)) {
+            if (!widget.contains(QStringLiteral("SessionRestoreId"))) {
+                continue;
+            }
             const int restoreId = widget[QStringLiteral("SessionRestoreId")].toInt();
             if (Session *session = SessionManager::instance()->idToSession(restoreId)) {
                 sessions.insert(restoreId, session);
@@ -2231,7 +2256,9 @@ QJsonObject remapRestoredSessionIds(const QJsonObject &splitter, const QHash<int
     QJsonArray widgets = result[QStringLiteral("Widgets")].toArray();
     for (qsizetype i = 0; i < widgets.size(); ++i) {
         QJsonObject widget = widgets.at(i).toObject();
-        if (widget.contains(QStringLiteral("SessionRestoreId"))) {
+        if (!isSavedTerminal(widget)) {
+            widget = remapRestoredSessionIds(widget, sessions);
+        } else if (widget.contains(QStringLiteral("SessionRestoreId"))) {
             const int previousRestoreId = widget[QStringLiteral("SessionRestoreId")].toInt();
             if (Session *session = sessions.value(previousRestoreId)) {
                 const int currentRestoreId = SessionManager::instance()->getRestoreId(session);
@@ -2239,8 +2266,6 @@ QJsonObject remapRestoredSessionIds(const QJsonObject &splitter, const QHash<int
                     widget.insert(QStringLiteral("SessionRestoreId"), currentRestoreId);
                 }
             }
-        } else {
-            widget = remapRestoredSessionIds(widget, sessions);
         }
         widgets[i] = widget;
     }
@@ -2338,8 +2363,9 @@ void ViewManager::loadLayout(QString file)
     }
     auto json = QJsonDocument::fromJson(jsonFile.readAll());
     if (!json.isEmpty()) {
-        auto splitter = restoreSessionsSplitterRecurse(json.object(), this, activeContainer(), false);
-        activeContainer()->addSplitter(splitter, activeContainer()->count());
+        if (auto *splitter = restoreSessionsSplitterRecurse(json.object(), this, activeContainer(), false)) {
+            activeContainer()->addSplitter(splitter, activeContainer()->count());
+        }
     }
 }
 void ViewManager::loadLayoutFile()
@@ -2416,8 +2442,9 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
     const auto tabList = group.readEntry("Tabs", QByteArray("[]"));
     const auto jsonTabs = QJsonDocument::fromJson(tabList).array();
     for (const auto &jsonSplitter : jsonTabs) {
-        auto topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), this, activeContainer(), useSessionIds);
-        activeContainer()->addSplitter(topLevelSplitter, activeContainer()->count());
+        if (auto *topLevelSplitter = restoreSessionsSplitterRecurse(jsonSplitter.toObject(), this, activeContainer(), useSessionIds)) {
+            activeContainer()->addSplitter(topLevelSplitter, activeContainer()->count());
+        }
     }
 
     if (!jsonTabs.isEmpty() || !useSessionIds)

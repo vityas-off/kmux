@@ -2350,6 +2350,57 @@ void ViewManagerTest::testFinishedHeldCommandIsNotColdRestored()
     QCOMPARE(counter.readAll(), QByteArray("run\n"));
 }
 
+void ViewManagerTest::testColdRestoreRecoversIncompleteTerminalState()
+{
+    KConfig config(m_testDir->filePath(QStringLiteral("incomplete-state-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+
+    const QString directory = m_testDir->path();
+    const QJsonObject terminalWithoutRestoreId{{QStringLiteral("WorkingDirectory"), directory}};
+    const QJsonObject tabWithoutRestoreId{{QStringLiteral("Orientation"), QStringLiteral("Horizontal")},
+                                          {QStringLiteral("Widgets"), QJsonArray{terminalWithoutRestoreId}}};
+    const QJsonObject tabAfterActiveTab{{QStringLiteral("Orientation"), QStringLiteral("Horizontal")},
+                                        {QStringLiteral("Widgets"), QJsonArray{QJsonObject{{QStringLiteral("SessionRestoreId"), 0}}}}};
+    const QJsonObject emptySplitter{{QStringLiteral("Orientation"), QStringLiteral("Vertical")}, {QStringLiteral("Widgets"), QJsonArray{}}};
+    const QJsonObject tabWithoutTerminals{{QStringLiteral("Orientation"), QStringLiteral("Horizontal")},
+                                          {QStringLiteral("Widgets"), QJsonArray{emptySplitter}}};
+    const QJsonArray projects{
+        QJsonObject{{QStringLiteral("Title"), QStringLiteral("Incomplete")},
+                    {QStringLiteral("Tabs"), QJsonArray{tabWithoutTerminals, tabWithoutRestoreId, tabAfterActiveTab}},
+                    {QStringLiteral("Active"), 1}},
+        QJsonObject{{QStringLiteral("Title"), QStringLiteral("Unusable")},
+                    {QStringLiteral("Tabs"), QJsonArray{tabWithoutTerminals, QStringLiteral("not a tab")}}},
+    };
+    group.writeEntry("Projects", QJsonDocument(projects).toJson(QJsonDocument::Compact));
+    group.writeEntry("ActiveProject", 0);
+
+    auto window = MainWindow();
+    auto *manager = window.viewManager();
+    auto *workspaces = manager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+    manager->restoreSessions(group, false);
+
+    const auto containers = workspaces->containers();
+    QCOMPARE(containers.count(), 2);
+
+    // Tabs without terminals are dropped without shifting the active tab; a
+    // terminal without a restore ID still starts a session in its saved
+    // directory.
+    QCOMPARE(containers.at(0)->count(), 2);
+    QCOMPARE(containers.at(0)->currentIndex(), 0);
+    TerminalDisplay *restoredTerminal = containers.at(0)->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(restoredTerminal != nullptr);
+    QCOMPARE(restoredTerminal->session()->initialWorkingDirectory(), directory);
+    QTRY_VERIFY(restoredTerminal->session()->isRunning());
+
+    // A project without usable tabs falls back to a default session.
+    workspaces->activateProject(containers.at(1));
+    QCOMPARE(containers.at(1)->count(), 1);
+    TerminalDisplay *fallbackTerminal = containers.at(1)->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(fallbackTerminal != nullptr);
+    QTRY_VERIFY(fallbackTerminal->session()->isRunning());
+}
+
 void ViewManagerTest::testInitializeRestoredSessionsPreservesActiveTabs()
 {
     auto window = MainWindow();
