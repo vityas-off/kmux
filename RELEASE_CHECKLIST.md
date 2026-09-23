@@ -86,7 +86,6 @@ and release engineering rather than new product scope:
 - decide the final alpha version presentation and current Kmux maintainer;
 - correct maintainer and upstream attribution in About, AppStream, and Doxygen;
 - add AppStream release history and a stable screenshot URL;
-- correct REUSE/SPDX coverage for new Kmux files and the screenshot;
 - keep tracking the previously observed transient `TerminalInterfaceTest`
   shell-startup timeout until CI either reproduces it or provides enough
   evidence to close it;
@@ -222,6 +221,7 @@ The relevant tests are in:
 - [x] Validate AppStream metadata with `appstreamcli validate --pedantic`.
 - [x] Check that the expected files appear in the staged installation.
 - [x] Check that no staged path uses Konsole's names.
+- [x] Check REUSE licensing information (`tools/ci/reuse-check.py`).
 - [x] Confirm that the workflow passes on GitHub for commits to `master`
       (run 35851499644 on `db75238b0`, 2026-09-23).
 - [ ] Confirm that the workflow also runs for the first pull request.
@@ -491,10 +491,10 @@ functional checks.
 ### 9. Licensing and source archive checks
 
 - [x] Run `reuse lint` and record the current failures.
-- [ ] Add or correct licensing annotations for new Kmux files as needed.
-- [ ] Check licensing for `screenshots/kmux-project-workspaces.png`.
-- [ ] Confirm that release archives contain all required license files.
-- [ ] Confirm that generated files and local build output are not included in
+- [x] Add or correct licensing annotations for new Kmux files as needed.
+- [x] Check licensing for `screenshots/kmux-project-workspaces.png`.
+- [x] Confirm that release archives contain all required license files.
+- [x] Confirm that generated files and local build output are not included in
       the source release.
 
 `reuse --no-multiprocessing lint` ran on 2026-07-18 and did not pass. It reported
@@ -509,6 +509,37 @@ new Kmux source files also lack explicit copyright lines and
 targeted SPDX fixes for new Kmux files plus maintainable `REUSE.toml`
 annotations for accurately classified inherited files rather than manually
 editing hundreds of imported files without provenance review.
+
+Resolved on 2026-09-23 with a narrow release exception instead of a passing
+`reuse lint`:
+
+- Upstream Konsole at the last merged commit `c3cf096c4` does not pass
+  `reuse lint` either: licensing information for 359 of 644 files, and the
+  same three unused license texts.
+- Every file Kmux created or rewrote now has SPDX tags or a `REUSE.toml`
+  annotation. New C++ files had a license but no copyright line; they, and
+  three files that named "Kmux Authors" or "KDE Contributors", now use
+  `2026 Kmux contributors`. Kmux documentation (README, BUILD.md, AGENTS.md,
+  CHANGELOG.md, SECURITY.md, this checklist, the project icon READMEs), the
+  verify skill, the main desktop file, the service menu, and the AppStream
+  metadata (whose `metadata_license` was already CC0-1.0) are CC0-1.0 through
+  one `REUSE.toml` annotation, which keeps license headers out of those
+  files. The screenshot is annotated there as CC0-1.0 like the logo, and
+  `project-icons.qrc` like the inherited `kmux.qrc`.
+- The remaining 269 files and 3 license texts are listed in
+  `tools/ci/reuse-inherited.txt`. Each one was verified against upstream: it
+  exists there under the same or a renamed path (for example
+  `po/*/konsole.po`), and upstream reports the same missing information, so
+  Kmux did not remove any existing annotation. Kmux does not assign licenses
+  to them without a provenance review.
+- `tools/ci/reuse-check.py` runs in CI and fails on any licensing problem not
+  in that list, and on list entries that are no longer reported, so the
+  exception can only shrink.
+
+`reuse lint` now reports licensing information for 706 of 975 files. A
+`git archive` of `HEAD`, which matches GitHub's tag archive, contains
+`COPYING`, `COPYING.LIB`, `COPYING.DOC`, every text in `LICENSES/`, and the
+Devicon `LICENSE`, and no build output or generated files.
 
 ### 10. User-visible branding cleanup
 
@@ -1030,7 +1061,8 @@ Packaging and metadata:
 - `desktop/kmux.notifyrc`;
 - `desktop/kmuxrun.desktop`;
 - `io.github.vityas_off.kmux.json`;
-- `REUSE.toml`.
+- `REUSE.toml`;
+- `tools/ci/reuse-check.py` and `tools/ci/reuse-inherited.txt`.
 
 ## Suggested immediate execution order
 
@@ -1051,9 +1083,10 @@ Packaging and metadata:
    restore behavior, support information, and release notes.~~ Done
    2026-09-23; also fixed restoring held finished commands and incomplete
    terminal state.
-6. Correct SPDX coverage for new Kmux files and the screenshot, add accurate
+6. ~~Correct SPDX coverage for new Kmux files and the screenshot, add accurate
    annotations for inherited files, and make `reuse lint` pass or document a
-   narrowly justified release exception.
+   narrowly justified release exception.~~ Done 2026-09-23 with a documented
+   exception for inherited files, enforced in CI.
 7. Use CI to monitor the transient `TerminalInterfaceTest` shell-startup timeout
    and harden the test if it reproduces; run at least one ASan/UBSan build.
 8. Build the package in the Arch clean chroot, inspect dependency and file
