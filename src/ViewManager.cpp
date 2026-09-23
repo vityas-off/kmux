@@ -1237,7 +1237,11 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(view, &Konsole::TerminalDisplay::keyPressedSignal, this, [this, session, view](QKeyEvent *keyEvent) {
         handleSessionAgentKey(session, containerForTerminal(view), keyEvent);
     });
-    connect(session, &QObject::destroyed, this, &Konsole::ViewManager::handleSessionDestroyed, Qt::UniqueConnection);
+    // destroyed() is emitted after ~Session() has run, so the QObject it passes
+    // can no longer be cast to Session. Pass the captured pointer instead.
+    connect(session, &QObject::destroyed, this, [this, session]() {
+        handleSessionDestroyed(session);
+    });
 
     // if this is the first controller created then set it as the active controller
     if (_pluggedController.isNull()) {
@@ -3041,9 +3045,9 @@ void ViewManager::handleSessionProjectStatusChanged(const QString &status,
     }
 }
 
-void ViewManager::handleSessionDestroyed(QObject *object)
+void ViewManager::handleSessionDestroyed(Session *session)
 {
-    auto *session = static_cast<Session *>(object);
+    // The session is already destroyed; use the pointer only as a key.
     _sessionsNeedingAttention.remove(session);
     _sessionProjectStatuses.remove(session);
     updateAgentSleepInhibition();

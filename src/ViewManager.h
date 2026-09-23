@@ -558,7 +558,7 @@ private:
                                            const QString &sessionId,
                                            const QString &promptId,
                                            const QString &agentId);
-    void handleSessionDestroyed(QObject *object);
+    void handleSessionDestroyed(Session *session);
     void acknowledgeSessionAttention(SessionController *controller);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
     void clearProjectAttention(TabbedViewContainer *container);
