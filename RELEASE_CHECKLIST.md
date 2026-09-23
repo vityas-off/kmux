@@ -82,15 +82,13 @@ after the most recent persistence, IPC, or hook change.
 The remaining alpha blockers are a short code/metadata/documentation cleanup
 and release engineering rather than new product scope:
 
-- add minimal Linux CI and an ASan/UBSan run;
-- decide the final alpha version presentation and current Kmux maintainer;
-- correct maintainer and upstream attribution in About, AppStream, and Doxygen;
-- add AppStream release history and a stable screenshot URL;
-- keep tracking the previously observed transient `TerminalInterfaceTest`
-  shell-startup timeout until CI either reproduces it or provides enough
-  evidence to close it;
 - complete clean-package, installed-runtime, side-by-side, and manual smoke
-  testing before tagging.
+  testing before tagging;
+- dogfood the release candidate;
+- tag the release and set its date in AppStream and `CHANGELOG.md`.
+
+CI, the version and maintainer decisions, attribution, AppStream metadata,
+documentation, licensing, and the sanitizer run were completed on 2026-09-23.
 
 Infrastructure preparation can start now. In particular, create or verify the
 AUR maintainer account, add CI, prepare an Arch clean chroot, prepare one clean
@@ -180,11 +178,11 @@ All items in this section should be completed before publishing
       commit after the remaining metadata and documentation changes.
 - [x] Reproduce and fix or conclusively explain the previously recorded
       `PartTest` failure.
-- [ ] Reproduce and fix or conclusively explain the previously recorded
+- [x] Reproduce and fix or conclusively explain the previously recorded
       `TerminalInterfaceTest` failure.
 - [x] Verify that tests find the built `kmuxpart` plugin in a clean build tree.
 - [x] Run the AppStream validation test.
-- [ ] Run at least one ASan/UBSan build manually or as a scheduled CI job.
+- [x] Run at least one ASan/UBSan build manually or as a scheduled CI job.
 
 A clean Release build in `~/kde/build/kmux` passed all 27 registered tests on
 2026-07-14, including `PartTest`, `TerminalInterfaceTest`, and both registered
@@ -203,6 +201,34 @@ failure is not tied to one neighboring test; pairing it with `PartTest`,
 `ViewManagerTest`, or `ProcessInfoTest` under `-j2` also failed occasionally.
 Interactive `zsh` startup on the host takes about 30 ms, so slow shell startup
 is not the cause. CI runs CTest serially for now.
+
+Explained and fixed on 2026-09-23. The tests started the developer's login
+shell with the real `HOME` and startup files. The KDE Linux default zsh
+configuration sets `HISTFILE=~/.histfile`; zsh locks that file, and a shell
+that a parallel test kills while it holds the lock leaves a fresh lock behind.
+An interactive zsh then waits about ten seconds for the lock before running its
+first command (measured: 11.2 s with a fresh lock, 0.3 s without), longer than
+the test's five one-second attempts. With the real startup files, parallel
+`ctest -j16` failed in 3 of 4 runs; with an empty `ZDOTDIR`, or with the real
+files but without `HISTFILE`, 8 of 8 runs passed. CI was unaffected because
+root's shell there has no startup files. `src/autotests/CMakeLists.txt` now
+gives every test a separate `HOME` and `ZDOTDIR` in the build tree with an
+empty `.zshrc`; afterwards the serial run and 6 of 6 `ctest -j16` runs passed.
+This also stops the tests from writing to the developer's shell history and
+`~/.qttest`.
+
+On 2026-09-23 a Debug build with `-DECM_ENABLE_SANITIZERS='address;undefined'`
+passed the full suite with no AddressSanitizer report. UndefinedBehaviorSanitizer
+found one defect in Kmux code: `ViewManager::handleSessionDestroyed()` cast the
+`QObject` passed by `destroyed()` to `Session` after `~Session()` had already
+run. The handler now receives the `Session` pointer captured when connecting
+and uses it only as a key. With leak detection enabled, only two test-side
+leaks remain: `KeyboardTranslatorManager::deleteTranslator()` deliberately
+keeps the removed translator alive, as upstream does, because running
+sessions may still use it, and the upstream `ViewManagerTest` fixture never
+frees its temporary directory. `tools/ci/linux-sanitizers.sh` runs the
+sanitizer build in CI with leak detection off and `halt_on_error=1`, since
+UBSan reports would otherwise not fail a test.
 The full suite must still be rerun after the remaining release commits before
 the tag is created.
 The relevant tests are in:
@@ -222,6 +248,7 @@ The relevant tests are in:
 - [x] Check that the expected files appear in the staged installation.
 - [x] Check that no staged path uses Konsole's names.
 - [x] Check REUSE licensing information (`tools/ci/reuse-check.py`).
+- [x] Run the test suite under ASan and UBSan (`tools/ci/linux-sanitizers.sh`).
 - [x] Confirm that the workflow passes on GitHub for commits to `master`
       (run 35851499644 on `db75238b0`, 2026-09-23).
 - [ ] Confirm that the workflow also runs for the first pull request.
@@ -1089,8 +1116,10 @@ Packaging and metadata:
    annotations for inherited files, and make `reuse lint` pass or document a
    narrowly justified release exception.~~ Done 2026-09-23 with a documented
    exception for inherited files, enforced in CI.
-7. Use CI to monitor the transient `TerminalInterfaceTest` shell-startup timeout
-   and harden the test if it reproduces; run at least one ASan/UBSan build.
+7. ~~Use CI to monitor the transient `TerminalInterfaceTest` shell-startup timeout
+   and harden the test if it reproduces; run at least one ASan/UBSan build.~~
+   Done 2026-09-23: tests now use a separate home directory, and CI runs an
+   ASan/UBSan build.
 8. Build the package in the Arch clean chroot, inspect dependency and file
    ownership results, then run installed-runtime, removal, side-by-side, and
    manual alpha smoke tests in the clean Plasma VM.
