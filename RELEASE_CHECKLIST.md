@@ -477,14 +477,14 @@ from the development host.
 - [x] Launch the installed executable rather than the build-tree executable.
 - [x] Verify installed internal libraries.
 - [x] Verify both bundled plugins.
-- [ ] Verify the installed `kmuxpart` KPart.
-- [ ] Verify `kmux-project-status`.
-- [ ] Verify `kmux-codex` and `kmux-claude` wrappers.
-- [ ] Verify `kmux-agent-hooks` installation and removal.
+- [x] Verify the installed `kmuxpart` KPart.
+- [x] Verify `kmux-project-status`.
+- [x] Verify `kmux-codex` and `kmux-claude` wrappers.
+- [x] Verify `kmux-agent-hooks` installation and removal.
 - [ ] Verify `kmuxprofile`.
-- [ ] Verify zsh completion.
+- [x] Verify zsh completion.
 - [x] Verify desktop menu discovery and the installed icon.
-- [ ] Verify notifications and global shortcut metadata.
+- [x] Verify notifications and global shortcut metadata.
 - [x] Verify that Kmux and Konsole can run side by side.
 
 The current installation surface can be reviewed in:
@@ -514,6 +514,46 @@ both `kmuxplugins` from `/usr/lib`, and no Konsole library. The helper tools
 were checked only with `--version`; the KPart, agent wrappers, hooks,
 `kmuxprofile`, zsh completion, notifications, and global shortcuts still need
 functional checks.
+
+Later on 2026-09-23 a package built from `950580b29` was installed in the clean
+VM and checked over SSH, with keystrokes sent through QMP and screenshots taken
+with Spectacle in the Plasma session:
+
+- A test program found `kmuxpart` with `KPluginMetaData::findPluginById()`,
+  loaded it, obtained `TerminalInterface`, and started a shell in `/tmp`.
+- zsh maps `kmux` to `_kmux`, and `kmux --pro<Tab>` completes `--profile`.
+- `kmux-agent-hooks install`, `status`, and `uninstall` for Claude Code and
+  Codex left a pre-existing `settings.json` semantically unchanged and a
+  pre-existing `config.toml` byte-identical, including a user `Stop` hook. The
+  Codex `hooks.json` created by the installation remains as an empty
+  `{"hooks": {}}` after uninstalling.
+- Inside a Kmux terminal the `KMUX_DBUS_*` variables are set and the agent
+  shims come first in `PATH`. With a stand-in `claude` later in `PATH`, the
+  shim installed the hooks and passed its arguments through.
+  `kmux-project-status needsInput` marked the tab, the project, and the
+  taskbar entry. Without an agent, `kmux-claude` and `kmux-codex` exit with
+  127 and "No such file or directory" outside Kmux, but the shim inside Kmux
+  reports "Too many levels of symbolic links".
+- A bell in a background tab produced a notification from "Kmux" with the
+  `kmux` icon and a "Show session" action.
+- Projects, their order, the active project and tab, a split view, working
+  directories, and the rail width survived a normal restart and a Plasma
+  "log out and restart"; Plasma restarted Kmux once, without a duplicate
+  restore. Background projects started their shells on first activation.
+
+The checks found three more problems:
+
+- With Breeze Light, the default Plasma color scheme, the selected project had
+  dark text on a dark background. Fixed in `5bfb3ae72` and verified in the VM.
+- Kmux declared `Ctrl+Alt+T` as its default global shortcut, the same as
+  Konsole. Both components reported the key, and pressing it started only
+  Konsole. Kmux no longer declares a default global shortcut; the user guide
+  explains how to assign one. Not yet re-checked in the VM.
+- Logging out with several terminals open shows Kmux's close confirmation and
+  blocks the logout until Plasma forces it after two minutes, which loses the
+  state since the last normal close. Undecided.
+
+`kmuxprofile` still needs a check.
 
 ### 9. Licensing and source archive checks
 
@@ -636,8 +676,8 @@ documented as an alpha limitation.
 
 ### 12. Manual alpha smoke test
 
-- [ ] First launch creates a project and a terminal session.
-- [ ] Create several projects.
+- [x] First launch creates a project and a terminal session.
+- [x] Create several projects.
 - [ ] Rename projects.
 - [ ] Reorder projects with drag-and-drop.
 - [ ] Close foreground and background projects.
@@ -652,17 +692,17 @@ documented as an alpha limitation.
 - [ ] Verify activity and notification badges.
 - [ ] Verify that activating a notification selects the correct project and
       terminal tab.
-- [ ] Restart Kmux and verify project order and titles.
-- [ ] Verify restored tabs, splits, active project, and active tab.
+- [x] Restart Kmux and verify project order and titles.
+- [x] Verify restored tabs, splits, active project, and active tab.
 - [ ] Verify restored profile, working directory, command, title, colors, and
       project rail width.
-- [ ] Verify secondary launch routing with DBus.
+- [x] Verify secondary launch routing with DBus.
 - [ ] Verify secondary launch routing in a build without DBus.
 - [ ] Verify Codex agent status transitions.
 - [ ] Verify Claude Code agent status transitions.
 - [ ] Verify concurrent approval/input-required transitions.
 - [ ] Verify stale agent state is cleared after the process exits.
-- [ ] Verify graceful behavior when agent executables are absent.
+- [x] Verify graceful behavior when agent executables are absent.
 - [ ] Test on Wayland.
 - [ ] Test on X11 if X11 is claimed as supported.
 - [ ] Dogfood the release candidate for several days after the last
@@ -842,7 +882,7 @@ Checklist:
 - [ ] Test Wayland behavior and, if claimed, X11 behavior. (Launch under
       Wayland checked; interactive use and X11 not yet.)
 - [ ] Test DBus, notifications, PTYs, shell startup, SSH, and agent integrations.
-- [ ] Test persistence across application restarts and a VM reboot.
+- [x] Test persistence across application restarts and a VM reboot.
 - [ ] Test package upgrade when a second package version exists.
 - [x] Test package removal and verify that system Konsole remains operational.
 
@@ -903,7 +943,7 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
 - [x] Install the package on a clean test system.
 - [x] Launch the installed application.
 - [x] Verify plugin discovery.
-- [ ] Verify KPart discovery.
+- [x] Verify KPart discovery.
 - [x] Verify desktop integration and icons.
 - [x] Verify side-by-side operation with Arch's `konsole` package.
 - [x] Remove the package and check for unexpected system leftovers.
