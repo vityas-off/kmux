@@ -14,13 +14,19 @@ context instantly while running terminal sessions stay alive.
 
 ## Features
 
-- vertical project workspaces with renaming and drag-and-drop ordering;
+- vertical project workspaces with renaming, drag-and-drop ordering, and
+  keyboard navigation;
 - independent horizontal terminal tabs, active tab, and split/view state in
-  every project;
+  every project; tabs can be moved between projects;
+- project icons from the bundled Material Symbols and Devicon sets, the KDE
+  icon theme, or your own image files;
 - project summaries, activity indicators, terminal notifications, and agent
-  statuses such as running, idle, and needs input;
-- workspace restoration for project titles and order, tabs, split layouts,
-  profiles, working directories, and active selections;
+  statuses such as running, idle, and needs input, shown on the project and
+  on the tab;
+- status integration for Claude Code and Codex that sets itself up the first
+  time you run them in Kmux;
+- workspace restoration for project titles, icons, and order, tabs, split
+  layouts, profiles, working directories, and active selections;
 - Konsole profiles, color schemes, shortcuts, search, plugins, session
   handling, and KDE/Qt integration;
 - side-by-side installation with KDE Konsole.
@@ -38,15 +44,43 @@ Kmux is not a terminal multiplexer server like tmux. It is a graphical terminal
 emulator for desktop workflows where projects, tabs, and split views should stay
 visually separate.
 
+## Alternatives
+
+If Kmux is not the right fit, these projects approach the same problem
+differently:
+
+- [cmux](https://github.com/manaflow-ai/cmux), the inspiration for Kmux: a
+  Ghostty-based terminal with vertical tabs and agent notifications, for macOS
+  only.
+- [herdr](https://herdr.dev/): an agent-aware terminal multiplexer for Linux
+  and macOS that runs inside any terminal. Its workspaces live in a background
+  server, so agents keep running after you detach.
+- [tmux](https://github.com/tmux/tmux) or
+  [Zellij](https://zellij.dev/), if you mainly need persistent sessions rather
+  than a graphical project rail.
+
 ## First Steps
 
-1. Start Kmux and use the project rail on the left to add a project.
-2. Double-click a project name to rename it, or use the project context menu.
+1. Start Kmux. Add a project with **Add Project** on the toolbar, in the
+   context menu of the project rail on the left, or with `Ctrl+Alt+P`.
+2. Double-click a project to rename it. Use its context menu to change its icon
+   or close it.
 3. Create regular terminal tabs and split views with the familiar Konsole
-   actions and shortcuts.
+   actions and shortcuts. To move a tab to another project, use **Move Tab to
+   Project** in the tab's context menu.
 4. Switch projects from the rail. Each project preserves its own selected tab
    and split layout.
 5. Drag projects in the rail to reorder them.
+
+Project shortcuts, all configurable in **Settings → Configure Keyboard
+Shortcuts**:
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+Alt+P` | Add a project |
+| `Ctrl+Alt+PgDown` / `Ctrl+Alt+PgUp` | Next / previous project |
+| `Ctrl+Alt+1` … `Ctrl+Alt+9` | Switch to project 1–9 |
+| `Ctrl+Alt+A` | Next project needing attention |
 
 ## Workspace Restoration
 
@@ -129,6 +163,11 @@ integrated agent reports that it is running. Sleep is allowed again when all
 agents become idle or wait for input. This behavior can be disabled in the
 General settings and requires DBus support.
 
+Other tools and scripts can set the status of the terminal they run in with
+`kmux-project-status`, for example `kmux-project-status running` at the start
+of a long job and `kmux-project-status needsInput` when it waits for you.
+`kmux-project-status none` clears the status.
+
 ### Shift+Enter
 
 Kmux intentionally changes Konsole's default `Shift+Enter` binding to send a
@@ -156,18 +195,30 @@ Kmux is an independent project and is not officially affiliated with KDE or
 cmux. KDE, Konsole, and cmux names remain the property of their respective
 owners.
 
-## Build From Source
+## Installation
 
-Kmux needs CMake 3.16, a C++20 compiler, Qt 6.5, KDE Frameworks 6.6, ICU,
-and, by default, libssh. Configure and build it with:
+Kmux does not have binary packages yet. On Arch Linux, build a package from
+the included `PKGBUILD`; an AUR package named `kmux-workspaces` is planned:
+
+```sh
+git clone https://github.com/vityas-off/kmux.git
+cd kmux/packaging/aur/kmux-workspaces
+makepkg -si
+```
+
+The `PKGBUILD` builds the release tag it names, not your checkout.
+
+On other distributions, build from source. Kmux needs CMake 3.16, a C++20
+compiler, Qt 6.5, KDE Frameworks 6.6, ICU, and, by default, libssh:
 
 ```sh
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build build
+sudo cmake --install build
 ```
 
 [`BUILD.md`](BUILD.md) lists the complete dependencies, the Arch Linux
-packages, build options, testing, and installation.
+packages, build options, testing, and how to remove a manual installation.
 
 ## Konsole Compatibility and Packaging
 
@@ -178,12 +229,14 @@ required Qt and KDE Frameworks libraries.
 The public install surface is renamed to avoid conflicts:
 
 - binary: `kmux`;
-- desktop/AppStream ID: `io.github.vityas_off.kmux`;
-- config file: `kmuxrc`;
+- desktop/AppStream ID and DBus service: `io.github.vityas_off.kmux`;
+- config file: `kmuxrc`; workspace state: `kmuxstaterc`;
 - data directory: `~/.local/share/kmux`;
 - DBus environment variables: `KMUX_DBUS_*`;
-- helper tools: `kmux-project-status`, `kmux-codex`, `kmux-claude`, and `kmux-agent-hooks`;
-- plugin namespace: `kmuxplugins`.
+- helper tools: `kmux-project-status`, `kmux-codex`, `kmux-claude`,
+  `kmux-agent-hooks`, and `kmuxprofile`;
+- plugin namespace: `kmuxplugins`; terminal part: `kmuxpart`;
+- translation domain: `kmux`.
 
 The source still contains many internal `Konsole` class, namespace, and file
 names. That is deliberate: it keeps the fork easier to rebase while the
@@ -197,6 +250,9 @@ installed application behaves as a standalone product.
 | `desktop` | Desktop entry, AppStream metadata, notification config, and XMLGUI resources. |
 | `data` | Bundled profiles, keyboard layouts, color schemes, and layouts. |
 | `doc` | Upstream documentation sources retained for reference; Konsole handbook installation is disabled for side-by-side packaging. |
+| `po` | Translation catalogs inherited from Konsole. |
+| `packaging` | Arch Linux `PKGBUILD` and a script to test it before a release tag exists. |
+| `tools` | `kmuxprofile`, the CI build script, and the screenshot demo workspace. |
 | `tests` / `src/autotests` | Upstream and fork tests. Some upstream tests still refer to Konsole names and need follow-up updates. |
 
 ## Alpha Status and Known Limitations
