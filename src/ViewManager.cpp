@@ -1800,7 +1800,9 @@ QJsonObject saveSessionTerminal(TerminalDisplay *terminalDisplay)
 {
     QJsonObject thisTerminal;
     auto terminalSession = terminalDisplay->sessionController()->session();
-    if (terminalSession == nullptr || (terminalSession->autoClose() && terminalSession->hasProcessExited())) {
+    // A finished command stays visible when its tab is held open, but
+    // restoring it would run the command again.
+    if (terminalSession == nullptr || terminalSession->hasProcessExited()) {
         return thisTerminal;
     }
 

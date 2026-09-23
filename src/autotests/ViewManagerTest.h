@@ -73,6 +73,7 @@ private Q_SLOTS:
     void testColdRestorePreservesSessionProfileAndState();
     void testColdRestoreIgnoresEmptyEncoding();
     void testFinishedAutoCloseCommandIsNotColdRestored();
+    void testFinishedHeldCommandIsNotColdRestored();
     void testInitializeRestoredSessionsPreservesActiveTabs();
     void testRemovingBackgroundProjectPreservesActiveProject();
     void testClosedProjectsDeleteViewContainers();

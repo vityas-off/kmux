@@ -2306,6 +2306,50 @@ void ViewManagerTest::testFinishedAutoCloseCommandIsNotColdRestored()
     QCOMPARE(counter.readAll(), QByteArray("run\n"));
 }
 
+void ViewManagerTest::testFinishedHeldCommandIsNotColdRestored()
+{
+    const QString counterPath = m_testDir->filePath(QStringLiteral("held-command-counter"));
+    QFile::remove(counterPath);
+
+    KConfig config(m_testDir->filePath(QStringLiteral("held-command-state-testrc")), KConfig::SimpleConfig);
+    KConfigGroup group(&config, QStringLiteral("Window"));
+
+    {
+        auto sourceWindow = MainWindow();
+
+        Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+        profile->setHidden(true);
+        profile->setProperty(Profile::Command, QStringLiteral("/bin/sh"));
+        profile->setProperty(Profile::Arguments,
+                             QStringList{QStringLiteral("/bin/sh"), QStringLiteral("-c"), QStringLiteral("printf 'run\\n' >> %1").arg(counterPath)});
+
+        Session *session = sourceWindow.createSession(profile, m_testDir->path());
+        QVERIFY(session != nullptr);
+        // Like --hold: the tab stays open after the command finishes.
+        session->setAutoClose(false);
+        session->run();
+        QTRY_VERIFY(session->hasProcessExited());
+
+        sourceWindow.viewManager()->saveSessions(group);
+    }
+
+    QFile counter(counterPath);
+    QVERIFY(counter.open(QIODevice::ReadOnly | QIODevice::Text));
+    QCOMPARE(counter.readAll(), QByteArray("run\n"));
+    counter.close();
+
+    const auto projects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+    QCOMPARE(projects.count(), 1);
+    QVERIFY(projects.at(0).toObject()[QStringLiteral("Tabs")].toArray().isEmpty());
+
+    auto restoredWindow = MainWindow();
+    restoredWindow.viewManager()->restoreSessions(group, false);
+    QTest::qWait(100);
+
+    QVERIFY(counter.open(QIODevice::ReadOnly | QIODevice::Text));
+    QCOMPARE(counter.readAll(), QByteArray("run\n"));
+}
+
 void ViewManagerTest::testInitializeRestoredSessionsPreservesActiveTabs()
 {
     auto window = MainWindow();
