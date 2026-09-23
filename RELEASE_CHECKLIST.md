@@ -91,7 +91,6 @@ and release engineering rather than new product scope:
 - decide the final alpha version presentation and current Kmux maintainer;
 - correct maintainer and upstream attribution in About, AppStream, and Doxygen;
 - add AppStream release history and a stable screenshot URL;
-- finish alpha limitations, recovery, support, and release notes;
 - correct REUSE/SPDX coverage for new Kmux files and the screenshot;
 - keep tracking the previously observed transient `TerminalInterfaceTest`
   shell-startup timeout until CI either reproduces it or provides enough
@@ -304,7 +303,7 @@ Identity locations include:
 - [ ] Create a Kmux-specific `v0.1.0-alpha.1` tag.
 - [x] Define the Kmux product version independently of inherited Konsole tags.
 - [ ] Create a GitHub prerelease from the tag.
-- [ ] Add concise release notes or a changelog entry.
+- [x] Add concise release notes or a changelog entry (`CHANGELOG.md`).
 - [x] Include the source commit in the main executable version and About data.
 
 Current version output from the 2026-07-18 clean build is:
@@ -333,6 +332,10 @@ kmux-agent-hooks 0.1.0-alpha.1
 
 CI fails if the newest AppStream `<release>` differs from the version reported
 by `kmux --version`, so both must be updated together.
+
+`CHANGELOG.md` holds the `0.1.0-alpha.1` release notes and serves as the body
+of the GitHub prerelease. At tag time replace "unreleased" with the tag date,
+and update its Installation section if the AUR package is published by then.
 
 Relevant version locations include:
 
@@ -424,10 +427,11 @@ metadata failure that must be fixed.
 - [x] Clearly document that libssh is required when `WITH_LIBSSH=ON`.
 - [x] Decide and document that the initial AUR package enables libssh.
 - [x] Confirm that `WITH_X11` controls the existing X11-specific build paths.
-- [ ] Add the complete Qt/KF dependency set to build documentation. `BUILD.md`
-      still lists only the inherited KDE neon `apt` command. The Arch package
-      list in `.github/workflows/ci.yml` is verified to build and test in a
-      fresh `archlinux:latest` container and can serve as the starting point.
+- [x] Add the complete Qt/KF dependency set to build documentation.
+      `BUILD.md` now lists the components required by `CMakeLists.txt`, the
+      Arch package set verified by CI, the build options, testing, and
+      installation; the unverified inherited KDE neon `apt` command was
+      removed.
 - [x] Verify a clean configure on a system that does not already have a Konsole
       development environment installed (fresh `archlinux:latest` container,
       2026-09-23).
@@ -538,23 +542,42 @@ terminology or stale fork branding rather than changed mechanically.
 
 Document all of the following in README or release notes:
 
-- [ ] The first release is an alpha and may contain data-loss or routing bugs.
-- [ ] Kmux currently uses one primary application window.
-- [ ] Detaching tabs or views is disabled.
-- [ ] Workspace UI is not provided in KPart mode.
-- [ ] Cold restore reconstructs sessions and may restart commands; it does not
+- [x] The first release is an alpha and may contain data-loss or routing bugs.
+- [x] Kmux currently uses one primary application window.
+- [x] Detaching tabs or views is disabled.
+- [x] Workspace UI is not provided in KPart mode.
+- [x] Cold restore reconstructs sessions and may restart commands; it does not
       checkpoint arbitrary running processes.
-- [ ] Describe which one-shot commands are excluded from automatic restart.
+- [x] Describe which one-shot commands are excluded from automatic restart.
 - [x] Agent status integration requires a DBus-enabled build.
-- [ ] Localization is currently incomplete or English-only where applicable.
-- [ ] Workspace persistence compatibility may change during alpha releases.
-- [ ] Describe how users can reset corrupted workspace state.
+- [x] Localization is currently incomplete or English-only where applicable.
+- [x] Workspace persistence compatibility may change during alpha releases.
+- [x] Describe how users can reset corrupted workspace state.
 - [x] Describe how users can uninstall agent hooks safely.
 
-README already states that agent integration is available only in a DBus-enabled
-build and documents the `kmux-agent-hooks uninstall` flow. The other unchecked
-alpha warnings, restore/recovery details, and compatibility promises still need
-to be written before the prerelease.
+Written on 2026-09-23. README now has "Workspace Restoration" (what is
+restored, which commands run again, lazy background projects, when the state
+is saved), "Resetting Workspace State", "Alpha Status and Known Limitations",
+and "Reporting Problems" (what to include in a bug report, reviewing
+`kmuxstaterc` before attaching it, debug logging). `CHANGELOG.md` links to
+these sections.
+
+Writing the restore documentation exposed two defects, both fixed with
+`ViewManagerTest` coverage:
+
+- A finished command in a tab held open with `--hold` or `--noclose` was saved
+  and ran again on the next start. Cold restore now skips every session whose
+  process has exited.
+- A saved terminal without `SessionRestoreId` was restored as an empty,
+  non-interactive tab. Such objects now start a shell, splitters and tabs
+  without terminals are dropped, the saved active tab is kept when earlier
+  tabs are dropped, and a project without usable tabs gets a default session.
+  Kmux built from the fixed tree also started without crashing on unparsable
+  and structurally invalid `kmuxstaterc` files.
+
+The state is saved only when the window closes normally or the desktop
+session ends; a crash loses changes since the last normal close. This is
+documented as an alpha limitation.
 
 ### 12. Manual alpha smoke test
 
@@ -943,12 +966,12 @@ Current translation-domain locations include:
 
 - [ ] Add `CONTRIBUTING.md`.
 - [x] Add `SECURITY.md`.
-- [ ] Add a changelog or documented release-notes process.
+- [x] Add a changelog or documented release-notes process (`CHANGELOG.md`).
 - [ ] Document supported platforms and versions.
-- [ ] Document workspace restoration and troubleshooting.
+- [x] Document workspace restoration and troubleshooting.
 - [ ] Document profile fallback behavior.
 - [ ] Document DBus and agent-hook troubleshooting.
-- [ ] Document persistence reset and recovery.
+- [x] Document persistence reset and recovery.
 - [ ] Define an alpha/beta compatibility policy.
 
 ### Release quality
@@ -1029,8 +1052,10 @@ Packaging and metadata:
 4. ~~Correct About/Doxygen attribution and finish AppStream release and screenshot
    metadata so the pedantic validator passes.~~ Done 2026-09-23; retake the
    screenshot and set the release date at tag time.
-5. Document alpha limitations, persistence reset/recovery, one-shot command
-   restore behavior, support information, and release notes.
+5. ~~Document alpha limitations, persistence reset/recovery, one-shot command
+   restore behavior, support information, and release notes.~~ Done
+   2026-09-23; also fixed restoring held finished commands and incomplete
+   terminal state.
 6. Correct SPDX coverage for new Kmux files and the screenshot, add accurate
    annotations for inherited files, and make `reuse lint` pass or document a
    narrowly justified release exception.
