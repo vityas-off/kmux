@@ -525,15 +525,17 @@ with Spectacle in the Plasma session:
 - `kmux-agent-hooks install`, `status`, and `uninstall` for Claude Code and
   Codex left a pre-existing `settings.json` semantically unchanged and a
   pre-existing `config.toml` byte-identical, including a user `Stop` hook. The
-  Codex `hooks.json` created by the installation remains as an empty
-  `{"hooks": {}}` after uninstalling.
+  Codex `hooks.json` created by the installation remained as an empty
+  `{"hooks": {}}` after uninstalling, and Claude settings without hooks gained
+  an empty `"hooks"` object; uninstalling now removes both.
 - Inside a Kmux terminal the `KMUX_DBUS_*` variables are set and the agent
   shims come first in `PATH`. With a stand-in `claude` later in `PATH`, the
   shim installed the hooks and passed its arguments through.
   `kmux-project-status needsInput` marked the tab, the project, and the
   taskbar entry. Without an agent, `kmux-claude` and `kmux-codex` exit with
-  127 and "No such file or directory" outside Kmux, but the shim inside Kmux
-  reports "Too many levels of symbolic links".
+  127 and "No such file or directory" outside Kmux. The shim inside Kmux
+  reported "Too many levels of symbolic links" because it found only itself;
+  it now reports "No such file or directory" as well.
 - A bell in a background tab produced a notification from "Kmux" with the
   `kmux` icon and a "Show session" action.
 - Projects, their order, the active project and tab, a split view, working
