@@ -170,13 +170,15 @@ installed application behaves as a standalone product.
 
 ## Project Status
 
-Kmux is pre-release software currently versioned as 0.1.0. The fork is being
+Kmux is pre-release software currently versioned as 0.1.0-alpha.1. The fork is being
 prepared for its first public release, so interfaces, metadata, and packaging
 may still change.
 
 Bug reports and contributions are welcome through
 [GitHub Issues](https://github.com/vityas-off/kmux/issues) and
 [pull requests](https://github.com/vityas-off/kmux/pulls).
+Please report security issues privately as described in
+[`SECURITY.md`](SECURITY.md).
 
 ## License and Attribution
 

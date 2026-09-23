@@ -1204,7 +1204,7 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kmux-agent-hooks"));
-    QCoreApplication::setApplicationVersion(QStringLiteral(KMUX_VERSION));
+    QCoreApplication::setApplicationVersion(QStringLiteral(KMUX_DISPLAY_VERSION));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Install terminal agent hooks for Kmux project workspaces."));

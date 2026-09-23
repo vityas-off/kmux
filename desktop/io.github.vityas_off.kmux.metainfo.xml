@@ -6,7 +6,7 @@
   <name>Kmux</name>
   <summary>Konsole-based terminal with project workspaces</summary>
   <developer id="io.github.vityas_off">
-    <name>Kmux contributors</name>
+    <name>vityas-off</name>
   </developer>
   <description>
     <p>Kmux is a terminal emulator based on KDE Konsole with a project workspace model.</p>
@@ -24,5 +24,21 @@
   </provides>
   <url type="homepage">https://github.com/vityas-off/kmux</url>
   <url type="bugtracker">https://github.com/vityas-off/kmux/issues</url>
+  <url type="vcs-browser">https://github.com/vityas-off/kmux</url>
+  <url type="contribute">https://github.com/vityas-off/kmux/pulls</url>
+  <update_contact>15840124+vityas-off@users.noreply.github.com</update_contact>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Project workspaces, each with its own terminal tabs</caption>
+      <image>https://raw.githubusercontent.com/vityas-off/kmux/v0.1.0-alpha.1/screenshots/kmux-project-workspaces.png</image>
+    </screenshot>
+  </screenshots>
   <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0-alpha.1" type="development" date="2026-09-23">
+      <description>
+        <p>First public alpha of Kmux, a Konsole-based terminal with project workspaces.</p>
+      </description>
+    </release>
+  </releases>
 </component>

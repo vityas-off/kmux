@@ -400,7 +400,7 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kmux-project-status"));
-    QCoreApplication::setApplicationVersion(QStringLiteral(KMUX_VERSION));
+    QCoreApplication::setApplicationVersion(QStringLiteral(KMUX_DISPLAY_VERSION));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Set the project status for the current Kmux terminal session."));

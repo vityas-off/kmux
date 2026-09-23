@@ -6,6 +6,14 @@ set(KMUX_VERSION_MAJOR "0")
 set(KMUX_VERSION_MINOR "1")
 set(KMUX_VERSION_PATCH "0")
 set(KMUX_VERSION "${KMUX_VERSION_MAJOR}.${KMUX_VERSION_MINOR}.${KMUX_VERSION_PATCH}")
+# Semantic-versioning pre-release label; leave empty for a final release.
+# KMUX_VERSION stays numeric because it versions libraries and plugins.
+set(KMUX_VERSION_PRERELEASE "alpha.1")
+if(KMUX_VERSION_PRERELEASE)
+    set(KMUX_DISPLAY_VERSION "${KMUX_VERSION}-${KMUX_VERSION_PRERELEASE}")
+else()
+    set(KMUX_DISPLAY_VERSION "${KMUX_VERSION}")
+endif()
 
 # Version of the upstream Konsole base with which shell integrations and
 # terminal clients can expect compatibility. Update this when rebasing onto a

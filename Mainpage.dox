@@ -10,11 +10,12 @@ To learn more about %Kmux, visit the
 <a href="https://github.com/vityas-off/kmux">Kmux project page</a>.
 
 @authors
-Lars Doelle<br>
-Robert Knight
+Lars Doelle (original Konsole author)<br>
+Robert Knight (previous upstream Konsole maintainer)<br>
+Kurt Hindenburg (upstream Konsole maintainer)
 
 @maintainers
-Kurt Hindenburg
+vityas-off (Kmux). Upstream Konsole maintainers do not maintain or support Kmux.
 
 @licenses
 @gpl

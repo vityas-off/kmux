@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
     KLocalizedString::setApplicationDomain("kmux");
 
     const QString version =
-        QStringLiteral(KMUX_GIT_REVISION).isEmpty() ? QStringLiteral(KMUX_VERSION) : QStringLiteral(KMUX_VERSION " (" KMUX_GIT_REVISION ")");
+        QStringLiteral(KMUX_GIT_REVISION).isEmpty() ? QStringLiteral(KMUX_DISPLAY_VERSION) : QStringLiteral(KMUX_DISPLAY_VERSION " (" KMUX_GIT_REVISION ")");
     KAboutData about(Konsole::ApplicationMetadata::componentName(),
                      i18nc("@title", "Kmux"),
                      version,
@@ -176,7 +176,8 @@ int main(int argc, char *argv[])
                      KAboutLicense::GPL_V2,
                      i18nc("@info:credit", "© 1997–2026 The Konsole Developers; © 2026 Kmux contributors"),
                      QString(),
-                     QStringLiteral("https://github.com/vityas-off/kmux"));
+                     QStringLiteral("https://github.com/vityas-off/kmux"),
+                     QStringLiteral("https://github.com/vityas-off/kmux/issues"));
     about.setDesktopFileName(Konsole::ApplicationMetadata::desktopFileName());
     fillAboutData(about);
 
@@ -369,15 +370,18 @@ void fillAboutData(KAboutData &aboutData)
 {
     aboutData.setOrganizationDomain(Konsole::ApplicationMetadata::organizationDomain());
 
+    aboutData.addAuthor(i18nc("@info:credit", "vityas-off"),
+                        i18nc("@info:credit", "Kmux maintainer"),
+                        QStringLiteral("15840124+vityas-off@users.noreply.github.com"),
+                        QStringLiteral("https://github.com/vityas-off"));
+    // Upstream Konsole attribution; these people do not maintain or support Kmux.
     aboutData.addAuthor(i18nc("@info:credit", "Kurt Hindenburg"),
-                        i18nc("@info:credit",
-                              "General maintainer, bug fixes and general"
-                              " improvements"),
+                        i18nc("@info:credit", "Upstream Konsole maintainer"),
                         QStringLiteral("kurt.hindenburg@gmail.com"));
     aboutData.addAuthor(i18nc("@info:credit", "Robert Knight"),
-                        i18nc("@info:credit", "Previous maintainer, ported to KDE4"),
+                        i18nc("@info:credit", "Previous upstream Konsole maintainer, ported to KDE4"),
                         QStringLiteral("robertknight@gmail.com"));
-    aboutData.addAuthor(i18nc("@info:credit", "Lars Doelle"), i18nc("@info:credit", "Original author"), QStringLiteral("lars.doelle@on-line.de"));
+    aboutData.addAuthor(i18nc("@info:credit", "Lars Doelle"), i18nc("@info:credit", "Original Konsole author"), QStringLiteral("lars.doelle@on-line.de"));
     aboutData.addCredit(i18nc("@info:credit", "Ahmad Samir"),
                         i18nc("@info:credit", "Major refactoring, bug fixes and major improvements"),
                         QStringLiteral("a.samirh78@gmail.com"));
