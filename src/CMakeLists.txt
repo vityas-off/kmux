@@ -8,6 +8,7 @@ else()
 endif()
 
 include(ECMAddAppIcon)
+include(ECMMarkNonGuiExecutable)
 
 configure_file(config-konsole.h.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/config-konsole.h)

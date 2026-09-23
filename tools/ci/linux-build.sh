@@ -17,7 +17,7 @@ stage_dir="$build_dir/stage"
 prefix=/usr
 app_id=io.github.vityas_off.kmux
 
-if [ -e "$build_dir" ]; then
+if [ -e "$build_dir" ] || [ -e "$build_dir-notests" ]; then
     echo "error: $build_dir already exists; CI builds must start from an empty directory" >&2
     exit 1
 fi
@@ -25,6 +25,16 @@ fi
 section() {
     printf '\n==> %s\n' "$1"
 }
+
+section "Configure without tests"
+# Distribution packages build with BUILD_TESTING=OFF, which skips the test
+# CMake modules; make sure the project still configures without them.
+cmake -S "$source_dir" -B "$build_dir-notests" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_TESTING=OFF \
+    -DWITH_KAPSULE=OFF \
+    -DWITH_LIBSSH=ON > /dev/null
+rm -rf "$build_dir-notests"
 
 section "Configure"
 cmake -S "$source_dir" -B "$build_dir" -G Ninja \
