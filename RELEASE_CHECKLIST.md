@@ -7,9 +7,10 @@ SPDX-License-Identifier: CC0-1.0
 
 This document tracks the work required for the first public Kmux release.
 
-Last assessment: 2026-07-18 (build, test, and install evidence)
+Last assessment: 2026-09-23 (development-tree build, test, staged install, and
+metadata validator evidence; the last clean-tree evidence is from 2026-07-18)
 
-Checklist reconciled with `master` tip `5043259d` on 2026-07-21.
+Checklist reconciled with `master` tip `d2657c299` on 2026-09-23.
 
 Target release: `v0.1.0-alpha.1`
 
@@ -28,12 +29,26 @@ The product MVP is already substantial:
 - project order, titles, tabs, splits, working directories, and active state are
   persisted;
 - DBus and local IPC secondary-launch routing are implemented;
-- agent status integration is implemented for Codex and Claude Code;
+- background projects restore their tabs lazily on first activation;
+- agent status integration is implemented for Codex and Claude Code, and is
+  shown on both project entries and terminal tabs;
+- projects have persistent icons with bundled Material Symbols and Devicon
+  sets, KDE theme icons, and custom files;
 - side-by-side installation with Konsole is largely separated;
 - workspace-specific behavior has dedicated regression tests.
 
 The product code is ready for release-engineering work to proceed in parallel.
-The current `master` commit `1c0aca821` was verified on 2026-07-18 with a new
+
+On 2026-09-23 the development build tree (`build/`, RelWithDebInfo, testing,
+DBus, X11, and libssh enabled) was rebuilt at `d2657c299` and all 29 registered
+CTest tests passed, including `PartTest`, `TerminalInterfaceTest`,
+`ViewManagerTest`, and `appstreamtest`. A `DESTDIR` installation from that tree
+produced 129 files: 35 application files plus 94 translation catalogs. This is
+not a clean-tree result; a clean Release build must still be repeated, ideally
+by CI.
+
+The previous clean evidence follows. The `master` commit `1c0aca821` was
+verified on 2026-07-18 with a new
 clean Release build configured with testing, DBus, X11, and libssh enabled. The
 complete build succeeded and all 27 registered CTest tests passed, including
 `PartTest`, `TerminalInterfaceTest`, and the workspace regression tests. The
@@ -49,13 +64,25 @@ This is a useful preliminary check, but it does not replace comparing package
 ownership with a distribution's Konsole package or testing installation and
 removal in a clean VM.
 
-Since that verification `master` has advanced eleven commits to `5043259d`.
-Those commits completed the independent Kmux translation domain and catalog
-installation, and landed several workspace-persistence, secondary-launch, and
-agent-hook fixes. The build, test, and install evidence recorded above therefore
-predates the current tip: the full CTest suite and the staged installation must
-be re-run on the final release commit, and the dogfooding window restarts after
-the most recent persistence, IPC, or hook change.
+Between 2026-07-21 and 2026-09-23 `master` advanced from `5043259d` to
+`d2657c299`. Relevant changes in that range:
+
+- an upstream Konsole merge (`236fbbd52`) switched the project to C++20, raised
+  the minimum KF version to 6.6, and dropped the Zlib dependency;
+- lazy restoration of background project tabs, restored-action binding to the
+  owning project container, and keeping the window open while deferred projects
+  remain;
+- agent status on terminal tabs, many Claude Code lifecycle fixes, and sleep
+  inhibition while agents run;
+- persistent project icons, including bundled third-party icon sets with their
+  license texts installed under `share/kmux/licenses`;
+- plugin discovery from the configured plugin directory, and preservation of
+  existing profile files when saving.
+
+None of these commits changed release-gate items directly, but they touched
+persistence and agent hooks. The full CTest suite and the staged installation
+must be re-run on the final release commit, and the dogfooding window restarts
+after the most recent persistence, IPC, or hook change.
 
 The remaining alpha blockers are a short code/metadata/documentation cleanup
 and release engineering rather than new product scope:
@@ -104,11 +131,16 @@ to install or integrate these consistently.
 
 ### Initial package
 
-After the GitHub prerelease, publish an AUR package named `kmux` built from the
-immutable release tag and archive.
+After the GitHub prerelease, publish an AUR package named `kmux-workspaces`
+built from the immutable release tag and archive. The AUR already contains an
+unrelated `kmux-git` package (`futpib/kmux`), so the plain `kmux` name would
+suggest a relationship that does not exist. The package name does not need to
+match the display name; the application remains Kmux. The package must declare
+explicit `conflicts` for unrelated packages that install the same file paths.
 
-The stable AUR package should not build from `master`. A separate `kmux-git`
-package may be added later for development snapshots.
+The stable AUR package should not build from `master`. A development-snapshot
+package, if added later, must use a distinct name such as
+`kmux-workspaces-git` rather than `kmux-git`.
 
 Recommended initial CMake configuration for the AUR package:
 
@@ -126,7 +158,7 @@ Validate the package using `makepkg`, `namcap`, and an Arch clean chroot.
 Recommended order:
 
 1. GitHub prerelease and source archive;
-2. AUR `kmux`;
+2. AUR `kmux-workspaces`;
 3. Flatpak/Flathub;
 4. OBS/COPR or native Debian/RPM repositories if there is demand;
 5. AppImage if there is demand for a portable download;
@@ -170,7 +202,14 @@ state. The first 2026-07-14 full run had one transient `TerminalInterfaceTest`
 timeout while waiting for `currentDirectoryChanged`; the test then passed five
 consecutive standalone runs, the complete rerun, and the 2026-07-18 clean run.
 Keep tracking this shell-startup timing failure in CI until its cause is
-conclusive or it has a sufficiently stable history.
+conclusive or it has a sufficiently stable history. On 2026-09-23 it passed in
+serial runs and five consecutive standalone runs. It failed in five of six
+`ctest -j16` runs, always at `TerminalInterfaceTest.cpp:200`: no
+`currentDirectoryChanged` arrived within the five one-second attempts. The
+failure is not tied to one neighboring test; pairing it with `PartTest`,
+`ViewManagerTest`, or `ProcessInfoTest` under `-j2` also failed occasionally.
+Interactive `zsh` startup on the host takes about 30 ms, so slow shell startup
+is not the cause. CI runs CTest serially for now.
 The full suite must still be rerun after the remaining release commits before
 the tag is created.
 The relevant tests are in:
@@ -180,19 +219,46 @@ The relevant tests are in:
 
 ### 2. Minimal CI
 
-- [ ] Add a Linux Qt 6/KF6 CI workflow.
-- [ ] Configure and build a clean Release tree in CI.
-- [ ] Configure a test-enabled build in CI.
-- [ ] Run the complete CTest suite in CI.
-- [ ] Perform a staged installation using `DESTDIR` in CI.
-- [ ] Validate the main desktop file with `desktop-file-validate`.
-- [ ] Validate AppStream metadata with `appstreamcli validate --pedantic`.
-- [ ] Check that the expected files appear in the staged installation.
-- [ ] Run CI for pull requests and commits to the main branch.
+- [x] Add a Linux Qt 6/KF6 CI workflow.
+- [x] Configure and build a clean Release tree in CI.
+- [x] Configure a test-enabled build in CI.
+- [x] Run the complete CTest suite in CI.
+- [x] Perform a staged installation using `DESTDIR` in CI.
+- [x] Validate the main desktop file with `desktop-file-validate`.
+- [x] Validate AppStream metadata with `appstreamcli validate --pedantic`.
+- [x] Check that the expected files appear in the staged installation.
+- [x] Check that no staged path uses Konsole's names.
+- [ ] Confirm that the workflow passes on GitHub for pull requests and commits
+      to `master`.
 - [ ] Add release-archive and checksum automation for tags, if practical.
 
 A single reliable Linux CI environment is sufficient for the first alpha. A
 larger platform matrix can follow before beta.
+
+`.github/workflows/ci.yml` runs in an `archlinux:latest` container and calls
+`tools/ci/linux-build.sh`, which can also be run locally from the source root.
+The script configures a clean Release build with testing, DBus, X11, and libssh
+enabled. It runs CTest serially under `dbus-run-session` with the `offscreen`
+platform and installs into a `DESTDIR` stage. It then checks the expected
+installed paths and the absence of Konsole-named paths, validates the desktop
+file, and fails on any AppStream issue, including pedantic hints. Finally it
+checks that the newest AppStream release matches `kmux --version`.
+
+On 2026-09-23 the same steps passed locally in a fresh `archlinux:latest`
+container with podman (Qt 6.11.2, KF 6.30): 29 of 29 tests passed and the stage
+contained 129 files. The first container runs exposed two problems that the
+development host had hidden:
+
+- `ProcessInfoTest` needs `which`, which the Arch base image lacks; the workflow
+  now installs it.
+- `ViewManagerTest` hung in `ProfileManager::sortProfiles()`. The inherited
+  upstream comparator `profileNameLessThan` returned `true` when the built-in
+  profile was compared with itself. That violates the strict weak ordering
+  `std::sort` requires, and with more than 16 profiles the partition step ran
+  past the range. Users with many profiles could hit the same undefined
+  behavior. The comparator is fixed and covered by
+  `ProfileTest::testProfileNameOrderingIsStrict`. The same bug exists in
+  upstream Konsole.
 
 ### 3. Final application identity
 
@@ -229,7 +295,7 @@ Identity locations include:
 
 ### 4. Release version and tag
 
-- [ ] Confirm `0.1.0-alpha.1` as the first public version.
+- [x] Confirm `0.1.0-alpha.1` as the first public version.
 - [x] Ensure all version-reporting installed executables report a consistent
       Kmux product version.
 - [x] Replace the hard-coded `1.0` version in `kmux-project-status` with the
@@ -248,13 +314,24 @@ kmux-project-status 0.1.0
 kmux-agent-hooks 0.1.0
 ```
 
-The embedded commit tracks the build tree, so a build of the current tip now
-reports `5043259d…` instead. Re-record this output from the final release build.
+The embedded commit tracks the build tree. Re-record this output from the final
+release build.
 
-The remaining version decision is whether the application itself should display
-`0.1.0-alpha.1`, or whether the numeric application/library version remains
-`0.1.0` while the source and package release use the prerelease tag
-`v0.1.0-alpha.1`.
+Decided on 2026-09-23: the application displays the full prerelease version.
+`KMUX_VERSION_PRERELEASE` in `CMakeLists.txt` is `alpha.1`, and
+`KMUX_DISPLAY_VERSION` (`0.1.0-alpha.1`) is used by `kmux --version`, the About
+data, the helper tools, and the macOS bundle long version. `KMUX_VERSION` stays
+numeric (`0.1.0`) for library and plugin versioning. After the change the
+development build reports:
+
+```text
+kmux 0.1.0-alpha.1 (d2657c299359)
+kmux-project-status 0.1.0-alpha.1
+kmux-agent-hooks 0.1.0-alpha.1
+```
+
+CI fails if the newest AppStream `<release>` differs from the version reported
+by `kmux --version`, so both must be updated together.
 
 Relevant version locations include:
 
@@ -265,15 +342,18 @@ Relevant version locations include:
 
 ### 5. Maintainer and support metadata
 
-- [ ] Identify the current Kmux maintainer in the About dialog.
-- [ ] Identify the current Kmux maintainer in AppStream metadata.
-- [ ] Update `Mainpage.dox` to distinguish Kmux maintenance from upstream
+- [x] Identify the current Kmux maintainer in the About dialog.
+- [x] Identify the current Kmux maintainer in AppStream metadata.
+- [x] Update `Mainpage.dox` to distinguish Kmux maintenance from upstream
       Konsole maintenance.
-- [ ] Keep Konsole authors and maintainers as upstream attribution rather than
+- [x] Keep Konsole authors and maintainers as upstream attribution rather than
       implying that they support Kmux.
 - [x] Add a bug tracker URL to AppStream metadata.
-- [ ] Add a support or contact URL if available.
-- [ ] Decide how private security reports should be submitted.
+- [x] Send the About dialog's bug reports to GitHub Issues instead of the
+      inherited KDE Bugzilla default.
+- [x] Add a support or contact URL if available.
+- [x] Decide how private security reports should be submitted.
+- [ ] Enable GitHub private vulnerability reporting in the repository settings.
 
 Relevant files:
 
@@ -281,22 +361,28 @@ Relevant files:
 - `Mainpage.dox`;
 - `desktop/*.metainfo.xml`.
 
-Current `master` still presents Kurt Hindenburg as the general maintainer in the
-About data and as the maintainer in `Mainpage.dox`. Those entries are inherited
-Konsole attribution and must not imply that upstream Konsole maintainers support
-Kmux. AppStream currently identifies only “Kmux contributors”; replace or
-supplement that with the agreed current Kmux maintainer identity.
+The Kmux maintainer is `vityas-off`
+(`15840124+vityas-off@users.noreply.github.com`). The About data lists the
+maintainer first, relabels the inherited Konsole authors as upstream Konsole
+attribution, and reports bugs to GitHub Issues; `KAboutData` otherwise defaults
+to `submit@bugs.kde.org`. AppStream names `vityas-off` as developer and update
+contact, and links the issue tracker, repository, and pull requests. GitHub
+Issues is the support channel. Private security reports go through GitHub
+private vulnerability reporting, as described in `SECURITY.md`; the feature
+still has to be enabled for the repository.
 
 ### 6. AppStream and desktop metadata
 
 - [x] Rename AppStream metadata to `<app-id>.metainfo.xml` after finalizing the
       App ID.
-- [ ] Add a `<releases>` entry for `0.1.0-alpha.1` with the release date.
+- [x] Add a `<releases>` entry for `0.1.0-alpha.1`.
+- [ ] Set the `<release>` date to the actual tag date.
 - [x] Add a bug tracker URL.
-- [ ] Add at least one screenshot.
-- [ ] Publish screenshots at a stable or immutable URL.
+- [x] Add at least one screenshot.
+- [x] Reference screenshots by an immutable URL (the `v0.1.0-alpha.1` tag).
+- [x] Retake the screenshot from the current UI before tagging.
 - [ ] Resize or prepare the existing screenshot if needed for store guidelines.
-- [ ] Pass `appstreamcli validate --pedantic` with the final release metadata.
+- [x] Pass `appstreamcli validate --pedantic` with the release metadata.
 - [x] Validate the main application desktop file.
 - [ ] Treat `kmuxrun.desktop` as a KDE service-menu file rather than passing it
       blindly through the generic desktop-file validator.
@@ -307,31 +393,50 @@ The existing screenshot is:
 
 - `screenshots/kmux-project-workspaces.png`.
 
-The main desktop file passed `desktop-file-validate` on 2026-07-18. The current
-AppStream file does not yet pass the pedantic validator because release history
-is missing. URL reachability warnings seen in the restricted audit environment
+AppStream references it as
+`https://raw.githubusercontent.com/vityas-off/kmux/v0.1.0-alpha.1/screenshots/kmux-project-workspaces.png`,
+which resolves only after the tag exists. The image was retaken on 2026-09-23
+(2722×1728) from the current UI. It shows project icons, agent statuses in the
+project rail and on tabs, and Claude Code running in the Kmux project; the
+other projects are empty neutral demo directories.
+`tools/screenshot-demo/create-demo.py` recreates that workspace in `~/kmux-demo`
+and starts an isolated Kmux instance for future captures. The
+`<release>` entry is marked `type="development"`, which software centers treat as
+a prerelease.
+
+The main desktop file passed `desktop-file-validate` on 2026-07-18 and again
+on 2026-09-23. On 2026-09-23 `appstreamcli validate --pedantic --no-net`
+reported only one pedantic issue, `releases-info-missing`. After the release
+entry, maintainer, URLs, and screenshot were added the same day, the pedantic
+validation reports no issues. CI fails on any AppStream issue, including
+pedantic hints. URL reachability warnings seen in the restricted audit environment
 were caused by unavailable network access; `releases-info-missing` is the real
 metadata failure that must be fixed.
 
 ### 7. Dependency declarations
 
-- [x] Make Zlib explicitly required in CMake, because `ZLIB::ZLIB` is linked
-      unconditionally.
+- [x] Resolve the Zlib dependency declaration. Upstream Konsole dropped the
+      dependency entirely (`bd96482ac`, merged in `236fbbd52`), so Zlib is no
+      longer a build or runtime dependency.
 - [x] Add Qt XML explicitly to the main Qt component lookup rather than relying
       on a transitive dependency.
 - [x] Clearly document that libssh is required when `WITH_LIBSSH=ON`.
 - [x] Decide and document that the initial AUR package enables libssh.
 - [x] Confirm that `WITH_X11` controls the existing X11-specific build paths.
-- [ ] Add Zlib and the complete Qt/KF dependency set to build documentation.
-- [ ] Verify a clean configure on a system that does not already have a Konsole
-      development environment installed.
+- [ ] Add the complete Qt/KF dependency set to build documentation. `BUILD.md`
+      still lists only the inherited KDE neon `apt` command. The Arch package
+      list in `.github/workflows/ci.yml` is verified to build and test in a
+      fresh `archlinux:latest` container and can serve as the starting point.
+- [x] Verify a clean configure on a system that does not already have a Konsole
+      development environment installed (fresh `archlinux:latest` container,
+      2026-09-23).
 
 Likely Arch runtime/build dependencies must be derived and verified from the
-actual clean package build. They include Qt 6, KF6 components, ICU, Zlib, and
-libssh when enabled.
+actual clean package build. They include Qt 6 (at least 6.5), KF6 components (at
+least 6.6), ICU, libssh when enabled, and optionally xkbcommon and KDocTools.
 
-The 2026-07-18 clean configure found Qt XML, Zlib, and libssh as direct
-dependencies. `WITH_X11` is consumed by `WindowSystemInfo.cpp` and
+The 2026-07-18 clean configure found Qt XML and libssh as direct dependencies
+(Zlib has since been dropped upstream). `WITH_X11` is consumed by `WindowSystemInfo.cpp` and
 `MainWindow.cpp`, so it is not currently a dead option. The complete package
 dependency list still needs to be derived in an Arch clean chroot rather than
 from the development host.
@@ -363,7 +468,11 @@ The current installation surface can be reviewed in:
 - `build/install_manifest.txt` for the existing local build.
 
 The 2026-07-18 staged Release installation contained 28 files and had no path
-collision with files already present on the development host. The final
+collision with files already present on the development host. The 2026-09-23
+staged installation from the development tree contained 35 application files
+and 94 translation catalogs. The new application files are the agent shims in
+`lib/libexec/kmux/agent-shims`, the installed `kmux.kcfg`, and the bundled icon
+license texts in `share/kmux/licenses`. The final
 collision, package-removal, plugin discovery, and side-by-side claims remain
 open until they are checked against the distribution's actual Konsole package
 and in a clean Plasma VM.
@@ -379,7 +488,11 @@ and in a clean Plasma VM.
 
 `reuse --no-multiprocessing lint` ran on 2026-07-18 and did not pass. It reported
 copyright information for 460 of 662 files and licensing information for 385 of
-662 files. Many failures are inherited upstream assets and translations, but
+662 files. On 2026-09-23 it still did not pass: copyright information for 753 of
+966 files and licensing information for 686 of 966 files. It also reported
+unused license texts `LGPL-2.1-only`, `LGPL-3.0-only`, and
+`LicenseRef-KDE-Accepted-LGPL`. New failures include files under
+`data/project-icons`. Many failures are inherited upstream assets and translations, but
 new Kmux source files also lack explicit copyright lines and
 `screenshots/kmux-project-workspaces.png` lacks a licensing annotation. Prefer
 targeted SPDX fixes for new Kmux files plus maintainable `REUSE.toml`
@@ -657,13 +770,18 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
 
 - [ ] Create or verify the AUR maintainer account and its SSH key before the
       release window.
-- [ ] Confirm that the `kmux` AUR package name is available immediately before
+- [x] Choose `kmux-workspaces` as the AUR package name, distinct from the
+      unrelated existing `kmux-git` package.
+- [ ] Confirm that `kmux-workspaces` is still available immediately before
       publishing.
+- [ ] Declare `conflicts` for unrelated AUR packages that install
+      `/usr/bin/kmux` or other overlapping paths.
 - [ ] Create a tagged GitHub prerelease first.
 - [ ] Use the tagged source archive, not `master`.
 - [ ] Pin and verify the source checksum.
 - [ ] Declare the complete dependency list.
-- [ ] Decide whether `libssh` is enabled and declare it consistently.
+- [x] Decide whether `libssh` is enabled (yes, see section 7).
+- [ ] Declare `libssh` consistently in `depends`.
 - [ ] Build in an Arch clean chroot.
 - [ ] Run `namcap` on the `PKGBUILD` and built package.
 - [ ] Install the package on a clean test system.
@@ -673,8 +791,8 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
 - [ ] Verify side-by-side operation with Arch's `konsole` package.
 - [ ] Remove the package and check for unexpected system leftovers.
 - [ ] Keep the AUR packaging history in an appropriate packaging repository.
-- [ ] Optionally add a separate `kmux-git` package after the stable package is
-      established.
+- [ ] Optionally add a separate `kmux-workspaces-git` package after the stable
+      package is established.
 
 ## Flatpak/Flathub checklist
 
@@ -758,7 +876,7 @@ Current translation-domain locations include:
 ### Project documentation and policy
 
 - [ ] Add `CONTRIBUTING.md`.
-- [ ] Add `SECURITY.md`.
+- [x] Add `SECURITY.md`.
 - [ ] Add a changelog or documented release-notes process.
 - [ ] Document supported platforms and versions.
 - [ ] Document workspace restoration and troubleshooting.
@@ -832,14 +950,17 @@ Packaging and metadata:
 
 ## Suggested immediate execution order
 
-1. Add minimal Linux CI for clean Release/test builds, CTest, staged install,
-   desktop/AppStream validation, and install-manifest checks.
+1. ~~Add minimal Linux CI for clean Release/test builds, CTest, staged install,
+   desktop/AppStream validation, and install-manifest checks.~~ Done
+   2026-09-23; still needs a first green run on GitHub.
 2. Create or verify the AUR maintainer account, prepare an Arch clean chroot and
    one clean Arch Plasma VM, and draft the `PKGBUILD` without publishing it.
-3. Confirm how `0.1.0-alpha.1` is presented by the application and identify the
-   current Kmux maintainer, support contact, and private-security-report path.
-4. Correct About/Doxygen attribution and finish AppStream release and screenshot
-   metadata so the pedantic validator passes.
+3. ~~Confirm how `0.1.0-alpha.1` is presented by the application and identify the
+   current Kmux maintainer, support contact, and private-security-report path.~~
+   Done 2026-09-23; enable GitHub private vulnerability reporting.
+4. ~~Correct About/Doxygen attribution and finish AppStream release and screenshot
+   metadata so the pedantic validator passes.~~ Done 2026-09-23; retake the
+   screenshot and set the release date at tag time.
 5. Document alpha limitations, persistence reset/recovery, one-shot command
    restore behavior, support information, and release notes.
 6. Correct SPDX coverage for new Kmux files and the screenshot, add accurate
@@ -854,7 +975,7 @@ Packaging and metadata:
    IPC, or agent-hook change.
 10. Tag and publish `v0.1.0-alpha.1` as a GitHub prerelease with release notes
     and checksums.
-11. Build and publish the AUR `kmux` package from that immutable tag and verified
+11. Build and publish the AUR `kmux-workspaces` package from that immutable tag and verified
     source checksum.
 12. Collect feedback before beginning Flatpak/Flathub work. Add native DEB/RPM
     packaging later if there is demand; it is not a first-alpha blocker.
