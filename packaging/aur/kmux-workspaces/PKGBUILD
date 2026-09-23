@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: 2026 Kmux contributors
+# SPDX-License-Identifier: CC0-1.0
+# Maintainer: vityas-off <15840124+vityas-off@users.noreply.github.com>
+
+pkgname=kmux-workspaces
+_tag=0.1.0-alpha.1
+pkgver=${_tag//-/}
+pkgrel=1
+pkgdesc='Project-workspace terminal based on KDE Konsole, inspired by cmux'
+arch=(x86_64)
+url='https://github.com/vityas-off/kmux'
+license=(GPL-2.0-or-later
+         LGPL-2.0-or-later)
+depends=(glibc
+         hicolor-icon-theme
+         icu
+         kbookmarks
+         kcolorscheme
+         kconfig
+         kconfigwidgets
+         kcoreaddons
+         kcrash
+         kdbusaddons
+         kglobalaccel
+         kguiaddons
+         ki18n
+         kiconthemes
+         kio
+         knewstuff
+         knotifications
+         knotifyconfig
+         kparts
+         kpty
+         kservice
+         ktextwidgets
+         kwidgetsaddons
+         kwindowsystem
+         kxmlgui
+         libssh
+         libstdc++
+         libxkbcommon
+         qt6-base
+         qt6-multimedia
+         sh)
+makedepends=(extra-cmake-modules
+             ninja)
+optdepends=('keditbookmarks: to manage bookmarks')
+# The unrelated kmux-git package (a tmux client based on Konsole) provides
+# "kmux" and installs the same /usr/bin/kmux path.
+conflicts=(kmux)
+source=("kmux-$_tag.tar.gz::$url/archive/refs/tags/v$_tag.tar.gz")
+# Pin the checksum of the published tag archive before submitting to the AUR.
+sha256sums=('SKIP')
+
+build() {
+  cmake -B build -S "kmux-$_tag" -G Ninja \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_TESTING=OFF \
+    -DWITH_KAPSULE=OFF \
+    -DWITH_LIBSSH=ON \
+    -Wno-dev
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}

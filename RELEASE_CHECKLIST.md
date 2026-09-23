@@ -446,20 +446,20 @@ from the development host.
 
 - [x] Install into a clean `DESTDIR` staging directory.
 - [x] Inspect the complete install manifest.
-- [ ] Confirm that no file collides with an installed Konsole package.
-- [ ] Confirm that removing Kmux does not remove Konsole resources.
-- [ ] Launch the installed executable rather than the build-tree executable.
-- [ ] Verify installed internal libraries.
-- [ ] Verify both bundled plugins.
+- [x] Confirm that no file collides with an installed Konsole package.
+- [x] Confirm that removing Kmux does not remove Konsole resources.
+- [x] Launch the installed executable rather than the build-tree executable.
+- [x] Verify installed internal libraries.
+- [x] Verify both bundled plugins.
 - [ ] Verify the installed `kmuxpart` KPart.
 - [ ] Verify `kmux-project-status`.
 - [ ] Verify `kmux-codex` and `kmux-claude` wrappers.
 - [ ] Verify `kmux-agent-hooks` installation and removal.
 - [ ] Verify `kmuxprofile`.
 - [ ] Verify zsh completion.
-- [ ] Verify desktop menu discovery and the installed icon.
+- [x] Verify desktop menu discovery and the installed icon.
 - [ ] Verify notifications and global shortcut metadata.
-- [ ] Verify that Kmux and Konsole can run side by side.
+- [x] Verify that Kmux and Konsole can run side by side.
 
 The current installation surface can be reviewed in:
 
@@ -473,10 +473,21 @@ collision with files already present on the development host. The 2026-09-23
 staged installation from the development tree contained 35 application files
 and 94 translation catalogs. The new application files are the agent shims in
 `lib/libexec/kmux/agent-shims`, the installed `kmux.kcfg`, and the bundled icon
-license texts in `share/kmux/licenses`. The final
-collision, package-removal, plugin discovery, and side-by-side claims remain
-open until they are checked against the distribution's actual Konsole package
-and in a clean Plasma VM.
+license texts in `share/kmux/licenses`.
+
+On 2026-09-23 the draft AUR package (129 files) was installed with `pacman -U`
+next to Arch's `konsole 26.08.1-1` in a fresh `archlinux:latest` container.
+pacman's file-conflict check passed. After `pacman -R kmux-workspaces`,
+`pacman -Qkk konsole` reported no changes beyond the container's missing
+`/usr/share/doc`, which was already missing before installation. The same day the clean-chroot package was tested in the clean Arch Plasma VM
+(Plasma 6.7.5, Qt 6.11.2, KF 6.30, Wayland session). `kstart --application
+io.github.vityas_off.kmux` found and launched Kmux through KService, and it
+ran next to a running `konsole` with separate windows, taskbar icons, and
+shell sessions. The Kmux process mapped `libkmuxapp`, `libkmuxprivate`, and
+both `kmuxplugins` from `/usr/lib`, and no Konsole library. The helper tools
+were checked only with `--version`; the KPart, agent wrappers, hooks,
+`kmuxprofile`, zsh completion, notifications, and global shortcuts still need
+functional checks.
 
 ### 9. Licensing and source archive checks
 
@@ -715,11 +726,18 @@ not replace GUI/runtime testing.
 
 Checklist:
 
+- [x] Build the package from a pre-tag archive in an Arch clean chroot.
 - [ ] Build the tagged release in an Arch clean chroot.
-- [ ] Confirm that the package does not rely on undeclared host dependencies.
-- [ ] Run `namcap` on the `PKGBUILD` and built package.
-- [ ] Inspect package file ownership and installed paths.
+- [x] Confirm that the package does not rely on undeclared host dependencies.
+- [x] Run `namcap` on the `PKGBUILD` and built package.
+- [x] Inspect package file ownership and installed paths.
 - [ ] Keep clean-chroot results or CI logs for the release candidate.
+
+The clean chroot runs inside the dev base of the local Arch Plasma VM
+(`kmux-arch-vm package-build [REVISION]`), using `devtools`
+`extra-x86_64-build`. On 2026-09-23 it built `bb11c4ae3` successfully.
+`namcap` reported only the package's own versioned libraries. Results are kept
+under `~/.local/share/kmux-arch-vm/packages/`.
 
 ### Arch Plasma virtual machine
 
@@ -740,14 +758,26 @@ Recommended VM flow:
 
 Checklist:
 
-- [ ] Prepare an Arch Plasma VM with a reusable clean snapshot.
-- [ ] Test package installation without development packages already present.
-- [ ] Test first launch and desktop menu discovery.
-- [ ] Test Wayland behavior and, if claimed, X11 behavior.
+- [x] Prepare an Arch Plasma VM with a reusable clean snapshot.
+- [x] Test package installation without development packages already present.
+- [x] Test first launch and desktop menu discovery.
+- [ ] Test Wayland behavior and, if claimed, X11 behavior. (Launch under
+      Wayland checked; interactive use and X11 not yet.)
 - [ ] Test DBus, notifications, PTYs, shell startup, SSH, and agent integrations.
 - [ ] Test persistence across application restarts and a VM reboot.
 - [ ] Test package upgrade when a second package version exists.
-- [ ] Test package removal and verify that system Konsole remains operational.
+- [x] Test package removal and verify that system Konsole remains operational.
+
+The local VM (`kmux-arch-vm`, outside the repository) was rebuilt on
+2026-09-23 from the current official Arch cloud image with two read-only
+bases. The `clean` base has Arch, Plasma, `konsole`, `base-devel`, and `git`,
+and no Kmux build dependencies. The `dev` base is a layer on top of it with
+the Kmux build dependencies, `devtools`, and `namcap`.
+`kmux-arch-vm reset --base clean|dev` starts a fresh work disk on either base.
+On the clean base `pacman -U` installed the package without pulling extra
+dependencies. After `pacman -R`, no Kmux files remained outside the user's
+home directory, `pacman -Qkk konsole` reported no altered files, and Konsole
+started normally.
 
 ### Minimal release test matrix
 
@@ -775,26 +805,56 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
       unrelated existing `kmux-git` package.
 - [ ] Confirm that `kmux-workspaces` is still available immediately before
       publishing.
-- [ ] Declare `conflicts` for unrelated AUR packages that install
-      `/usr/bin/kmux` or other overlapping paths.
+- [x] Draft the `PKGBUILD` in `packaging/aur/kmux-workspaces/`.
+- [x] Declare `conflicts` for unrelated AUR packages that install
+      `/usr/bin/kmux` or other overlapping paths (`conflicts=(kmux)`; the
+      package deliberately does not `provides=kmux`).
 - [ ] Create a tagged GitHub prerelease first.
 - [ ] Use the tagged source archive, not `master`.
 - [ ] Pin and verify the source checksum.
-- [ ] Declare the complete dependency list.
+- [x] Declare the complete dependency list.
 - [x] Decide whether `libssh` is enabled (yes, see section 7).
-- [ ] Declare `libssh` consistently in `depends`.
+- [x] Declare `libssh` consistently in `depends`.
 - [ ] Build in an Arch clean chroot.
-- [ ] Run `namcap` on the `PKGBUILD` and built package.
-- [ ] Install the package on a clean test system.
-- [ ] Launch the installed application.
-- [ ] Verify KPart and plugin discovery.
-- [ ] Verify desktop integration and icons.
-- [ ] Verify side-by-side operation with Arch's `konsole` package.
-- [ ] Remove the package and check for unexpected system leftovers.
+- [x] Run `namcap` on the `PKGBUILD` and built package.
+- [x] Install the package on a clean test system.
+- [x] Launch the installed application.
+- [x] Verify plugin discovery.
+- [ ] Verify KPart discovery.
+- [x] Verify desktop integration and icons.
+- [x] Verify side-by-side operation with Arch's `konsole` package.
+- [x] Remove the package and check for unexpected system leftovers.
 - [ ] Keep the AUR packaging history in an appropriate packaging repository.
 - [ ] Optionally add a separate `kmux-workspaces-git` package after the stable
       package is established.
 
+The draft `PKGBUILD` follows Arch's `konsole` package: the same runtime
+dependencies, `extra-cmake-modules` and `ninja` as build dependencies, and
+`-DBUILD_TESTING=OFF -DWITH_LIBSSH=ON -DWITH_KAPSULE=OFF`. `pkgver` is the tag
+with dashes removed (`0.1.0alpha.1`), which `vercmp` orders before `0.1.0`,
+`0.1.0alpha.2`, and `0.1.0beta.1`. `sha256sums` stays `SKIP` until the tag
+archive exists.
+
+`packaging/aur/prepare-local-build.sh` builds the package before the tag
+exists. It places the PKGBUILD next to a `git archive` of a committed revision,
+laid out and named like GitHub's tag archive.
+
+On 2026-09-23 the package was built with `makepkg` in a fresh
+`archlinux:latest` container that had only `base-devel` and the declared
+dependencies installed. That build found and fixed two defects:
+
+- The project did not configure with `BUILD_TESTING=OFF`. An upstream cleanup
+  removed `include(ECMMarkNonGuiExecutable)`, which `kmux-project-status`
+  still needs. CI now also configures without tests.
+- A source archive unpacked inside another Git repository, such as an AUR
+  clone, embedded that repository's commit in `kmux --version`. The revision is
+  now taken only from a repository whose top level is the source directory.
+
+`namcap PKGBUILD` reported nothing. `namcap` on the package reported only the
+same items it reports for Arch's `konsole`: the package's own versioned
+libraries (not yet installed when `namcap` runs) and `sh` for the
+`kmuxprofile` script. The installed `kmux --version` reports `0.1.0-alpha.1`
+without a commit, as expected for an archive build.
 ## Flatpak/Flathub checklist
 
 These tasks are not required for the first alpha unless Flatpak is advertised
@@ -954,8 +1014,9 @@ Packaging and metadata:
 1. ~~Add minimal Linux CI for clean Release/test builds, CTest, staged install,
    desktop/AppStream validation, and install-manifest checks.~~ Done
    2026-09-23; green on GitHub.
-2. Create or verify the AUR maintainer account, prepare an Arch clean chroot and
-   one clean Arch Plasma VM, and draft the `PKGBUILD` without publishing it.
+2. Create or verify the AUR maintainer account, ~~prepare an Arch clean chroot and
+   one clean Arch Plasma VM, and draft the `PKGBUILD` without publishing it.~~
+   Done 2026-09-23 except the AUR account.
 3. ~~Confirm how `0.1.0-alpha.1` is presented by the application and identify the
    current Kmux maintainer, support contact, and private-security-report path.~~
    Done 2026-09-23; enable GitHub private vulnerability reporting.
