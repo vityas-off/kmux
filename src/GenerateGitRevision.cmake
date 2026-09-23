@@ -3,15 +3,31 @@
 
 set(git_revision "")
 if(GIT_EXECUTABLE)
+    # A release archive has no .git, but it may be unpacked inside another
+    # repository (for example an AUR package clone). Only use a revision from
+    # a repository whose top level is the source directory itself.
     execute_process(
-        COMMAND "${GIT_EXECUTABLE}" -C "${SOURCE_DIR}" rev-parse --short=12 HEAD
+        COMMAND "${GIT_EXECUTABLE}" -C "${SOURCE_DIR}" rev-parse --show-toplevel
         RESULT_VARIABLE git_result
-        OUTPUT_VARIABLE git_output
+        OUTPUT_VARIABLE git_toplevel
         ERROR_QUIET
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+    get_filename_component(source_real_path "${SOURCE_DIR}" REALPATH)
     if(git_result EQUAL 0)
-        set(git_revision "${git_output}")
+        get_filename_component(git_toplevel "${git_toplevel}" REALPATH)
+    endif()
+    if(git_result EQUAL 0 AND git_toplevel STREQUAL source_real_path)
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" -C "${SOURCE_DIR}" rev-parse --short=12 HEAD
+            RESULT_VARIABLE git_result
+            OUTPUT_VARIABLE git_output
+            ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(git_result EQUAL 0)
+            set(git_revision "${git_output}")
+        endif()
     endif()
 endif()
 
