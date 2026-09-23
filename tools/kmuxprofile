@@ -18,7 +18,7 @@
 #   1. kmux --list-profile-properties
 #   2. refer to src/profile/Profile.h
 #   3. visit the online reference:
-#       https://github.com/kmux-project/kmux/blob/main/src/profile/Profile.h
+#       https://github.com/vityas-off/kmux/blob/master/src/profile/Profile.h
 #
 #  All of the logic is in Kmux. This script is provided for convenience.
 
