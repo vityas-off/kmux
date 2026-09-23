@@ -65,6 +65,10 @@ another project.
 | `Ctrl+Alt+1` … `Ctrl+Alt+9` | Switch to project 1–9 |
 | `Ctrl+Alt+A` | Next project needing attention |
 
+Kmux leaves `Ctrl+Alt+T` to Konsole; the
+[user guide](doc/user-guide.md#global-shortcut) explains how to assign a global
+shortcut to Kmux.
+
 Inside Kmux, `claude` and `codex` report their status without any setup: Kmux
 installs their hooks the first time you run them. The
 [user guide](doc/user-guide.md) explains the agent integration, what

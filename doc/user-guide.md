@@ -1,8 +1,9 @@
 # Kmux User Guide
 
 This guide covers what the [README](../README.md) leaves out: how workspace
-restoration works and how to reset it, the agent status integration, the known
-limitations of the alpha, and what to include in a bug report.
+restoration works and how to reset it, the agent status integration, assigning
+a global shortcut, the known limitations of the alpha, and what to include in a
+bug report.
 
 ## Workspace Restoration
 
@@ -99,6 +100,14 @@ Konsole](https://www.reddit.com/r/ClaudeAI/comments/1nuvtwv/configuring_shiftent
 for background and manual configuration details. Users who need Konsole's
 upstream behavior can select or customize another key binding in the active
 profile's Keyboard settings.
+
+## Global Shortcut
+
+Kmux does not claim a global shortcut by default: Konsole already uses
+`Ctrl+Alt+T`, and only one application can own it. To open Kmux from the
+keyboard, open **System Settings → Keyboard → Shortcuts**, select **Kmux**, and
+assign a shortcut to its **Kmux** entry, which starts Kmux, or to **New Tab**.
+To use `Ctrl+Alt+T`, remove it from Konsole first.
 
 ## Known Limitations
 
