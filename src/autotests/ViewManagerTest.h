@@ -76,6 +76,7 @@ private Q_SLOTS:
     void testFinishedAutoCloseCommandIsNotColdRestored();
     void testFinishedHeldCommandIsNotColdRestored();
     void testColdRestoreRecoversIncompleteTerminalState();
+    void testCloseConfirmationSavesWorkspaceFirst();
     void testInitializeRestoredSessionsPreservesActiveTabs();
     void testRemovingBackgroundProjectPreservesActiveProject();
     void testClosedProjectsDeleteViewContainers();

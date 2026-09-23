@@ -6,7 +6,9 @@
 
 #include "ViewManagerTest.h"
 #include <QAction>
+#include <QApplication>
 #include <QCoreApplication>
+#include <QDialog>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -2431,6 +2433,45 @@ void ViewManagerTest::testColdRestoreRecoversIncompleteTerminalState()
     TerminalDisplay *fallbackTerminal = containers.at(1)->activeViewSplitter()->activeTerminalDisplay();
     QVERIFY(fallbackTerminal != nullptr);
     QTRY_VERIFY(fallbackTerminal->session()->isRunning());
+}
+
+void ViewManagerTest::testCloseConfirmationSavesWorkspaceFirst()
+{
+    KConfigGroup group(KSharedConfig::openStateConfig(), QStringLiteral("LastProjectWorkspaceState"));
+    group.deleteGroup();
+    group.sync();
+
+    auto window = MainWindow();
+    window.newTab();
+    window.newTab();
+    auto *workspaces = window.viewManager()->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+    const QString title = QStringLiteral("Saved before confirmation");
+    workspaces->setProjectTitle(window.viewManager()->activeContainer(), title);
+
+    // Two terminals make close() ask for confirmation. Cancel it, as a logout
+    // that is forced while the question is open never answers it.
+    bool confirmationShown = false;
+    QTimer cancelTimer;
+    connect(&cancelTimer, &QTimer::timeout, this, [&confirmationShown]() {
+        const auto widgets = QApplication::topLevelWidgets();
+        for (QWidget *widget : widgets) {
+            auto *dialog = qobject_cast<QDialog *>(widget);
+            if (dialog != nullptr && dialog->isVisible()) {
+                confirmationShown = true;
+                dialog->reject();
+            }
+        }
+    });
+    cancelTimer.start(50);
+    QVERIFY(!window.close());
+    cancelTimer.stop();
+    QVERIFY(confirmationShown);
+
+    group.config()->reparseConfiguration();
+    const auto projects = QJsonDocument::fromJson(group.readEntry("Projects", QByteArray("[]"))).array();
+    QCOMPARE(projects.count(), 1);
+    QCOMPARE(projects.at(0).toObject()[QStringLiteral("Title")].toString(), title);
 }
 
 void ViewManagerTest::testInitializeRestoredSessionsPreservesActiveTabs()

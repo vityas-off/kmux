@@ -869,6 +869,11 @@ bool MainWindow::queryClose()
         return true;
     }
 
+    // Save before asking. On Wayland, logging out does not take the
+    // isSavingSession() path above, and Plasma kills a window whose
+    // confirmation is still open.
+    saveLastWorkspaceState();
+
     // NOTE: Some, if not all, of the below KWindowSystem calls are only
     //       implemented under x11 (KDE4.8 kdelibs/kdeui/windowmanagement).
 

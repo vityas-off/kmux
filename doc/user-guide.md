@@ -30,9 +30,15 @@ Every restored terminal starts a new process:
 Projects that were in the background start their terminals when you first open
 them after a restart.
 
-Kmux saves the workspace when its window closes normally and when the desktop
-session ends. If Kmux crashes or is killed, the next start restores the
-workspace from the last normal close.
+Kmux saves the workspace when you close its window, before it asks whether to
+close several open terminals, and when the desktop session ends. If Kmux
+crashes or is killed, the next start restores the workspace from the last
+save.
+
+When you log out with several terminals open, Kmux asks whether to close them
+and holds the logout until you answer. The workspace is already saved at that
+point. If you check **Do not ask again** in that question, Kmux stops asking on
+every close, which also lets logouts continue without it.
 
 ### Resetting Workspace State
 
@@ -119,8 +125,8 @@ or show a status, notification, or new tab in the wrong project.
   split views cannot be detached into separate windows.
 - Restoration recreates terminals but does not checkpoint running processes;
   see [Workspace Restoration](#workspace-restoration).
-- The workspace is saved only when the window closes normally or the desktop
-  session ends.
+- The workspace is saved only when you close the window or the desktop session
+  ends, not while you work.
 - The format of the saved workspace may change between alpha releases without
   migration. If an upgrade restores projects incorrectly,
   [reset the workspace state](#resetting-workspace-state).
