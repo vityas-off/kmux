@@ -520,8 +520,8 @@ Resolved on 2026-09-23 with a narrow release exception instead of a passing
   annotation. New C++ files had a license but no copyright line; they, and
   three files that named "Kmux Authors" or "KDE Contributors", now use
   `2026 Kmux contributors`. Kmux documentation (README, BUILD.md, AGENTS.md,
-  CHANGELOG.md, SECURITY.md, this checklist, the project icon READMEs), the
-  verify skill, the main desktop file, the service menu, and the AppStream
+  CHANGELOG.md, SECURITY.md, this checklist, the user guide, the bug report
+  form, the project icon READMEs), the verify skill, the main desktop file, the service menu, and the AppStream
   metadata (whose `metadata_license` was already CC0-1.0) are CC0-1.0 through
   one `REUSE.toml` annotation, which keeps license headers out of those
   files. The screenshot is annotated there as CC0-1.0 like the logo, and
@@ -581,12 +581,14 @@ Document all of the following in README or release notes:
 - [x] Describe how users can reset corrupted workspace state.
 - [x] Describe how users can uninstall agent hooks safely.
 
-Written on 2026-09-23. README now has "Workspace Restoration" (what is
-restored, which commands run again, lazy background projects, when the state
-is saved), "Resetting Workspace State", "Alpha Status and Known Limitations",
-and "Reporting Problems" (what to include in a bug report, reviewing
-`kmuxstaterc` before attaching it, debug logging). `CHANGELOG.md` links to
-these sections.
+Written on 2026-09-23. `doc/user-guide.md` has "Workspace Restoration" (what
+is restored, which commands run again, lazy background projects, when the
+state is saved), "Resetting Workspace State", "Known Limitations", and
+"Reporting Problems" (reviewing `kmuxstaterc` before attaching it, debug
+logging). README keeps a short status section with the three most important
+limitations and links to the guide; `CHANGELOG.md` links to it as well. The
+GitHub bug report form (`.github/ISSUE_TEMPLATE/bug_report.yml`) asks for
+`kmux --version`, `kinfo` output, and the installation method.
 
 Writing the restore documentation exposed two defects, both fixed with
 `ViewManagerTest` coverage:

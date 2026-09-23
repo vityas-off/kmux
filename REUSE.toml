@@ -40,11 +40,13 @@ path = [
     "README.md",
     "RELEASE_CHECKLIST.md",
     "SECURITY.md",
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
     "data/project-icons/devicon/README.md",
     "data/project-icons/material/README.md",
     "desktop/io.github.vityas_off.kmux.desktop",
     "desktop/io.github.vityas_off.kmux.metainfo.xml",
     "desktop/kmuxrun.desktop",
+    "doc/user-guide.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Kmux contributors"

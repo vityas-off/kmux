@@ -44,7 +44,6 @@ Arch Linux users can build a package from `packaging/aur/kmux-workspaces` with
 Kmux is alpha software. Restoration recreates terminals rather than
 checkpointing running processes, Kmux uses a single main window, and the saved
 workspace format may change between alpha releases without migration. See
-[Alpha Status and Known Limitations](README.md#alpha-status-and-known-limitations)
-for the complete list, and
-[Resetting Workspace State](README.md#resetting-workspace-state) if a restored
-workspace is broken.
+the [known limitations](doc/user-guide.md#known-limitations) for the complete
+list, and [Resetting Workspace State](doc/user-guide.md#resetting-workspace-state)
+if a restored workspace is broken.

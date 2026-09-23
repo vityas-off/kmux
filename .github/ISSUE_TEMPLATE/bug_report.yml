@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a problem in Kmux.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Kmux is not supported by KDE, so please report Kmux problems here rather than to KDE. Report security issues privately as described in [SECURITY.md](https://github.com/vityas-off/kmux/blob/master/SECURITY.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Kmux version
+      description: The output of `kmux --version`.
+      placeholder: kmux 0.1.0-alpha.1
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation
+      options:
+        - Arch Linux package (PKGBUILD or AUR)
+        - Built from source
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: system
+    attributes:
+      label: System
+      description: The output of `kinfo`, or your distribution, the Plasma, KDE Frameworks, and Qt versions, and whether the session uses Wayland or X11.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Logs and workspace state
+      description: |
+        Optional. To collect debug output, quit Kmux and start it from another terminal with `QT_LOGGING_RULES='io.github.vityas_off.kmux*.debug=true' kmux`.
+        For a restore problem, attach `~/.local/state/kmuxstaterc`, but review it first: it contains your project titles, working directories, and the commands, arguments, and profile environment variables of your terminals.

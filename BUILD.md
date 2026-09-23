@@ -93,3 +93,38 @@ xargs -d '\n' sudo rm -f -- < build/install_manifest.txt
 
 When installing into another prefix, source `build/prefix.sh` before starting
 Kmux so that Qt and KDE Frameworks find its plugins and data files.
+
+## Packaging Notes
+
+Kmux is designed to install next to KDE Konsole without depending on the
+distribution's `konsole` package. Packagers should depend directly on the
+required Qt and KDE Frameworks libraries.
+
+The public install surface is renamed to avoid conflicts:
+
+- binary: `kmux`;
+- desktop/AppStream ID and DBus service: `io.github.vityas_off.kmux`;
+- config file: `kmuxrc`; workspace state: `kmuxstaterc`;
+- data directory: `~/.local/share/kmux`;
+- DBus environment variables: `KMUX_DBUS_*`;
+- helper tools: `kmux-project-status`, `kmux-codex`, `kmux-claude`,
+  `kmux-agent-hooks`, and `kmuxprofile`;
+- plugin namespace: `kmuxplugins`; terminal part: `kmuxpart`;
+- translation domain: `kmux`.
+
+The source still contains many internal `Konsole` class, namespace, and file
+names. That is deliberate: it keeps the fork easier to rebase while the
+installed application behaves as a standalone product.
+
+## Source Layout
+
+| Directory | Description |
+| --- | --- |
+| `src` | Application, terminal emulator integration, sessions, profiles, project workspaces, and plugins. |
+| `desktop` | Desktop entry, AppStream metadata, notification config, and XMLGUI resources. |
+| `data` | Bundled profiles, keyboard layouts, color schemes, layouts, and project icons. |
+| `doc` | The Kmux user guide, and upstream Konsole documentation sources kept for reference; the Konsole handbook is not installed. |
+| `po` | Translation catalogs inherited from Konsole. |
+| `packaging` | Arch Linux `PKGBUILD` and a script to test it before a release tag exists. |
+| `tools` | `kmuxprofile`, the CI scripts, and the screenshot demo workspace. |
+| `tests` / `src/autotests` | Upstream and fork tests. Some upstream tests still refer to Konsole names and need follow-up updates. |
