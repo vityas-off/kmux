@@ -20,3 +20,38 @@ path = ["data/icons/*-apps-kmux.png", "logo.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Kmux contributors"
 SPDX-License-Identifier = "CC0-1.0"
+
+# The screenshot shows bundled project icons; data/project-icons lists their
+# sources and licenses.
+[[annotations]]
+path = "screenshots/kmux-project-workspaces.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Kmux contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+# Kmux documentation and desktop metadata, annotated here rather than with
+# headers in the files themselves.
+[[annotations]]
+path = [
+    ".claude/skills/verify/SKILL.md",
+    "AGENTS.md",
+    "BUILD.md",
+    "CHANGELOG.md",
+    "README.md",
+    "RELEASE_CHECKLIST.md",
+    "SECURITY.md",
+    "data/project-icons/devicon/README.md",
+    "data/project-icons/material/README.md",
+    "desktop/io.github.vityas_off.kmux.desktop",
+    "desktop/io.github.vityas_off.kmux.metainfo.xml",
+    "desktop/kmuxrun.desktop",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Kmux contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "data/project-icons/project-icons.qrc"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"

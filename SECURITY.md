@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2026 Kmux contributors
-SPDX-License-Identifier: CC0-1.0
--->
-
 # Security Policy
 
 ## Supported Versions

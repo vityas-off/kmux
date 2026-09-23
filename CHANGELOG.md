@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2026 Kmux contributors
-SPDX-License-Identifier: CC0-1.0
--->
-
 # Changelog
 
 ## 0.1.0-alpha.1 (unreleased)
