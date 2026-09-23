@@ -800,7 +800,12 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
 ## AUR checklist
 
 - [ ] Create or verify the AUR maintainer account and its SSH key before the
-      release window.
+      release window. Blocked as of 2026-09-23: AUR registration is temporarily
+      closed (HTTP 503) because of automated account creation; updates are
+      announced on aur-general and the Arch news feed. This blocks only the
+      AUR upload. If registration stays closed at release time, the release
+      notes can point Arch users to `makepkg -si` in
+      `packaging/aur/kmux-workspaces/`.
 - [x] Choose `kmux-workspaces` as the AUR package name, distinct from the
       unrelated existing `kmux-git` package.
 - [ ] Confirm that `kmux-workspaces` is still available immediately before
@@ -1016,7 +1021,8 @@ Packaging and metadata:
    2026-09-23; green on GitHub.
 2. Create or verify the AUR maintainer account, ~~prepare an Arch clean chroot and
    one clean Arch Plasma VM, and draft the `PKGBUILD` without publishing it.~~
-   Done 2026-09-23 except the AUR account.
+   Done 2026-09-23 except the AUR account; AUR registration is temporarily
+   closed, which blocks only step 11.
 3. ~~Confirm how `0.1.0-alpha.1` is presented by the application and identify the
    current Kmux maintainer, support contact, and private-security-report path.~~
    Done 2026-09-23; enable GitHub private vulnerability reporting.
