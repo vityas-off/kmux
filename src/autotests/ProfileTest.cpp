@@ -261,6 +261,36 @@ void ProfileTest::testProfileNameSorting()
     QCOMPARE(list.at(0)->name(), QStringLiteral("Built-in"));
 }
 
+void ProfileTest::testProfileNameOrderingIsStrict()
+{
+    Profile::Ptr builtin = Profile::Ptr(new Profile);
+    builtin->useBuiltin();
+
+    QVERIFY(!profileNameLessThan(builtin, builtin));
+
+    // More profiles than std::sort's insertion-sort threshold, with the
+    // built-in profile in the middle, so the partitioning code path is used.
+    constexpr int profileCount = 40;
+    std::vector<Profile::Ptr> profiles;
+    for (int index = profileCount; index > 0; --index) {
+        if (index == profileCount / 2) {
+            profiles.push_back(builtin);
+        }
+        Profile::Ptr profile = Profile::Ptr(new Profile);
+        profile->setProperty(Profile::UntranslatedName, QStringLiteral("Profile %1").arg(index, 2, 10, QLatin1Char('0')));
+        QVERIFY(!profileNameLessThan(profile, profile));
+        QVERIFY(profileNameLessThan(builtin, profile));
+        QVERIFY(!profileNameLessThan(profile, builtin));
+        profiles.push_back(profile);
+    }
+
+    std::sort(profiles.begin(), profiles.end(), profileNameLessThan);
+
+    QCOMPARE(profiles.size(), std::size_t(profileCount + 1));
+    QCOMPARE(profiles.front(), builtin);
+    QVERIFY(std::is_sorted(profiles.cbegin(), profiles.cend(), profileNameLessThan));
+}
+
 void ProfileTest::testBuiltinProfile()
 {
     // create a new profile

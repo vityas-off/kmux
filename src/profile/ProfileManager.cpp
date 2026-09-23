@@ -42,11 +42,11 @@ static bool stringLessThan(const QString &p1, const QString &p2)
 
 static bool profileNameLessThan(const Profile::Ptr &p1, const Profile::Ptr &p2)
 {
-    // Always put the built-in profile at the top
-    if (p1->isBuiltin()) {
-        return true;
-    } else if (p2->isBuiltin()) {
-        return false;
+    // Always put the built-in profile at the top. std::sort requires a strict
+    // weak ordering: comparing the built-in profile with itself must return
+    // false, otherwise sorting more than 16 profiles runs past the range.
+    if (p1->isBuiltin() != p2->isBuiltin()) {
+        return p1->isBuiltin();
     }
 
     return stringLessThan(p1->name(), p2->name());
