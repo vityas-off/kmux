@@ -1593,6 +1593,38 @@ void ViewManagerTest::testProjectWorkspaceRailDoesNotAcceptFocus()
     QCOMPARE(projectList->focusPolicy(), Qt::NoFocus);
 }
 
+void ViewManagerTest::testSelectedProjectFollowsRailBackground()
+{
+    // A light palette like Breeze Light: the selected project must stay close to
+    // the rail background so that its dark text remains readable.
+    QPalette lightPalette;
+    lightPalette.setColor(QPalette::Window, QColor(239, 240, 241));
+    lightPalette.setColor(QPalette::Base, QColor(255, 255, 255));
+    lightPalette.setColor(QPalette::Mid, QColor(196, 197, 198));
+    lightPalette.setColor(QPalette::Text, QColor(35, 38, 41));
+    lightPalette.setColor(QPalette::WindowText, QColor(35, 38, 41));
+    lightPalette.setColor(QPalette::Highlight, QColor(61, 174, 233));
+
+    auto window = MainWindow();
+    window.resize(900, 600);
+    auto *workspaces = window.viewManager()->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+    workspaces->setPalette(lightPalette);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+    auto *projectList = workspaces->findChild<QListWidget *>(QStringLiteral("projectList"));
+    QVERIFY(projectList != nullptr);
+    QListWidgetItem *selectedItem = projectList->currentItem();
+    QVERIFY(selectedItem != nullptr);
+    QVERIFY(selectedItem->isSelected());
+
+    const QRect itemRect = projectList->visualItemRect(selectedItem);
+    const QImage image = projectList->viewport()->grab().toImage();
+    const QColor background = image.pixelColor(itemRect.right() - 3, itemRect.center().y());
+    QVERIFY2(qGray(background.rgb()) > 180, qPrintable(background.name()));
+}
+
 void ViewManagerTest::testNoNavigationDisablesProjectActions()
 {
     auto mw = MainWindow();

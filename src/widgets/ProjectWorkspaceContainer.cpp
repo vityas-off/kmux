@@ -22,6 +22,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QPainter>
+#include <QPointer>
 #include <QRegion>
 #include <QSignalBlocker>
 #include <QSplitter>
@@ -171,8 +172,12 @@ void drawInlineIndicator(QPainter *painter,
 class ProjectItemDelegate : public QStyledItemDelegate
 {
 public:
-    explicit ProjectItemDelegate(QObject *parent = nullptr)
+    // The rail style sheet replaces the list's background roles with transparent
+    // and black brushes, so the rail color is read from railPaletteSource, which
+    // the style sheet does not restyle.
+    ProjectItemDelegate(const QWidget *railPaletteSource, QObject *parent)
         : QStyledItemDelegate(parent)
+        , _railPaletteSource(railPaletteSource)
     {
     }
 
@@ -200,7 +205,7 @@ public:
         const QRect rect = itemOption.rect.adjusted(8, 7, -12, -7);
         const QColor highlightColor = itemOption.palette.color(QPalette::Highlight);
         if (selected) {
-            const QColor base = itemOption.palette.color(QPalette::Base);
+            const QColor base = (_railPaletteSource != nullptr ? _railPaletteSource->palette() : itemOption.palette).color(QPalette::Window);
             const QColor mid = itemOption.palette.color(QPalette::Mid);
             QRect backgroundRect = itemOption.rect;
             if (itemOption.widget != nullptr) {
@@ -341,6 +346,9 @@ public:
 
         painter->restore();
     }
+
+private:
+    QPointer<const QWidget> _railPaletteSource;
 };
 
 class ProjectListWidget : public QListWidget
@@ -407,7 +415,7 @@ ProjectWorkspaceContainer::ProjectWorkspaceContainer(QWidget *parent)
     _projectList->setFocusPolicy(Qt::NoFocus);
     _projectList->setSelectionMode(QAbstractItemView::SingleSelection);
     _projectList->setContextMenuPolicy(Qt::CustomContextMenu);
-    _projectList->setItemDelegate(new ProjectItemDelegate(_projectList));
+    _projectList->setItemDelegate(new ProjectItemDelegate(this, _projectList));
     _projectList->setSpacing(0);
     connect(_projectList, &QListWidget::currentRowChanged, this, &ProjectWorkspaceContainer::currentRowChanged);
     connect(_projectList, &QListWidget::itemDoubleClicked, this, &ProjectWorkspaceContainer::renameCurrentProject);
