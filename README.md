@@ -38,17 +38,31 @@ limitations.
 
 ## Installation
 
-There are no binary packages yet. On Arch Linux, build a package with the
-included `PKGBUILD`; an AUR package named `kmux-workspaces` is planned:
+There are no binary packages yet, so Kmux is built from source. It needs CMake
+3.16, a C++20 compiler, Qt 6.5, KDE Frameworks 6.6, ICU, and, by default,
+libssh; [`BUILD.md`](BUILD.md) lists the exact components and the matching Arch
+Linux packages.
 
 ```sh
 git clone https://github.com/vityas-off/kmux.git
-cd kmux/packaging/aur/kmux-workspaces
+cd kmux
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build --parallel
+sudo cmake --install build
+```
+
+Kmux installs next to Konsole. [`BUILD.md`](BUILD.md) also covers build
+options, running the tests, and removing a manual installation.
+
+On Arch Linux, you can build a package instead, so that pacman tracks the
+installed files. An AUR package named `kmux-workspaces` is planned.
+
+```sh
+cd packaging/aur/kmux-workspaces
 makepkg -si
 ```
 
-The `PKGBUILD` builds the release tag it names, not your checkout. On other
-distributions, build from source as described in [`BUILD.md`](BUILD.md).
+The `PKGBUILD` builds the release tag it names, not your checkout.
 
 ## Getting Started
 

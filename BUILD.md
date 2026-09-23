@@ -48,9 +48,11 @@ component, for example `libkf6pty-dev` or `kf6-kpty-devel`.
 ```sh
 git clone https://github.com/vityas-off/kmux.git
 cd kmux
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
-cmake --build build
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build --parallel
 ```
+
+Add `-G Ninja` to the first command to build with Ninja.
 
 Build options:
 
