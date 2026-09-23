@@ -228,8 +228,9 @@ The relevant tests are in:
 - [x] Validate AppStream metadata with `appstreamcli validate --pedantic`.
 - [x] Check that the expected files appear in the staged installation.
 - [x] Check that no staged path uses Konsole's names.
-- [ ] Confirm that the workflow passes on GitHub for pull requests and commits
-      to `master`.
+- [x] Confirm that the workflow passes on GitHub for commits to `master`
+      (run 35851499644 on `db75238b0`, 2026-09-23).
+- [ ] Confirm that the workflow also runs for the first pull request.
 - [ ] Add release-archive and checksum automation for tags, if practical.
 
 A single reliable Linux CI environment is sufficient for the first alpha. A
@@ -952,7 +953,7 @@ Packaging and metadata:
 
 1. ~~Add minimal Linux CI for clean Release/test builds, CTest, staged install,
    desktop/AppStream validation, and install-manifest checks.~~ Done
-   2026-09-23; still needs a first green run on GitHub.
+   2026-09-23; green on GitHub.
 2. Create or verify the AUR maintainer account, prepare an Arch clean chroot and
    one clean Arch Plasma VM, and draft the `PKGBUILD` without publishing it.
 3. ~~Confirm how `0.1.0-alpha.1` is presented by the application and identify the
