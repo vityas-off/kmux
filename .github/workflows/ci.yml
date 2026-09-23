@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 Kmux contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (Arch, Qt 6 / KF6)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 60
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git cmake ninja gcc pkgconf extra-cmake-modules \
+            qt6-base qt6-multimedia \
+            kbookmarks kconfig kconfigwidgets kcoreaddons kcrash kdbusaddons \
+            kglobalaccel kguiaddons ki18n kiconthemes kio knewstuff \
+            knotifications knotifyconfig kparts kpty kservice ktextwidgets \
+            kwidgetsaddons kwindowsystem kxmlgui \
+            icu libssh libxkbcommon \
+            dbus bash zsh which desktop-file-utils appstream
+
+      - uses: actions/checkout@v4
+
+      - name: Build, test, install, and validate
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          tools/ci/linux-build.sh
