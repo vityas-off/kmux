@@ -117,3 +117,15 @@ ecm_add_test(
     ViewManagerTest.cpp
     LINK_LIBRARIES konsoleapp konsoleprivate Qt::Test ${KONSOLE_TEST_LIBS}
 )
+
+# Many tests start the user's login shell. Give them a separate home directory
+# so the shells neither read the developer's startup files nor share the
+# developer's shell history: parallel tests kill shells that hold the zsh
+# history lock, and the next shell then waits up to ten seconds before running
+# its first command.
+set(KMUX_TEST_HOME "${CMAKE_CURRENT_BINARY_DIR}/home")
+file(MAKE_DIRECTORY "${KMUX_TEST_HOME}")
+# zsh starts its new-user setup in a home directory without startup files.
+file(TOUCH "${KMUX_TEST_HOME}/.zshrc")
+get_directory_property(KMUX_TESTS TESTS)
+set_tests_properties(${KMUX_TESTS} PROPERTIES ENVIRONMENT "HOME=${KMUX_TEST_HOME};ZDOTDIR=${KMUX_TEST_HOME}")
