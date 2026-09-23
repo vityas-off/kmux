@@ -18,10 +18,20 @@ permissions:
 
 jobs:
   linux:
-    name: Linux (Arch, Qt 6 / KF6)
+    name: Linux (Arch, Qt 6 / KF6, ${{ matrix.name }})
     runs-on: ubuntu-latest
     container: archlinux:latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Release
+            script: tools/ci/linux-build.sh
+            check-licensing: true
+          - name: ASan and UBSan
+            script: tools/ci/linux-sanitizers.sh
+            check-licensing: false
     steps:
       - name: Install dependencies
         run: |
@@ -41,7 +51,8 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Check licensing information
+        if: matrix.check-licensing
         run: tools/ci/reuse-check.py
 
-      - name: Build, test, install, and validate
-        run: tools/ci/linux-build.sh
+      - name: Build and test
+        run: ${{ matrix.script }}
