@@ -40,6 +40,8 @@ private Q_SLOTS:
     void testHookOperationsWaitForTransactionLock();
     void testUnrelatedHooksArePreserved_data();
     void testUnrelatedHooksArePreserved();
+    void testUninstallLeavesNoEmptyHooks_data();
+    void testUninstallLeavesNoEmptyHooks();
     void testHomeScopedScripts_data();
     void testHomeScopedScripts();
 };
@@ -1005,6 +1007,67 @@ void AgentHooksTest::testUnrelatedHooksArePreserved()
 
     QVERIFY(settings.open(QIODevice::ReadOnly));
     QCOMPARE(QJsonDocument::fromJson(settings.readAll()).object(), originalSettings);
+}
+
+void AgentHooksTest::testUninstallLeavesNoEmptyHooks_data()
+{
+    QTest::addColumn<QString>("agent");
+    QTest::addColumn<QString>("homeOption");
+    QTest::addColumn<QString>("settingsFile");
+    QTest::addColumn<QByteArray>("originalSettings");
+
+    // An empty original means that the file did not exist.
+    QTest::newRow("codex without hooks.json") << QStringLiteral("codex") << QStringLiteral("--codex-home") << QStringLiteral("hooks.json") << QByteArray();
+    QTest::newRow("claude without hooks") << QStringLiteral("claude") << QStringLiteral("--claude-home") << QStringLiteral("settings.json")
+                                          << QByteArrayLiteral(R"({"model": "opus"})");
+}
+
+void AgentHooksTest::testUninstallLeavesNoEmptyHooks()
+{
+    QFETCH(QString, agent);
+    QFETCH(QString, homeOption);
+    QFETCH(QString, settingsFile);
+    QFETCH(QByteArray, originalSettings);
+
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString configHome = temporaryDir.filePath(QStringLiteral("agent-home"));
+    QVERIFY(QDir().mkpath(configHome));
+    const QString settingsPath = QDir(configHome).filePath(settingsFile);
+    if (!originalSettings.isEmpty()) {
+        QFile settings(settingsPath);
+        QVERIFY(settings.open(QIODevice::WriteOnly | QIODevice::Text));
+        QCOMPARE(settings.write(originalSettings), originalSettings.size());
+    }
+
+    const auto runHooks = [&temporaryDir, &homeOption, &configHome, &agent](const QString &command) {
+        QProcess process;
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+        process.setProcessEnvironment(environment);
+        process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE), {homeOption, configHome, command, agent, QStringLiteral("--quiet")});
+        if (!process.waitForStarted() || !process.waitForFinished()) {
+            return QStringLiteral("Could not run kmux-agent-hooks: %1").arg(process.errorString());
+        }
+        if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+            return QString::fromUtf8(process.readAllStandardError());
+        }
+        return QString();
+    };
+
+    QString error = runHooks(QStringLiteral("install"));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QVERIFY(QFileInfo::exists(settingsPath));
+    error = runHooks(QStringLiteral("uninstall"));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+
+    if (originalSettings.isEmpty()) {
+        QVERIFY(!QFileInfo::exists(settingsPath));
+        return;
+    }
+    QFile settings(settingsPath);
+    QVERIFY(settings.open(QIODevice::ReadOnly));
+    QCOMPARE(QJsonDocument::fromJson(settings.readAll()).object(), QJsonDocument::fromJson(originalSettings).object());
 }
 
 void AgentHooksTest::testHomeScopedScripts_data()

@@ -355,6 +355,17 @@ QJsonArray removeKmuxOwnedHookGroups(QJsonArray groups, const QString &scriptDir
     return rewrittenGroups;
 }
 
+// Stores the remaining hook groups without leaving an empty "hooks" object
+// that the configuration did not have before Kmux installed its hooks.
+void setRemainingHooks(QJsonObject *root, const QJsonObject &hooks)
+{
+    if (hooks.isEmpty()) {
+        root->remove(QStringLiteral("hooks"));
+    } else {
+        root->insert(QStringLiteral("hooks"), hooks);
+    }
+}
+
 QJsonObject buildHookGroup(const QString &scriptDirectory, const QString &agentName, const HookEvent &event)
 {
     QJsonObject hook;
@@ -1013,9 +1024,15 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
             hooks.insert(eventName, rewrittenGroups);
         }
     }
-    root.insert(QStringLiteral("hooks"), hooks);
+    setRemainingHooks(&root, hooks);
 
-    if (QFileInfo::exists(hooksPath) && !writeJsonFileAtomically(hooksPath, root, &error)) {
+    // hooks.json holds nothing but hooks, so remove it when none remain.
+    if (root.isEmpty()) {
+        if (QFileInfo::exists(hooksPath) && !QFile::remove(hooksPath)) {
+            err << "Could not remove " << hooksPath << '\n';
+            return 1;
+        }
+    } else if (QFileInfo::exists(hooksPath) && !writeJsonFileAtomically(hooksPath, root, &error)) {
         err << error << '\n';
         return 1;
     }
@@ -1157,7 +1174,7 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
             hooks.insert(eventName, rewrittenGroups);
         }
     }
-    root.insert(QStringLiteral("hooks"), hooks);
+    setRemainingHooks(&root, hooks);
 
     if (QFileInfo::exists(settingsPath) && !writeJsonFileAtomically(settingsPath, root, &error)) {
         err << error << '\n';
