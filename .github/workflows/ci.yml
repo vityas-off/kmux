@@ -33,11 +33,15 @@ jobs:
             knotifications knotifyconfig kparts kpty kservice ktextwidgets \
             kwidgetsaddons kwindowsystem kxmlgui \
             icu libssh libxkbcommon \
-            dbus bash zsh which desktop-file-utils appstream
+            dbus bash zsh which desktop-file-utils appstream reuse
 
       - uses: actions/checkout@v4
 
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Check licensing information
+        run: tools/ci/reuse-check.py
+
       - name: Build, test, install, and validate
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          tools/ci/linux-build.sh
+        run: tools/ci/linux-build.sh
