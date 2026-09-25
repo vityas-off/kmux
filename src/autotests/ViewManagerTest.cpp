@@ -1595,23 +1595,44 @@ void ViewManagerTest::testProjectWorkspaceRailDoesNotAcceptFocus()
     QCOMPARE(projectList->focusPolicy(), Qt::NoFocus);
 }
 
+void ViewManagerTest::testSelectedProjectFollowsRailBackground_data()
+{
+    // Palette roles produced by KColorScheme for Breeze Light and Breeze Dark.
+    QTest::addColumn<QColor>("windowColor");
+    QTest::addColumn<QColor>("baseColor");
+    QTest::addColumn<QColor>("midColor");
+    QTest::addColumn<QColor>("textColor");
+    QTest::newRow("breeze-light") << QColor(239, 240, 241) << QColor(255, 255, 255) << QColor(196, 200, 204) << QColor(35, 38, 41);
+    QTest::newRow("breeze-dark") << QColor(32, 35, 38) << QColor(20, 22, 24) << QColor(28, 31, 33) << QColor(252, 252, 252);
+}
+
 void ViewManagerTest::testSelectedProjectFollowsRailBackground()
 {
-    // A light palette like Breeze Light: the selected project must stay close to
-    // the rail background so that its dark text remains readable.
-    QPalette lightPalette;
-    lightPalette.setColor(QPalette::Window, QColor(239, 240, 241));
-    lightPalette.setColor(QPalette::Base, QColor(255, 255, 255));
-    lightPalette.setColor(QPalette::Mid, QColor(196, 197, 198));
-    lightPalette.setColor(QPalette::Text, QColor(35, 38, 41));
-    lightPalette.setColor(QPalette::WindowText, QColor(35, 38, 41));
-    lightPalette.setColor(QPalette::Highlight, QColor(61, 174, 233));
+    QFETCH(QColor, windowColor);
+    QFETCH(QColor, baseColor);
+    QFETCH(QColor, midColor);
+    QFETCH(QColor, textColor);
+
+    QPalette palette;
+    palette.setColor(QPalette::Window, windowColor);
+    palette.setColor(QPalette::Base, baseColor);
+    palette.setColor(QPalette::Mid, midColor);
+    palette.setColor(QPalette::Text, textColor);
+    palette.setColor(QPalette::WindowText, textColor);
+    palette.setColor(QPalette::Highlight, QColor(61, 174, 233));
+
+    // Apply the palette as a color scheme would, so the rail style sheet and the
+    // project list pick it up as well.
+    const QPalette previousPalette = QApplication::palette();
+    QApplication::setPalette(palette);
+    const auto restorePalette = qScopeGuard([&] {
+        QApplication::setPalette(previousPalette);
+    });
 
     auto window = MainWindow();
     window.resize(900, 600);
     auto *workspaces = window.viewManager()->_workspaceContainer.data();
     QVERIFY(workspaces != nullptr);
-    workspaces->setPalette(lightPalette);
     window.show();
     QVERIFY(QTest::qWaitForWindowExposed(&window));
 
@@ -1621,10 +1642,12 @@ void ViewManagerTest::testSelectedProjectFollowsRailBackground()
     QVERIFY(selectedItem != nullptr);
     QVERIFY(selectedItem->isSelected());
 
+    // The selected project must stand out from the rail while keeping its text readable.
     const QRect itemRect = projectList->visualItemRect(selectedItem);
     const QImage image = projectList->viewport()->grab().toImage();
     const QColor background = image.pixelColor(itemRect.right() - 3, itemRect.center().y());
-    QVERIFY2(qGray(background.rgb()) > 180, qPrintable(background.name()));
+    QVERIFY2(qAbs(qGray(background.rgb()) - qGray(windowColor.rgb())) >= 10, qPrintable(background.name()));
+    QVERIFY2(qAbs(qGray(background.rgb()) - qGray(textColor.rgb())) >= 150, qPrintable(background.name()));
 }
 
 void ViewManagerTest::testNoNavigationDisablesProjectActions()

@@ -50,6 +50,7 @@ constexpr int ProjectIconSize = 20;
 constexpr int ProjectRailDefaultWidth = 164;
 constexpr int ProjectRailMinimumWidth = 120;
 constexpr int ProjectRailMaximumWidth = 320;
+constexpr qreal SelectedProjectTintOpacity = 0.08;
 
 enum ProjectRoles {
     ProjectIdRole = Qt::UserRole,
@@ -205,15 +206,16 @@ public:
         const QRect rect = itemOption.rect.adjusted(8, 7, -12, -7);
         const QColor highlightColor = itemOption.palette.color(QPalette::Highlight);
         if (selected) {
-            const QColor base = (_railPaletteSource != nullptr ? _railPaletteSource->palette() : itemOption.palette).color(QPalette::Window);
-            const QColor mid = itemOption.palette.color(QPalette::Mid);
+            const QPalette &railPalette = _railPaletteSource != nullptr ? _railPaletteSource->palette() : itemOption.palette;
             QRect backgroundRect = itemOption.rect;
             if (itemOption.widget != nullptr) {
                 backgroundRect.setLeft(itemOption.widget->rect().left());
                 backgroundRect.setRight(itemOption.widget->rect().right());
             }
             painter->setPen(Qt::NoPen);
-            painter->setBrush(blendedColor(base, mid, 0.28));
+            // Tinting toward the text color darkens a light rail and lightens a dark one,
+            // so the selection stands out under either kind of color scheme.
+            painter->setBrush(blendedColor(railPalette.color(QPalette::Window), railPalette.color(QPalette::WindowText), SelectedProjectTintOpacity));
             painter->drawRect(backgroundRect);
 
             painter->setBrush(highlightColor);

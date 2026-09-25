@@ -55,6 +55,7 @@ private Q_SLOTS:
     void testSessionSignalsAreHandledOnceAcrossMultipleViews();
     void testProjectWorkspaceNavigationShortcuts();
     void testProjectWorkspaceRailDoesNotAcceptFocus();
+    void testSelectedProjectFollowsRailBackground_data();
     void testSelectedProjectFollowsRailBackground();
     void testNoNavigationDisablesProjectActions();
     void testProjectWorkspaceDetachActionsDisabled();
