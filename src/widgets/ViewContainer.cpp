@@ -133,6 +133,16 @@ public:
             painter->drawPoint(QPointF(8.0, 11.5));
             break;
         }
+        case TerminalTabStatus::RateLimited: {
+            QPen pen(viewScheme.foreground(KColorScheme::NeutralText).color(), 1.5);
+            pen.setCapStyle(Qt::RoundCap);
+            pen.setJoinStyle(Qt::RoundJoin);
+            painter->setPen(pen);
+            painter->setBrush(Qt::NoBrush);
+            painter->drawEllipse(QRectF(2.0, 2.0, 12.0, 12.0));
+            painter->drawPolyline(QPolygonF({QPointF(8.0, 4.5), QPointF(8.0, 8.0), QPointF(10.5, 9.5)}));
+            break;
+        }
         case TerminalTabStatus::None:
             break;
         }

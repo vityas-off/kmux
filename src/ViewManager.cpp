@@ -117,6 +117,10 @@ ProjectWorkspaceContainer::ProjectStatus projectStatusFromString(const QString &
         return ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
     }
 
+    if (normalized == QLatin1String("ratelimited")) {
+        return ProjectWorkspaceContainer::ProjectStatus::RateLimited;
+    }
+
     return ProjectWorkspaceContainer::ProjectStatus::None;
 }
 
@@ -135,6 +139,8 @@ ProjectWorkspaceContainer::ProjectStatus higherPriorityProjectStatus(ProjectWork
     auto priority = [](ProjectWorkspaceContainer::ProjectStatus status) {
         switch (status) {
         case ProjectWorkspaceContainer::ProjectStatus::NeedsInput:
+            return 4;
+        case ProjectWorkspaceContainer::ProjectStatus::RateLimited:
             return 3;
         case ProjectWorkspaceContainer::ProjectStatus::Running:
             return 2;
@@ -155,6 +161,8 @@ TerminalTabStatus terminalTabStatusFromProjectStatus(ProjectWorkspaceContainer::
     switch (status) {
     case ProjectWorkspaceContainer::ProjectStatus::NeedsInput:
         return TerminalTabStatus::NeedsInput;
+    case ProjectWorkspaceContainer::ProjectStatus::RateLimited:
+        return TerminalTabStatus::RateLimited;
     case ProjectWorkspaceContainer::ProjectStatus::Running:
         return TerminalTabStatus::AgentRunning;
     case ProjectWorkspaceContainer::ProjectStatus::Idle:
@@ -171,6 +179,8 @@ TerminalTabStatus higherPriorityTerminalTabStatus(TerminalTabStatus current, Ter
     auto priority = [](TerminalTabStatus status) {
         switch (status) {
         case TerminalTabStatus::NeedsInput:
+            return 5;
+        case TerminalTabStatus::RateLimited:
             return 4;
         case TerminalTabStatus::AgentRunning:
             return 3;
@@ -3208,7 +3218,8 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool isIdlePrompt = event.compare(QLatin1String("IdlePrompt"), Qt::CaseInsensitive) == 0;
     const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
     const bool startsTurn = beginsTurn;
-    const bool stopsTurn = event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0;
+    const bool stopsTurn = event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("StopFailure"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("RateLimit"), Qt::CaseInsensitive) == 0;
     const bool endsAgentSession = event.compare(QLatin1String("SessionEnd"), Qt::CaseInsensitive) == 0;
     const bool resetsPendingDecisions = startsTurn || stopsTurn;
 
@@ -3218,6 +3229,11 @@ void ViewManager::setSessionProjectStatus(Session *session,
     }
     if (isClaudeEvent && isIdlePrompt && claudeBackgroundWork) {
         projectStatus = ProjectWorkspaceContainer::ProjectStatus::Running;
+    }
+    if (isClaudeEvent && isIdlePrompt && !agentProcessChanged && !startsTurn
+        && previousStatus.status == ProjectWorkspaceContainer::ProjectStatus::RateLimited) {
+        // The idle reminder does not mean that the limit has been lifted.
+        projectStatus = ProjectWorkspaceContainer::ProjectStatus::RateLimited;
     }
 
     const bool agentProcessWasForeground = (agentProcessChanged ? false : previousStatus.agentProcessWasForeground)
@@ -3267,7 +3283,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
     nextStatus.agentPromptId = agentPromptId;
     nextStatus.retiredAgentPromptIds = retiredAgentPromptIds;
     _sessionProjectStatuses.insert(session, nextStatus);
-    if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+    if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput || effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::RateLimited) {
         markSessionAttention(session, container);
     } else if (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
         markSessionAttention(session, container);

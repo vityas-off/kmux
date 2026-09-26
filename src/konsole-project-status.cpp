@@ -432,7 +432,7 @@ int main(int argc, char **argv)
     parser.addOption(claudeStopOption);
     parser.addOption(claudeNotificationOption);
     parser.addOption(claudeStopFailureOption);
-    parser.addPositionalArgument(QStringLiteral("status"), QStringLiteral("Project status: running, idle, needsInput, unknown, or none."));
+    parser.addPositionalArgument(QStringLiteral("status"), QStringLiteral("Project status: running, idle, needsInput, rateLimited, unknown, or none."));
     parser.process(app);
 
     const bool hookMode = parser.isSet(hookModeOption);
@@ -472,7 +472,7 @@ int main(int argc, char **argv)
     if (parser.isSet(claudeStopFailureOption)
         && payload.value(QStringLiteral("error")).toString().compare(QLatin1String("rate_limit"), Qt::CaseInsensitive) == 0) {
         event = QStringLiteral("RateLimit");
-        status = QStringLiteral("needsInput");
+        status = QStringLiteral("rateLimited");
     }
     appendHookTrace(QStringLiteral("received"), agent, event, status, validAgentPid ? agentPid : 0, objectPath, payload);
     if (isClaudeHook && !payload.value(QStringLiteral("agent_id")).toString().trimmed().isEmpty() && !isClaudeSubagentResolutionEvent(event)) {

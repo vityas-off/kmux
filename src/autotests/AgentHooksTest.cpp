@@ -758,7 +758,7 @@ void AgentHooksTest::testClaudeLifecycleConfiguration()
                 QStringLiteral("running"));
     runHook(stopFailureCommand,
             QJsonObject{{QStringLiteral("error"), QStringLiteral("rate_limit")}},
-            QStringLiteral("needsInput"),
+            QStringLiteral("rateLimited"),
             QStringLiteral("RateLimit"));
     runHook(stopFailureCommand,
             QJsonObject{{QStringLiteral("error"), QStringLiteral("authentication_failed")}},

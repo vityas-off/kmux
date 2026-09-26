@@ -45,7 +45,7 @@ private Q_SLOTS:
     void testProjectWorkspaceClaudeIdlePromptClearsNotification();
     void testProjectWorkspaceClaudeIdlePromptPreservesPermissionRequest();
     void testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRunning();
-    void testProjectWorkspaceClaudeRateLimitNeedsInput();
+    void testProjectWorkspaceClaudeRateLimitPersistsUntilResumed();
     void testProjectWorkspaceClaudeCompactionStartsNewPrompt();
     void testProjectWorkspaceClaudeRejectsStaleHookIdentities();
     void testProjectWorkspaceClaudeTaskNotificationBeginsTurn();

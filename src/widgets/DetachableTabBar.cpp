@@ -33,6 +33,8 @@ QString terminalTabStatusText(TerminalTabStatus status)
         return i18nc("@info:tooltip", "Agent working");
     case TerminalTabStatus::NeedsInput:
         return i18nc("@info:tooltip", "Agent needs input");
+    case TerminalTabStatus::RateLimited:
+        return i18nc("@info:tooltip", "Agent stopped: rate limit reached");
     case TerminalTabStatus::None:
         return {};
     }

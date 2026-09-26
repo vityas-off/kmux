@@ -107,6 +107,8 @@ QString projectStatusText(ProjectWorkspaceContainer::ProjectStatus status)
         return i18nc("@info:project status", "Idle");
     case ProjectWorkspaceContainer::ProjectStatus::NeedsInput:
         return i18nc("@info:project status", "Needs input");
+    case ProjectWorkspaceContainer::ProjectStatus::RateLimited:
+        return i18nc("@info:project status", "Rate limit reached");
     case ProjectWorkspaceContainer::ProjectStatus::None:
         return {};
     }
@@ -145,6 +147,21 @@ void drawProcessIndicatorIcon(QPainter *painter, const QRect &rect, const QColor
     painter->drawLine(rect.left() + 1, center.y(), rect.left() + 3, center.y());
     painter->drawLine(rect.right() - 3, center.y(), rect.right() - 1, center.y());
 
+    painter->restore();
+}
+
+void drawRateLimitIndicatorIcon(QPainter *painter, const QRect &rect, const QColor &color)
+{
+    painter->save();
+    painter->translate(rect.topLeft());
+    QPen pen(color, 1.4);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter->setRenderHint(QPainter::Antialiasing);
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+    painter->drawEllipse(QRectF(1.5, 1.5, 10.0, 10.0));
+    painter->drawPolyline(QPolygonF({QPointF(6.5, 3.5), QPointF(6.5, 6.5), QPointF(8.5, 8.0)}));
     painter->restore();
 }
 
@@ -248,6 +265,7 @@ public:
         const QFontMetrics indicatorMetrics(indicatorFont);
         const QString tabsBadge = tabCount > 0 ? badgeText(tabCount) : QString();
         const QString processBadge = processCount > 0 ? badgeText(processCount) : QString();
+        const bool rateLimited = projectStatus == ProjectWorkspaceContainer::ProjectStatus::RateLimited;
         const QString statusBadge = projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
             ? QStringLiteral("!")
             : (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running
@@ -255,8 +273,8 @@ public:
                    : (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Idle ? i18nc("@info:project status short", "idle") : QString()));
         const int tabsIndicatorWidth = indicatorWidth(indicatorMetrics, tabsBadge);
         const int processIndicatorWidth = indicatorWidth(indicatorMetrics, processBadge);
-        const int statusIndicatorWidth = indicatorWidth(indicatorMetrics, statusBadge);
-        const int visibleIndicatorCount = (!tabsBadge.isEmpty() ? 1 : 0) + (!processBadge.isEmpty() ? 1 : 0) + (!statusBadge.isEmpty() ? 1 : 0);
+        const int statusIndicatorWidth = rateLimited ? 13 : indicatorWidth(indicatorMetrics, statusBadge);
+        const int visibleIndicatorCount = (!tabsBadge.isEmpty() ? 1 : 0) + (!processBadge.isEmpty() ? 1 : 0) + (statusIndicatorWidth > 0 ? 1 : 0);
         const int indicatorGap = qMax(0, visibleIndicatorCount - 1) * 10;
         const int activityWidth = processBadge.isEmpty() && hasActivity ? 8 : 0;
         const int indicatorsWidth = tabsIndicatorWidth + processIndicatorWidth + statusIndicatorWidth + indicatorGap + activityWidth;
@@ -288,7 +306,7 @@ public:
             processIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), processIndicatorWidth, indicatorsRect.height());
             indicatorLeft = processIndicatorRect.right() + 1 + 10;
         }
-        if (!statusBadge.isEmpty()) {
+        if (statusIndicatorWidth > 0) {
             statusIndicatorRect = QRect(indicatorLeft, indicatorsRect.top(), statusIndicatorWidth, indicatorsRect.height());
         } else if (hasActivity && processBadge.isEmpty()) {
             activityRect = QRect(indicatorLeft, indicatorsRect.center().y() - 3, 7, 7);
@@ -330,7 +348,7 @@ public:
         }
         if (!statusIndicatorRect.isNull()) {
             QColor statusColor;
-            if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
+            if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput || rateLimited) {
                 const KColorScheme viewScheme(itemOption.palette.currentColorGroup(), KColorScheme::View);
                 statusColor = viewScheme.foreground(KColorScheme::NeutralText).color();
             } else if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running) {
@@ -339,7 +357,12 @@ public:
                 const KColorScheme viewScheme(itemOption.palette.currentColorGroup(), KColorScheme::View);
                 statusColor = viewScheme.foreground(KColorScheme::PositiveText).color();
             }
-            drawInlineIndicator(painter, statusIndicatorRect, statusBadge, statusColor, indicatorFont, drawProcessIndicatorIcon);
+            if (rateLimited) {
+                const QRect clockRect(statusIndicatorRect.left(), statusIndicatorRect.top() + (statusIndicatorRect.height() - 13) / 2, 13, 13);
+                drawRateLimitIndicatorIcon(painter, clockRect, statusColor);
+            } else {
+                drawInlineIndicator(painter, statusIndicatorRect, statusBadge, statusColor, indicatorFont, drawProcessIndicatorIcon);
+            }
         } else if (!activityRect.isNull()) {
             painter->setPen(Qt::NoPen);
             painter->setBrush(highlightColor);

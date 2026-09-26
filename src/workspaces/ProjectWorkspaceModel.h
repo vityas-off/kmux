@@ -29,6 +29,7 @@ public:
         Running,
         Idle,
         NeedsInput,
+        RateLimited,
     };
     Q_ENUM(ProjectStatus)
 

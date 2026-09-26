@@ -632,8 +632,20 @@ void ViewManagerTest::testTerminalTabsTrackSessionStatusesIndependently()
 
     splitSession->setProjectStatus(QStringLiteral("idle"));
     QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::AgentIdle);
+    firstSession->setProjectStatus(QStringLiteral("rateLimited"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::RateLimited);
+    splitSession->setProjectStatus(QStringLiteral("running"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::RateLimited);
+    QCOMPARE(project->terminalTabStatus(secondTabIndex), TerminalTabStatus::AgentRunning);
+    QCOMPARE(viewManager->_workspaceContainer->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::RateLimited);
+    QVERIFY(!viewManager->hasProjectNeedingInput());
     firstSession->setProjectStatus(QStringLiteral("needsInput"));
     QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::NeedsInput);
+    splitSession->setProjectStatus(QStringLiteral("rateLimited"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::NeedsInput);
+    QCOMPARE(viewManager->_workspaceContainer->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    firstSession->setProjectStatus(QStringLiteral("idle"));
+    QCOMPARE(project->terminalTabStatus(firstTabIndex), TerminalTabStatus::RateLimited);
 }
 
 void ViewManagerTest::testForegroundProcessAndIdleAgentUseDifferentStatuses()
@@ -729,7 +741,7 @@ void ViewManagerTest::testRunningAgentsControlSleepInhibition()
     QCOMPARE(viewManager->_workspaceContainer->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
     QVERIFY(inhibitor->_inhibitionRequested);
 
-    secondSession->setProjectStatus(QStringLiteral("idle"));
+    secondSession->setProjectStatus(QStringLiteral("rateLimited"));
     QVERIFY(!inhibitor->_inhibitionRequested);
 
     firstSession->setProjectStatus(QStringLiteral("running"));
@@ -1148,7 +1160,7 @@ void ViewManagerTest::testProjectWorkspaceClaudeIdlePromptKeepsBackgroundWorkRun
     QVERIFY(!workspaces->projectHasActivity(firstProject));
 }
 
-void ViewManagerTest::testProjectWorkspaceClaudeRateLimitNeedsInput()
+void ViewManagerTest::testProjectWorkspaceClaudeRateLimitPersistsUntilResumed()
 {
     auto mw = MainWindow();
     auto *viewManager = mw.viewManager();
@@ -1164,16 +1176,47 @@ void ViewManagerTest::testProjectWorkspaceClaudeRateLimitNeedsInput()
     QVERIFY(session != nullptr);
 
     const qlonglong processId = QCoreApplication::applicationPid();
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("RateLimit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("Stop"), {}, {}, {});
+    QVERIFY(viewManager->_sessionProjectStatuses.value(session).claudeBackgroundWork);
+
+    viewManager->createProject();
+    auto *otherProject = viewManager->activeContainer();
+    Session *otherSession = otherProject->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session();
+    otherSession->setProjectStatus(QStringLiteral("running"));
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("rateLimited"), processId, QStringLiteral("claude"), QStringLiteral("RateLimit"), {}, {}, {});
     QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
-    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    QVERIFY(!viewManager->_sessionProjectStatuses.value(session).claudeBackgroundWork);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::RateLimited);
+    QCOMPARE(project->terminalTabStatus(0), TerminalTabStatus::RateLimited);
+    QVERIFY(workspaces->projectHasActivity(project));
+    QVERIFY(!viewManager->hasProjectNeedingInput());
+    QCOMPARE(workspaces->projectStatus(otherProject), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    workspaces->activateProject(project);
+    QVERIFY(!workspaces->projectHasActivity(project));
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::RateLimited);
 
     QKeyEvent returnKey(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
     Q_EMIT terminal->keyPressedSignal(&returnKey);
-    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    QKeyEvent escapeKey(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    Q_EMIT terminal->keyPressedSignal(&escapeKey);
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"), processId, QStringLiteral("claude"), QStringLiteral("IdlePrompt"), {}, {}, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::RateLimited);
 
     session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("PreToolUse"), {}, {}, {});
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QCOMPARE(project->terminalTabStatus(0), TerminalTabStatus::AgentRunning);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("rateLimited"), processId, QStringLiteral("claude"), QStringLiteral("RateLimit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    session->setProjectStatusForAgentEvent(QStringLiteral("rateLimited"), processId, QStringLiteral("claude"), QStringLiteral("RateLimit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("none"), processId, QStringLiteral("claude"), QStringLiteral("SessionEnd"), {}, {}, {});
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
+    QCOMPARE(workspaces->projectStatus(otherProject), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
 void ViewManagerTest::testProjectWorkspaceClaudeCompactionStartsNewPrompt()

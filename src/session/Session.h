@@ -867,7 +867,7 @@ public Q_SLOTS:
     /**
      * Sets the project-level status associated with this session.
      *
-     * Accepted values are "running", "idle", "needsInput", and
+     * Accepted values are "running", "idle", "needsInput", "rateLimited", and
      * "unknown"/"none" to clear the explicit status.
      */
     Q_SCRIPTABLE void setProjectStatus(const QString &status);

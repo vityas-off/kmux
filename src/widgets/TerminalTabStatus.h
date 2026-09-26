@@ -16,6 +16,7 @@ enum class TerminalTabStatus {
     AgentIdle,
     AgentRunning,
     NeedsInput,
+    RateLimited,
 };
 
 }

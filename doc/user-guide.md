@@ -69,6 +69,13 @@ transparently routed through Kmux helpers. The helpers install or repair the
 matching hooks on first launch, associate status with the agent process, and
 then launch the original command from the rest of `PATH`.
 
+When Claude Code reports that a turn stopped because of a rate limit, Kmux
+shows an amber clock in the terminal tab and project rail. The exclamation
+mark remains reserved for requests for input or permission. An idle reminder
+does not clear the rate-limit status; it clears when work resumes or the
+agent session ends. Kmux does not yet distinguish Claude's "Wrapping up"
+phase or show the limit reset time.
+
 Hooks can also be installed or inspected explicitly:
 
 ```sh
@@ -89,12 +96,13 @@ built when DBus support is enabled.
 
 By default, Kmux also prevents automatic system sleep while at least one
 integrated agent reports that it is running. Sleep is allowed again when all
-agents become idle or wait for input. This behavior can be disabled in the
-General settings and requires DBus support.
+agents become idle, wait for input, or stop at a rate limit. This behavior can
+be disabled in the General settings and requires DBus support.
 
 Other tools and scripts can set the status of the terminal they run in with
 `kmux-project-status`, for example `kmux-project-status running` at the start
 of a long job and `kmux-project-status needsInput` when it waits for you.
+`kmux-project-status rateLimited` reports a stop due to a rate limit, and
 `kmux-project-status none` clears the status.
 
 ### Shift+Enter
