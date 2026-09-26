@@ -430,6 +430,7 @@ if(HAVE_DBUS)
             KMUX_AGENT_PID_ENV="KMUX_CLAUDE_PID"
             KMUX_HOOKS_DISABLED_ENV="KMUX_CLAUDE_HOOKS_DISABLED"
             KMUX_HOOKS_DISABLED_COMPAT_ENV=""
+            KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT=""
     )
     ecm_mark_nongui_executable(kmux-claude)
     install(TARGETS kmux-claude ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})

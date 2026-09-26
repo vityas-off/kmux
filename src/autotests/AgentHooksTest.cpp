@@ -29,6 +29,8 @@ private Q_SLOTS:
     void testCodexRepairsPreviousDottedInstall();
     void testCodexLauncherHookInstallation_data();
     void testCodexLauncherHookInstallation();
+    void testLauncherEmbeddedServerArgument_data();
+    void testLauncherEmbeddedServerArgument();
     void testCodexLauncherSkipsSelfSymlink();
     void testCodexLauncherReportsMissingAgent();
     void testCodexCommandUsesTransparentLauncher();
@@ -97,6 +99,81 @@ void AgentHooksTest::testCodexLauncherHookInstallation()
     process.readAllStandardOutput().trimmed().toLongLong(&pidIsValid);
     QVERIFY(pidIsValid);
     QCOMPARE(QFileInfo::exists(configHome), expectHooksInstalled);
+}
+
+void AgentHooksTest::testLauncherEmbeddedServerArgument_data()
+{
+    QTest::addColumn<QString>("agentName");
+    QTest::addColumn<QString>("launcher");
+    QTest::addColumn<QStringList>("arguments");
+    QTest::addColumn<QString>("disabledVariable");
+    QTest::addColumn<QStringList>("expectedArguments");
+
+    const QString codex = QStringLiteral("codex");
+    const QString codexLauncher = QStringLiteral(KMUX_CODEX_EXECUTABLE);
+    const QString embeddedServer = QStringLiteral("--no-daemon");
+    const QString sessionId = QStringLiteral("01a0ddcf-49a8-74e0-91d1-6e0a1007bb7e");
+
+    QTest::newRow("interactive") << codex << codexLauncher << QStringList() << QString() << QStringList{embeddedServer};
+    QTest::newRow("prompt") << codex << codexLauncher << QStringList{QStringLiteral("fix the build")} << QString()
+                            << QStringList{embeddedServer, QStringLiteral("fix the build")};
+    QTest::newRow("resume") << codex << codexLauncher << QStringList{QStringLiteral("resume"), sessionId} << QString()
+                            << QStringList{embeddedServer, QStringLiteral("resume"), sessionId};
+    QTest::newRow("explicit") << codex << codexLauncher << QStringList{embeddedServer} << QString() << QStringList{embeddedServer};
+    QTest::newRow("remote") << codex << codexLauncher << QStringList{QStringLiteral("--remote"), QStringLiteral("unix://")} << QString()
+                            << QStringList{QStringLiteral("--remote"), QStringLiteral("unix://")};
+    QTest::newRow("remote-assignment") << codex << codexLauncher << QStringList{QStringLiteral("--remote=unix://")} << QString()
+                                       << QStringList{QStringLiteral("--remote=unix://")};
+    QTest::newRow("agents") << codex << codexLauncher << QStringList{QStringLiteral("agents")} << QString() << QStringList{QStringLiteral("agents")};
+    QTest::newRow("hooks-disabled") << codex << codexLauncher << QStringList() << QStringLiteral("KMUX_CODEX_HOOKS_DISABLED") << QStringList();
+    QTest::newRow("claude") << QStringLiteral("claude") << QStringLiteral(KMUX_CLAUDE_EXECUTABLE) << QStringList() << QString() << QStringList();
+}
+
+void AgentHooksTest::testLauncherEmbeddedServerArgument()
+{
+    QFETCH(QString, agentName);
+    QFETCH(QString, launcher);
+    QFETCH(QStringList, arguments);
+    QFETCH(QString, disabledVariable);
+    QFETCH(QStringList, expectedArguments);
+
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString binDir = temporaryDir.filePath(QStringLiteral("bin"));
+    const QString homeDir = temporaryDir.filePath(QStringLiteral("home"));
+    QVERIFY(QDir().mkpath(binDir));
+    QVERIFY(QDir().mkpath(homeDir));
+
+    const QString agentPath = QDir(binDir).filePath(agentName);
+    QFile agent(agentPath);
+    QVERIFY(agent.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray script = QByteArrayLiteral("#!/bin/sh\nfor argument do printf '%s\\n' \"$argument\"; done\n");
+    QCOMPARE(agent.write(script), script.size());
+    agent.close();
+    QVERIFY(QFile::setPermissions(agentPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("PATH"), binDir + QDir::listSeparator() + environment.value(QStringLiteral("PATH")));
+    environment.insert(QStringLiteral("HOME"), homeDir);
+    environment.insert(QStringLiteral("CODEX_HOME"), temporaryDir.filePath(QStringLiteral("codex-home")));
+    environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
+    environment.remove(QStringLiteral("KMUX_CODEX_HOOKS_DISABLED"));
+    environment.remove(QStringLiteral("KONSOLE_CODEX_HOOKS_DISABLED"));
+    environment.remove(QStringLiteral("KMUX_CLAUDE_HOOKS_DISABLED"));
+    if (!disabledVariable.isEmpty()) {
+        environment.insert(disabledVariable, QStringLiteral("1"));
+    }
+
+    QProcess process;
+    process.setProcessEnvironment(environment);
+    process.start(launcher, arguments);
+    QVERIFY(process.waitForStarted());
+    QVERIFY(process.waitForFinished(5000));
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QVERIFY2(process.exitCode() == 0, process.readAllStandardError().constData());
+
+    const QString output = QString::fromUtf8(process.readAllStandardOutput());
+    QCOMPARE(output.split(QLatin1Char('\n'), Qt::SkipEmptyParts), expectedArguments);
 }
 
 void AgentHooksTest::testCodexLauncherSkipsSelfSymlink()

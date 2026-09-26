@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -30,6 +31,10 @@
 #define KMUX_HOOKS_DISABLED_COMPAT_ENV "KONSOLE_CODEX_HOOKS_DISABLED"
 #endif
 
+#ifndef KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT
+#define KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT "--no-daemon"
+#endif
+
 namespace
 {
 bool environmentDisablesHooks(const char *name)
@@ -40,6 +45,27 @@ bool environmentDisablesHooks(const char *name)
 
     const char *value = std::getenv(name);
     return value != nullptr && std::strcmp(value, "1") == 0;
+}
+
+// Codex 0.157 runs sessions on a shared app-server daemon, which runs hooks with
+// the environment of the terminal that started it, so every tab's hooks would
+// report to that terminal. An embedded server runs them with this terminal's
+// environment. Codex rejects the argument with a remote server and with the
+// agents overview; any matching argument keeps the shared server.
+bool shouldAddEmbeddedServerArgument(int argc, char **argv)
+{
+    const std::string_view embeddedServerArgument = KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT;
+    if (embeddedServerArgument.empty()) {
+        return false;
+    }
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view argument = argv[i];
+        if (argument == embeddedServerArgument || argument == "agents" || argument == "--remote" || argument.starts_with("--remote=")) {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::vector<std::string> executableCandidates(const char *executable)
@@ -172,6 +198,9 @@ int main(int argc, char **argv)
     if (!environmentDisablesHooks(KMUX_HOOKS_DISABLED_ENV) && !environmentDisablesHooks(KMUX_HOOKS_DISABLED_COMPAT_ENV)) {
         if (!installTrustedHooks(argv[0])) {
             std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to install Kmux hooks; continuing without updating the agent configuration\n";
+        }
+        if (shouldAddEmbeddedServerArgument(argc, argv)) {
+            args.emplace_back(KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT);
         }
     }
 

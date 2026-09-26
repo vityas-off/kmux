@@ -31,7 +31,12 @@ that lose the saved workspace. Most notably:
 - restoring a workspace starts new shells; it does not bring back the programs
   that were running in them;
 - Kmux uses a single main window;
-- the format of the saved workspace may change between alpha releases.
+- the format of the saved workspace may change between alpha releases;
+- Kmux temporarily starts Codex without its shared background server
+  (`--no-daemon`), because Codex 0.157 reports every session's status to the
+  terminal that started that server
+  ([openai/codex#44902](https://github.com/openai/codex/issues/44902)). These
+  sessions do not appear in `codex agents`.
 
 The [user guide](doc/user-guide.md#known-limitations) lists all known
 limitations.

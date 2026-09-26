@@ -69,6 +69,17 @@ transparently routed through Kmux helpers. The helpers install or repair the
 matching hooks on first launch, associate status with the agent process, and
 then launch the original command from the rest of `PATH`.
 
+Codex 0.157 and later run sessions on a shared background server, which runs
+the hooks of every session with the environment of the terminal that started
+it, so every session's status would appear on that terminal's tab. Until Codex
+tells hooks which terminal triggered them
+([openai/codex#44902](https://github.com/openai/codex/issues/44902)), the
+`codex` helper adds `--no-daemon`, and each session runs its own server as
+before 0.157. These sessions do not appear in `codex agents`, and a turn stops
+when its terminal closes. The helper leaves the command unchanged for
+`codex agents`, with `--remote`, or when `KMUX_CODEX_HOOKS_DISABLED=1` is set;
+Codex status may then appear on the wrong tab.
+
 When Claude Code reports that a turn stopped because of a rate limit, Kmux
 shows an amber clock in the terminal tab and project rail. The exclamation
 mark remains reserved for requests for input or permission. An idle reminder
