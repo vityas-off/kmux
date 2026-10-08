@@ -11,6 +11,7 @@
 #include <QAction>
 #include <QExplicitlySharedDataPointer>
 #include <QPointer>
+#include <QTimer>
 #include <QUrl>
 
 // STL
@@ -239,6 +240,10 @@ private:
     // indicates that we got a command line argument that overwrites showing/hidding
     std::optional<bool> _windowArgsShowMenuBar;
     std::optional<bool> _windowArgsShowToolBars;
+
+    // A member (not a child) so it is destroyed before the central widget,
+    // whose teardown still emits ViewManager::workspaceStateChanged().
+    QTimer _workspaceStateSaveTimer;
 };
 }
 

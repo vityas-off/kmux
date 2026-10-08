@@ -85,6 +85,7 @@ using namespace Konsole;
 namespace
 {
 constexpr auto LastProjectWorkspaceStateGroup = "LastProjectWorkspaceState";
+constexpr auto WorkspaceStateSaveDelay = std::chrono::seconds(2);
 
 QString containerSuffixForSession(const QPointer<Session> &session)
 {
@@ -144,6 +145,19 @@ MainWindow::MainWindow()
     connect(_viewManager, &Konsole::ViewManager::newViewRequest, this, &Konsole::MainWindow::newTab);
     connect(_viewManager, &Konsole::ViewManager::terminalsDetached, this, &Konsole::MainWindow::terminalsDetached);
     connect(_viewManager, &Konsole::ViewManager::activationRequest, this, &Konsole::MainWindow::activationRequest);
+
+    // Closing the window is not the only way out: a reboot or logout without
+    // a session manager terminates the process without calling queryClose().
+    // The timer is not restarted on every change, so a stream of title or
+    // directory updates cannot postpone the save indefinitely.
+    _workspaceStateSaveTimer.setSingleShot(true);
+    _workspaceStateSaveTimer.setInterval(WorkspaceStateSaveDelay);
+    connect(&_workspaceStateSaveTimer, &QTimer::timeout, this, &Konsole::MainWindow::saveLastWorkspaceState);
+    connect(_viewManager, &Konsole::ViewManager::workspaceStateChanged, &_workspaceStateSaveTimer, [this]() {
+        if (!_workspaceStateSaveTimer.isActive()) {
+            _workspaceStateSaveTimer.start();
+        }
+    });
 
     setCentralWidget(_viewManager->widget());
 
@@ -740,6 +754,7 @@ bool MainWindow::restoreLastWorkspaceState()
 
 void MainWindow::saveLastWorkspaceState()
 {
+    _workspaceStateSaveTimer.stop();
     KConfigGroup group(KSharedConfig::openStateConfig(), QString::fromLatin1(LastProjectWorkspaceStateGroup));
     _viewManager->saveSessions(group);
     group.sync();

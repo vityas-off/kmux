@@ -275,6 +275,11 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     connect(_workspaceContainer, &ProjectWorkspaceContainer::currentProjectChanged, this, &ViewManager::activeProjectChanged);
     connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectChanged, this, &ViewManager::updateProjectInputRequirement);
     connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectRemoved, this, &ViewManager::updateProjectInputRequirement);
+    connect(_workspaceContainer, &ProjectWorkspaceContainer::currentProjectChanged, this, &ViewManager::workspaceStateChanged);
+    connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectAdded, this, &ViewManager::workspaceStateChanged);
+    connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectRemoved, this, &ViewManager::workspaceStateChanged);
+    connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectChanged, this, &ViewManager::workspaceStateChanged);
+    connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectsReordered, this, &ViewManager::workspaceStateChanged);
 
     _projectStatusProcessTimer.setInterval(ProjectStatusProcessCheckIntervalMs);
     connect(&_projectStatusProcessTimer, &QTimer::timeout, this, &ViewManager::clearExitedSessionProjectStatuses);
@@ -286,6 +291,7 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     // listen for profile changes
     connect(ProfileManager::instance(), &Konsole::ProfileManager::profileChanged, this, &Konsole::ViewManager::profileChanged);
     connect(SessionManager::instance(), &Konsole::SessionManager::sessionUpdated, this, &Konsole::ViewManager::updateViewsForSession);
+    connect(SessionManager::instance(), &Konsole::SessionManager::sessionUpdated, this, &Konsole::ViewManager::workspaceStateChanged);
 
     _managerId = ++lastManagerId;
 
@@ -1274,6 +1280,11 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(controller, &Konsole::SessionController::currentDirectoryChanged, view, [this, view](const QString &) {
         refreshProjectSummary(containerForTerminal(view));
     });
+    connect(controller, &Konsole::SessionController::titleChanged, this, &ViewManager::workspaceStateChanged);
+    connect(controller, &Konsole::SessionController::colorChanged, this, &ViewManager::workspaceStateChanged);
+    connect(controller, &Konsole::SessionController::activityColorChanged, this, &ViewManager::workspaceStateChanged);
+    connect(controller, &Konsole::SessionController::currentDirectoryChanged, this, &ViewManager::workspaceStateChanged);
+    connect(view, &QObject::destroyed, this, &ViewManager::workspaceStateChanged);
     connect(session, &Konsole::Session::started, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::notificationsChanged, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::terminalNotificationReceived, this, &Konsole::ViewManager::handleSessionTerminalNotification, Qt::UniqueConnection);
@@ -1297,6 +1308,7 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     }
 
     refreshProjectSummary(containerForTerminal(view));
+    Q_EMIT workspaceStateChanged();
     return controller;
 }
 
@@ -1505,6 +1517,9 @@ TabbedViewContainer *ViewManager::createContainer()
         refreshProjectSummary(container);
     });
     connect(container, &TabbedViewContainer::viewRemoved, this, &ViewManager::toggleActionsBasedOnState);
+    connect(container, &TabbedViewContainer::viewRemoved, this, &ViewManager::workspaceStateChanged);
+    connect(container, &QTabWidget::currentChanged, this, &ViewManager::workspaceStateChanged);
+    connect(container->tabBar(), &QTabBar::tabMoved, this, &ViewManager::workspaceStateChanged);
 
     return container;
 }

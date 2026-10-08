@@ -256,6 +256,9 @@ Q_SIGNALS:
 
     void contextMenuAdditionalActionsChanged(const QList<QAction *> &extension);
 
+    /** Emitted when projects, tabs, splits or tab metadata change in a way that affects the saved workspace. */
+    void workspaceStateChanged();
+
 public Q_SLOTS:
     /** DBus slot that returns the number of sessions in this window. */
     Q_SCRIPTABLE int sessionCount();
