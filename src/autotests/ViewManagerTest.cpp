@@ -135,6 +135,30 @@ void ViewManagerTest::testLoadLayout()
     QCOMPARE(mw.viewManager()->viewHierarchy(), expectedHierarchy);
 }
 
+void ViewManagerTest::testSavedSessionSettingsMarkWorkspaceChanged()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    mw.newTab();
+    auto *container = viewManager->activeContainer();
+    QVERIFY(container != nullptr);
+    QVERIFY(container->activeViewSplitter() != nullptr);
+    auto *terminal = container->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    QSignalSpy workspaceStateSpy(viewManager, &ViewManager::workspaceStateChanged);
+
+    const QByteArray encoding = session->codec() == "ISO-8859-1" ? QByteArrayLiteral("UTF-8") : QByteArrayLiteral("ISO-8859-1");
+    QVERIFY(session->setCodec(encoding));
+    QVERIFY(!workspaceStateSpy.isEmpty());
+
+    workspaceStateSpy.clear();
+    session->setBadgeText(QStringLiteral("workspace-badge"));
+    QVERIFY(!workspaceStateSpy.isEmpty());
+}
+
 void ViewManagerTest::testProjectWorkspacesKeepIndependentTabs()
 {
     auto mw = MainWindow();

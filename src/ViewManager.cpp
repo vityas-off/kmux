@@ -1285,6 +1285,8 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(controller, &Konsole::SessionController::activityColorChanged, this, &ViewManager::workspaceStateChanged);
     connect(controller, &Konsole::SessionController::currentDirectoryChanged, this, &ViewManager::workspaceStateChanged);
     connect(view, &QObject::destroyed, this, &ViewManager::workspaceStateChanged);
+    connect(session, &Konsole::Session::sessionCodecChanged, this, &ViewManager::workspaceStateChanged, Qt::UniqueConnection);
+    connect(session, &Konsole::Session::sessionAttributeChanged, this, &ViewManager::workspaceStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::started, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::notificationsChanged, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::terminalNotificationReceived, this, &Konsole::ViewManager::handleSessionTerminalNotification, Qt::UniqueConnection);
