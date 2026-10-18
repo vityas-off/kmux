@@ -103,5 +103,12 @@ For UI changes, manually verify at least:
 - Do not overwrite unrelated local changes.
 - Do not introduce generated files or build output into the source tree.
 - Keep changes scoped to the requested feature or fix.
+- Commit upstream Konsole merges with `git commit --no-verify`. The KDE
+  clang-format pre-commit hook treats every merged upstream line as a staged
+  change and blocks the commit until it is reformatted, which leaves the merge
+  with formatting diffs that exist in neither parent and conflict in later
+  merges. After committing, check `git show --remerge-diff HEAD`: it should
+  show only conflict resolutions, and files that only upstream changed must
+  match upstream exactly.
 - Update this file when the fork's terminology, architecture, or validation
   workflow becomes more concrete.
