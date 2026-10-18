@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
                      version,
                      i18nc("@title", "Project workspace terminal"),
                      KAboutLicense::GPL_V2,
-                     i18nc("@info:credit", "© 1997–2026 The Konsole Developers; © 2026 Kmux contributors"),
+                     i18nc("@info:credit", "© 1997–%1 The Konsole Developers; © %2 Kmux contributors", QStringLiteral("2026"), QStringLiteral("2026")),
                      QString(),
                      QStringLiteral("https://github.com/vityas-off/kmux"),
                      QStringLiteral("https://github.com/vityas-off/kmux/issues"));

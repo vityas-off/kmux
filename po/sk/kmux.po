@@ -11,9 +11,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: konsole\n"
 "Report-Msgid-Bugs-To: https://bugs.kde.org\n"
-"POT-Creation-Date: 2026-08-19 00:50+0000\n"
-"PO-Revision-Date: 2023-12-12 19:29+0100\n"
-"Last-Translator: Roman Paholik <wizzardsk@gmail.com>\n"
+"POT-Creation-Date: 2026-10-13 00:49+0000\n"
+"PO-Revision-Date: 2026-09-14 20:10+0200\n"
+"Last-Translator: Roman Paholík <wizzardsk@gmail.com>\n"
 "Language-Team: Slovak <kde-sk@linux.sk>\n"
 "Language: sk\n"
 "MIME-Version: 1.0\n"
@@ -908,9 +908,11 @@ msgid "Terminal emulator"
 msgstr "Emulátor terminálu"
 
 #: main.cpp:177
-#, kde-format
+#, fuzzy, kde-format
+#| msgctxt "@info:credit"
+#| msgid "(c) 1997-2022, The Konsole Developers"
 msgctxt "@info:credit"
-msgid "(c) 1997-2022, The Konsole Developers"
+msgid "© 1997–%1, The Konsole Developers"
 msgstr "(c) 1997-2022, Vývojári Konsole"
 
 #: main.cpp:353
@@ -1263,36 +1265,36 @@ msgctxt "@title:menu"
 msgid "&Bookmarks"
 msgstr "&Záložky"
 
-#: MainWindow.cpp:485
+#: MainWindow.cpp:491
 #, kde-format
 msgid "&Window Color Scheme"
 msgstr "Farebná schéma okna"
 
-#: MainWindow.cpp:497
+#: MainWindow.cpp:503
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Manage Profiles..."
 msgstr "Spravovať profily..."
 
-#: MainWindow.cpp:503
+#: MainWindow.cpp:509
 #, kde-format
 msgctxt "@item"
 msgid "Activate Menu"
 msgstr "Aktivovať ponuku"
 
-#: MainWindow.cpp:509
+#: MainWindow.cpp:515
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Save Tab Layout..."
 msgstr "Uložiť rozloženie kariet do súboru"
 
-#: MainWindow.cpp:518
+#: MainWindow.cpp:524
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Load Tab Layout..."
 msgstr "Načítať rozloženie kariet zo súboru"
 
-#: MainWindow.cpp:870 MainWindow.cpp:887
+#: MainWindow.cpp:876 MainWindow.cpp:893
 #, kde-format
 msgctxt "@info"
 msgid "There is a process running in this window. Do you still want to quit?"
@@ -1302,61 +1304,61 @@ msgstr[0] "V tomto okne beží proces. Stále chcete skončiť?"
 msgstr[1] "V tomto okne bežia %1 procesy. Stále chcete skončiť?"
 msgstr[2] "V tomto okne beží %1 procesov. Stále chcete skončiť?"
 
-#: MainWindow.cpp:876 MainWindow.cpp:893 MainWindow.cpp:907
+#: MainWindow.cpp:882 MainWindow.cpp:899 MainWindow.cpp:913
 #, kde-format
 msgctxt "@title"
 msgid "Confirm Close"
 msgstr "Potvrdiť zatvorenie"
 
-#: MainWindow.cpp:877 MainWindow.cpp:894 MainWindow.cpp:908
+#: MainWindow.cpp:883 MainWindow.cpp:900 MainWindow.cpp:914
 #, kde-format
 msgctxt "@action:button"
 msgid "Close &Window"
 msgstr "Zavrieť okno"
 
-#: MainWindow.cpp:895 MainWindow.cpp:909
+#: MainWindow.cpp:901 MainWindow.cpp:915
 #, kde-format
 msgctxt "@action:button"
 msgid "Close Current &Tab"
 msgstr "Zatvoriť aktuálnu kartu"
 
-#: MainWindow.cpp:904
+#: MainWindow.cpp:910
 #, kde-format
 msgctxt "@info"
 msgid "There are %1 open terminals in this window. Do you still want to quit?"
 msgstr "V tomto okne je %1 otvorených terminálov. Stále chcete skončiť?"
 
-#: MainWindow.cpp:1058 Part.cpp:317
+#: MainWindow.cpp:1064 Part.cpp:317
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Profiles"
 msgstr "Profily"
 
-#: MainWindow.cpp:1076
+#: MainWindow.cpp:1082
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "General"
 msgstr "Všeobecné"
 
-#: MainWindow.cpp:1088
+#: MainWindow.cpp:1094
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Memory"
 msgstr "Pamäť"
 
-#: MainWindow.cpp:1094
+#: MainWindow.cpp:1100
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Tab Bar / Splitters"
 msgstr "Panel kariet / Oddeľovače"
 
-#: MainWindow.cpp:1099
+#: MainWindow.cpp:1105
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Temporary Files"
 msgstr "Dočasné súbory"
 
-#: MainWindow.cpp:1104
+#: MainWindow.cpp:1110
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Thumbnails"
@@ -1921,14 +1923,14 @@ msgstr "Možnosti výstupu"
 
 #. i18n: ectx: property (text), widget (QCheckBox, printerFriendly)
 #. i18n: ectx: label, entry (PrinterFriendly), group (PrintOptions)
-#: PrintOptions.ui:39 settings/konsole.kcfg:210
+#: PrintOptions.ui:39 settings/konsole.kcfg:220
 #, kde-format
 msgid "Printer &friendly mode (black text, no background)"
 msgstr "Režim tlače (čierny text, bez pozadia)"
 
 #. i18n: ectx: property (text), widget (QCheckBox, scaleOutput)
 #. i18n: ectx: label, entry (ScaleOutput), group (PrintOptions)
-#: PrintOptions.ui:46 settings/konsole.kcfg:214
+#: PrintOptions.ui:46 settings/konsole.kcfg:224
 #, kde-format
 msgid "&Scale output"
 msgstr "Škálovať výstup"
@@ -2190,8 +2192,8 @@ msgstr "Ticho v '%1' (Sedenie '%2')"
 
 #: session/Session.cpp:819 session/Session.cpp:2355
 #: session/SessionController.cpp:382 session/SessionController.cpp:1928
-#: terminalDisplay/TerminalBell.cpp:44 Vt102Emulation.cpp:1280
-#: Vt102Emulation.cpp:1535
+#: terminalDisplay/TerminalBell.cpp:44 Vt102Emulation.cpp:1281
+#: Vt102Emulation.cpp:1536
 #, kde-format
 msgid "Show session"
 msgstr "Zobraziť sedenie"
@@ -2998,45 +3000,80 @@ msgstr "Ovládať kde vložiť novú kartu"
 msgid "Expand the tab widths"
 msgstr "Rozšíriť výšku kariet"
 
+#. i18n: ectx: label, entry (ShowContainerTabColor), group (TabBar)
+#: settings/konsole.kcfg:208
+#, kde-format
+msgid "Color-code tab when running inside a container"
+msgstr "Farebne odlíšiť kartu pri behu v kontajneri"
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_ShowContainerTabColor)
+#. i18n: ectx: tooltip, entry (ShowContainerTabColor), group (TabBar)
+#: settings/konsole.kcfg:209 settings/TabBarSettings.ui:301
+#, kde-format
+msgid ""
+"When running inside a container (e.g. Distrobox or Toolbox), color-code the "
+"tab with a container-specific color"
+msgstr ""
+"Pri behu v kontajneri (napr. Distrobox alebo Toolbox) farebne odlíšiť kartu "
+"farbou špecifickou pre kontajner"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ShowContainerStatusBar)
+#. i18n: ectx: label, entry (ShowContainerStatusBar), group (TabBar)
+#: settings/konsole.kcfg:213 settings/TabBarSettings.ui:314
+#, kde-format
+msgid "Show container label in terminal footer"
+msgstr "Zobraziť menovku kontajnera v pätičke terminálu"
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_ShowContainerStatusBar)
+#. i18n: ectx: tooltip, entry (ShowContainerStatusBar), group (TabBar)
+#: settings/konsole.kcfg:214 settings/TabBarSettings.ui:311
+#, kde-format
+msgid ""
+"When running inside a container (e.g. Distrobox or Toolbox), show a label "
+"with the container name at the bottom of the terminal"
+msgstr ""
+"Pri behu v kontajneri (napr. Distrobox alebo Toolbox) zobraziť v dolnej "
+"časti terminálu menovku s názvom kontajnera"
+
 #. i18n: ectx: label, entry (scrollbackUseSystemLocation), group (FileLocation)
-#: settings/konsole.kcfg:220
+#: settings/konsole.kcfg:230
 #, kde-format
 msgid "For scrollback files, use system-wide folder location"
 msgstr "Pre scrollback súbory použiť systémové umiestnenie priečinka"
 
 #. i18n: ectx: label, entry (scrollbackUseCacheLocation), group (FileLocation)
-#: settings/konsole.kcfg:224
+#: settings/konsole.kcfg:234
 #, kde-format
 msgid "For scrollback files, use user's specific folder location"
 msgstr ""
 "Pre scrollback súbory použiť používateľovo špecifické umiestnenie priečinka"
 
 #. i18n: ectx: label, entry (scrollbackUseSpecifiedLocation), group (FileLocation)
-#: settings/konsole.kcfg:228
+#: settings/konsole.kcfg:238
 #, kde-format
 msgid "For scrollback files, use specified folder location"
 msgstr "Pre scrollback súbory použiť špecifické umiestnenie priečinka"
 
 #. i18n: ectx: label, entry (scrollbackUseSpecifiedLocationDirectory), group (FileLocation)
-#: settings/konsole.kcfg:232
+#: settings/konsole.kcfg:242
 #, kde-format
 msgid "For scrollback files, use this folder"
 msgstr "Pre scrollback súbory použiť tento priečinok"
 
 #. i18n: ectx: label, entry (SyncProfileWithSystemTheme), group (LightDarkTheme)
-#: settings/konsole.kcfg:238
+#: settings/konsole.kcfg:248
 #, kde-format
 msgid "Sync profile with system theme"
 msgstr "Synchronizovať profil so systémovou témou"
 
 #. i18n: ectx: label, entry (LightThemeProfile), group (LightDarkTheme)
-#: settings/konsole.kcfg:242
+#: settings/konsole.kcfg:252
 #, kde-format
 msgid "Profile to use for light system theme"
 msgstr "Profil pre svetlú systémovú tému"
 
 #. i18n: ectx: label, entry (DarkThemeProfile), group (LightDarkTheme)
-#: settings/konsole.kcfg:246
+#: settings/konsole.kcfg:256
 #, kde-format
 msgid "Profile to use for dark system theme"
 msgstr "Profil pre tmavú systémovú tému"
@@ -3274,7 +3311,7 @@ msgstr "Nikdy"
 
 #. i18n: ectx: property (text), widget (QLabel, miscellaneousAppearanceLabel)
 #. i18n: ectx: property (text), widget (QLabel, miscellaneousBehaviorLabel)
-#: settings/TabBarSettings.ui:277 settings/TabBarSettings.ui:410
+#: settings/TabBarSettings.ui:277 settings/TabBarSettings.ui:430
 #, kde-format
 msgctxt "@item:intext Miscellaneous Options"
 msgid "Miscellaneous:"
@@ -3292,105 +3329,111 @@ msgstr "Zobraziť tlačidlo \"Nová karta\""
 msgid "Expand individual tab widths to full window"
 msgstr "Roztiahnuť jednotlivé šírky kariet na celé okno"
 
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ShowContainerTabColor)
+#: settings/TabBarSettings.ui:304
+#, kde-format
+msgid "Color-code tab when inside a container"
+msgstr "Farebne odlíšiť kartu, keď je v kontajneri"
+
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_TabBarUseUserStyleSheet)
-#: settings/TabBarSettings.ui:301
+#: settings/TabBarSettings.ui:321
 #, kde-format
 msgid "Use user-defined stylesheet:"
 msgstr "Použiť vlastný štýl:"
 
 #. i18n: ectx: property (placeholderText), widget (KUrlRequester, kcfg_TabBarUserStyleSheetFile)
-#: settings/TabBarSettings.ui:327
+#: settings/TabBarSettings.ui:347
 #, kde-format
 msgctxt "@item:intext Optional file path is empty"
 msgid "(none)"
 msgstr "(žiadne)"
 
 #. i18n: ectx: attribute (title), widget (QWidget, behaviorTab)
-#: settings/TabBarSettings.ui:350
+#: settings/TabBarSettings.ui:370
 #, kde-format
 msgctxt "@title:tab Tab bar settings"
 msgid "Behavior"
 msgstr "Správanie"
 
 #. i18n: ectx: property (text), widget (QLabel, putNewTabsLabel)
-#: settings/TabBarSettings.ui:364
+#: settings/TabBarSettings.ui:384
 #, kde-format
 msgid "Put new tabs:"
 msgstr "Umiestniť nové karty:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, PutNewTabAtTheEnd)
-#: settings/TabBarSettings.ui:374
+#: settings/TabBarSettings.ui:394
 #, kde-format
 msgid "At &the end"
 msgstr "Na konci"
 
 #. i18n: ectx: property (text), widget (QRadioButton, PutNewTabAfterCurrentTab)
-#: settings/TabBarSettings.ui:384
+#: settings/TabBarSettings.ui:404
 #, kde-format
 msgid "After current &tab"
 msgstr "Za aktuálnu kartu"
 
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_CloseTabOnMiddleMouseButton)
-#: settings/TabBarSettings.ui:420
+#: settings/TabBarSettings.ui:440
 #, kde-format
 msgid "Close tab on middle-click"
 msgstr "Zatvoriť kartu stredným tlačidlom"
 
 #. i18n: ectx: attribute (title), widget (QWidget, splitTab)
-#: settings/TabBarSettings.ui:443
+#: settings/TabBarSettings.ui:463
 #, kde-format
 msgid "Splits"
 msgstr "Rozdelenia"
 
 #. i18n: ectx: property (text), widget (QLabel, label)
-#: settings/TabBarSettings.ui:449
+#: settings/TabBarSettings.ui:469
 #, kde-format
 msgid "Show Header:"
 msgstr "Zobraziť hlavičku:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, ShowSplitHeaderWhenNeeded)
-#: settings/TabBarSettings.ui:456
+#: settings/TabBarSettings.ui:476
 #, kde-format
 msgctxt "@option:radio When needed show the split header"
 msgid "When needed"
 msgstr "Podľa potreby"
 
 #. i18n: ectx: property (text), widget (QRadioButton, AlwaysHideSplitHeader)
-#: settings/TabBarSettings.ui:466
+#: settings/TabBarSettings.ui:486
 #, kde-format
 msgctxt "@option:radio Never show the split header"
 msgid "Never"
 msgstr "Nikdy"
 
 #. i18n: ectx: property (text), widget (QLabel, label_2)
-#: settings/TabBarSettings.ui:492
+#: settings/TabBarSettings.ui:512
 #, kde-format
 msgid "Drag Handle Size:"
 msgstr "Veľkosť rukoväte potiahnutia:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleSmall)
-#: settings/TabBarSettings.ui:502
+#: settings/TabBarSettings.ui:522
 #, kde-format
 msgctxt "@option:radio Small height/width of splitter widget"
 msgid "Small"
 msgstr "Malá"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleMedium)
-#: settings/TabBarSettings.ui:512
+#: settings/TabBarSettings.ui:532
 #, kde-format
 msgctxt "@option:radio Medium height/width of splitter widget"
 msgid "Medium"
 msgstr "Stredná"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleLarge)
-#: settings/TabBarSettings.ui:522
+#: settings/TabBarSettings.ui:542
 #, kde-format
 msgctxt "@option:radio Large height/width of splitter widget"
 msgid "Large"
 msgstr "Veľká"
 
 #. i18n: ectx: property (text), widget (QRadioButton, AlwaysShowSplitHeader)
-#: settings/TabBarSettings.ui:545
+#: settings/TabBarSettings.ui:565
 #, kde-format
 msgctxt "@option:radio Always show the split header"
 msgid "Always"
@@ -3486,12 +3529,12 @@ msgstr "Ctrl"
 msgid "Enable thumbnails generation"
 msgstr "Povoliť vytváranie náhľadov"
 
-#: terminalDisplay/TerminalDisplay.cpp:704
+#: terminalDisplay/TerminalDisplay.cpp:708
 #, kde-format
 msgid "Size: %1 x %2"
 msgstr "Veľkosť: %1 x %2"
 
-#: terminalDisplay/TerminalDisplay.cpp:2432
+#: terminalDisplay/TerminalDisplay.cpp:2448
 #, kde-format
 msgid "Are you sure you want to paste %1 character?"
 msgid_plural "Are you sure you want to paste %1 characters?"
@@ -3499,52 +3542,52 @@ msgstr[0] "Určite chcete vložiť %1 znak?"
 msgstr[1] "Určite chcete vložiť %1 znaky?"
 msgstr[2] "Určite chcete vložiť %1 znakov?"
 
-#: terminalDisplay/TerminalDisplay.cpp:2433
+#: terminalDisplay/TerminalDisplay.cpp:2449
 #, kde-format
 msgid "Confirm Paste"
 msgstr "Potvrdiť vloženie"
 
-#: terminalDisplay/TerminalDisplay.cpp:2466
+#: terminalDisplay/TerminalDisplay.cpp:2482
 #, kde-format
 msgid "End Of Text/Interrupt: may exit the current process"
 msgstr "Koniec textu/Prerušiť: Môže prerušiť aktuálny proces"
 
-#: terminalDisplay/TerminalDisplay.cpp:2467
+#: terminalDisplay/TerminalDisplay.cpp:2483
 #, kde-format
 msgid "End Of Transmission: may exit the current process"
 msgstr "Koniec prenosu: Môže ukončiť aktuálny proces"
 
-#: terminalDisplay/TerminalDisplay.cpp:2468
+#: terminalDisplay/TerminalDisplay.cpp:2484
 #, kde-format
 msgid "Bell: will try to emit an audible warning"
 msgstr "Zvonček: Skúsi vyslať zvukové varovanie"
 
-#: terminalDisplay/TerminalDisplay.cpp:2469
+#: terminalDisplay/TerminalDisplay.cpp:2485
 #, kde-format
 msgid "Backspace"
 msgstr "Backspace"
 
-#: terminalDisplay/TerminalDisplay.cpp:2470
+#: terminalDisplay/TerminalDisplay.cpp:2486
 #, kde-format
 msgid "Device Control Three/XOFF: suspends output"
 msgstr "Device Control Three/XOFF: pozastaví výstup"
 
-#: terminalDisplay/TerminalDisplay.cpp:2471
+#: terminalDisplay/TerminalDisplay.cpp:2487
 #, kde-format
 msgid "Substitute/Suspend: may suspend current process"
 msgstr "Nahradiť/Uspať: môže pozastaviť aktuálny proces"
 
-#: terminalDisplay/TerminalDisplay.cpp:2472
+#: terminalDisplay/TerminalDisplay.cpp:2488
 #, kde-format
 msgid "Escape: used for manipulating terminal state"
 msgstr "Escape: používa sa na manipuláciu stavu terminálu"
 
-#: terminalDisplay/TerminalDisplay.cpp:2473
+#: terminalDisplay/TerminalDisplay.cpp:2489
 #, kde-format
 msgid "File Separator/Quit: may abort the current process"
 msgstr "Oddeľovač súborov/Ukončiť: Môže prerušiť aktuálny proces"
 
-#: terminalDisplay/TerminalDisplay.cpp:2496
+#: terminalDisplay/TerminalDisplay.cpp:2512
 #, kde-format
 msgid ""
 "The text you're trying to paste contains hidden control characters, do you "
@@ -3553,31 +3596,31 @@ msgstr ""
 "Text, ktorý sa pokúšate vložiť obsahuje netlačiteľné znaky, chcete ich "
 "odfiltrovať?"
 
-#: terminalDisplay/TerminalDisplay.cpp:2499
+#: terminalDisplay/TerminalDisplay.cpp:2515
 #, kde-format
 msgctxt "@title"
 msgid "Confirm Paste"
 msgstr "Potvrdiť vloženie"
 
-#: terminalDisplay/TerminalDisplay.cpp:2500
+#: terminalDisplay/TerminalDisplay.cpp:2516
 #, kde-format
 msgctxt "@action:button"
 msgid "Paste &without control characters"
 msgstr "Prilepiť bez netlačiteľných znakov"
 
-#: terminalDisplay/TerminalDisplay.cpp:2501
+#: terminalDisplay/TerminalDisplay.cpp:2517
 #, kde-format
 msgctxt "@action:button"
 msgid "&Paste everything"
 msgstr "Vložiť všetko"
 
-#: terminalDisplay/TerminalDisplay.cpp:2502
+#: terminalDisplay/TerminalDisplay.cpp:2518
 #, kde-format
 msgctxt "@action:button"
 msgid "&Cancel"
 msgstr "Zrušiť"
 
-#: terminalDisplay/TerminalDisplay.cpp:2745
+#: terminalDisplay/TerminalDisplay.cpp:2752
 #, kde-format
 msgid ""
 "<qt>Output has been <a href=\"https://en.wikipedia.org/wiki/"
@@ -3588,17 +3631,17 @@ msgstr ""
 "\">pozastavený</a> stlačením Ctrl+S. Stlačte <b>Ctrl+Q</b> pre pokračovanie."
 "</qt>"
 
-#: terminalDisplay/TerminalDisplay.cpp:2800
+#: terminalDisplay/TerminalDisplay.cpp:2807
 #, kde-format
 msgid "This terminal is read-only."
 msgstr "Tento terminál je iba na čítanie."
 
-#: terminalDisplay/TerminalDisplay.cpp:3206
+#: terminalDisplay/TerminalDisplay.cpp:3213
 #, kde-format
 msgid "Change &Directory To"
 msgstr "Zmeniť adresár na"
 
-#: terminalDisplay/TerminalDisplay.cpp:3241
+#: terminalDisplay/TerminalDisplay.cpp:3248
 #, kde-format
 msgid "&Paste Location"
 msgstr "Vložiť umiestnenie"
@@ -3873,7 +3916,7 @@ msgctxt "@title:window"
 msgid "Load Tab Layout"
 msgstr "Načítať rozloženie kariet zo súboru"
 
-#: Vt102Emulation.cpp:3342
+#: Vt102Emulation.cpp:3272
 #, kde-format
 msgid ""
 "No keyboard translator available.  The information needed to convert key "
@@ -6090,13 +6133,13 @@ msgctxt "@action:inmenu"
 msgid "Close Tab"
 msgstr "&Zavrieť kartu"
 
-#: widgets/ViewContainer.cpp:969 widgets/ViewContainer.cpp:978
+#: widgets/ViewContainer.cpp:990 widgets/ViewContainer.cpp:999
 #, kde-format
 msgctxt "As in Distrobox, Toolbox, Kapsule etc."
 msgid "Container"
 msgstr "Kontajner"
 
-#: widgets/ViewContainer.cpp:988
+#: widgets/ViewContainer.cpp:1009
 #, kde-format
 msgctxt ""
 "%1 is the type of container (e.g. Distrobox, Toolbox, Kapsule etc.), %2 its "

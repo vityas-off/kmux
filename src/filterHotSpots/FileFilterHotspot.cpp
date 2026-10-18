@@ -286,15 +286,13 @@ void FileFilterHotSpot::thumbnailRequested()
         }
     });
 
+    // preview job is auto-started & auto-deleted
     _previewJob = new KIO::PreviewJob(KFileItemList({fileItem()}), QSize(size, size));
     connect(_previewJob, &KIO::PreviewJob::gotPreview, this, &FileFilterHotSpot::showThumbnail);
     connect(_previewJob, &KIO::PreviewJob::failed, this, [] {
         qCDebug(KonsoleDebug) << "Error generating the preview" << _previewJob->errorString();
         QToolTip::hideText();
     });
-
-    _previewJob->setAutoDelete(true);
-    _previewJob->start();
 }
 
 KFileItem FileFilterHotSpot::fileItem() const
@@ -325,13 +323,14 @@ bool FileFilterHotSpot::hasDragOperation() const
     return true;
 }
 
-void FileFilterHotSpot::startDrag()
+void FileFilterHotSpot::startDrag(TerminalDisplay *td, QPoint dragPosition)
 {
     auto *drag = new QDrag(this);
     auto *mimeData = new QMimeData();
     mimeData->setUrls({QUrl::fromLocalFile(_filePath)});
 
     drag->setMimeData(mimeData);
+    setDragPixmap(drag, td, dragPosition);
     drag->exec(Qt::CopyAction);
 }
 

@@ -8,6 +8,9 @@ Actions=NewTab;
 StartupNotify=true
 X-KDE-AuthorizeAction=shell_access
 StartupWMClass=kmux
+X-TerminalArgExec=-e
+X-TerminalArgDir=--workdir
+X-TerminalArgHold=--hold
 Keywords=terminal;console;script;run;execute;command;command-line;commandline;cli;bash;sh;shell;zsh;cmd;xterm;tty;pty;fish;workspace;project;tabs;tmux;
 
 Name=Kmux

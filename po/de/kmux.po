@@ -13,16 +13,16 @@ msgid ""
 msgstr ""
 "Project-Id-Version: konsole\n"
 "Report-Msgid-Bugs-To: https://bugs.kde.org\n"
-"POT-Creation-Date: 2026-08-19 00:50+0000\n"
-"PO-Revision-Date: 2026-07-24 16:04+0200\n"
-"Last-Translator: Jan Tilger <kde@jtilger.de>\n"
+"POT-Creation-Date: 2026-10-13 00:49+0000\n"
+"PO-Revision-Date: 2026-09-19 11:57+0200\n"
+"Last-Translator: Philipp Kiemle <l10n.daphipz@fastmail.de>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Lokalize 26.04.3\n"
+"X-Generator: Lokalize 26.08.1\n"
 
 #, kde-format
 msgctxt "NAME OF TRANSLATORS"
@@ -713,10 +713,9 @@ msgid "Kapsule"
 msgstr "Kapsule"
 
 #: containers/KapsuleDetector.cpp:61 containers/KapsuleDetector.cpp:64
-#, fuzzy, kde-format
-#| msgid "Maintainer"
+#, kde-format
 msgid "Kapsule Container"
-msgstr "Betreuer"
+msgstr "Kapsule-Container"
 
 #: containers/KapsuleDetector.cpp:99
 #, kde-format
@@ -753,12 +752,10 @@ msgid "Deselect All"
 msgstr "Nichts auswählen"
 
 #: filterHotSpots/ColorFilterHotSpot.cpp:85
-#, fuzzy, kde-format
-#| msgctxt "@label:listbox Column header text for the actual colors"
-#| msgid "Color"
+#, kde-format
 msgctxt "@action:inmenu"
 msgid "Copy Color"
-msgstr "Farbe"
+msgstr "Farbe kopieren"
 
 #: filterHotSpots/ColorFilterHotSpot.cpp:148
 #, kde-format
@@ -928,9 +925,11 @@ msgid "Terminal emulator"
 msgstr "Terminal-Emulator"
 
 #: main.cpp:177
-#, kde-format
+#, fuzzy, kde-format
+#| msgctxt "@info:credit"
+#| msgid "(c) 1997-2022, The Konsole Developers"
 msgctxt "@info:credit"
-msgid "(c) 1997-2022, The Konsole Developers"
+msgid "© 1997–%1, The Konsole Developers"
 msgstr "© 1997–2022 Die Konsole-Entwickler"
 
 #: main.cpp:353
@@ -1281,36 +1280,36 @@ msgctxt "@title:menu"
 msgid "&Bookmarks"
 msgstr "&Lesezeichen"
 
-#: MainWindow.cpp:485
+#: MainWindow.cpp:491
 #, kde-format
 msgid "&Window Color Scheme"
 msgstr "&Fenster-Farbschema"
 
-#: MainWindow.cpp:497
+#: MainWindow.cpp:503
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Manage Profiles..."
 msgstr "Profile verwalten …"
 
-#: MainWindow.cpp:503
+#: MainWindow.cpp:509
 #, kde-format
 msgctxt "@item"
 msgid "Activate Menu"
 msgstr "Menü aktivieren"
 
-#: MainWindow.cpp:509
+#: MainWindow.cpp:515
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Save Tab Layout..."
 msgstr "Unterfenster-Layout speichern …"
 
-#: MainWindow.cpp:518
+#: MainWindow.cpp:524
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Load Tab Layout..."
 msgstr "Unterfenster-Layout laden …"
 
-#: MainWindow.cpp:870 MainWindow.cpp:887
+#: MainWindow.cpp:876 MainWindow.cpp:893
 #, kde-format
 msgctxt "@info"
 msgid "There is a process running in this window. Do you still want to quit?"
@@ -1323,25 +1322,25 @@ msgstr[1] ""
 "In diesem Fenster werden noch %1 Prozesse ausgeführt. Möchten Sie dennoch "
 "beenden?"
 
-#: MainWindow.cpp:876 MainWindow.cpp:893 MainWindow.cpp:907
+#: MainWindow.cpp:882 MainWindow.cpp:899 MainWindow.cpp:913
 #, kde-format
 msgctxt "@title"
 msgid "Confirm Close"
 msgstr "Schließen bestätigen"
 
-#: MainWindow.cpp:877 MainWindow.cpp:894 MainWindow.cpp:908
+#: MainWindow.cpp:883 MainWindow.cpp:900 MainWindow.cpp:914
 #, kde-format
 msgctxt "@action:button"
 msgid "Close &Window"
 msgstr "&Fenster schließen"
 
-#: MainWindow.cpp:895 MainWindow.cpp:909
+#: MainWindow.cpp:901 MainWindow.cpp:915
 #, kde-format
 msgctxt "@action:button"
 msgid "Close Current &Tab"
 msgstr "A&ktuelles Unterfenster schließen"
 
-#: MainWindow.cpp:904
+#: MainWindow.cpp:910
 #, kde-format
 msgctxt "@info"
 msgid "There are %1 open terminals in this window. Do you still want to quit?"
@@ -1349,37 +1348,37 @@ msgstr ""
 "In diesem Fenster gibt es noch %1 geöffnete Terminals. Möchten Sie dennoch "
 "beenden?"
 
-#: MainWindow.cpp:1058 Part.cpp:317
+#: MainWindow.cpp:1064 Part.cpp:317
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Profiles"
 msgstr "Profile"
 
-#: MainWindow.cpp:1076
+#: MainWindow.cpp:1082
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "General"
 msgstr "Allgemein"
 
-#: MainWindow.cpp:1088
+#: MainWindow.cpp:1094
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Memory"
 msgstr "Speicher"
 
-#: MainWindow.cpp:1094
+#: MainWindow.cpp:1100
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Tab Bar / Splitters"
 msgstr "Unterfensterleiste / Geteilte Ansicht"
 
-#: MainWindow.cpp:1099
+#: MainWindow.cpp:1105
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Temporary Files"
 msgstr "Temporäre Dateien"
 
-#: MainWindow.cpp:1104
+#: MainWindow.cpp:1110
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Thumbnails"
@@ -1950,14 +1949,14 @@ msgstr "Optionen für die Ausgabe"
 
 #. i18n: ectx: property (text), widget (QCheckBox, printerFriendly)
 #. i18n: ectx: label, entry (PrinterFriendly), group (PrintOptions)
-#: PrintOptions.ui:39 settings/konsole.kcfg:210
+#: PrintOptions.ui:39 settings/konsole.kcfg:220
 #, kde-format
 msgid "Printer &friendly mode (black text, no background)"
 msgstr "Druck&freundlicher Modus (schwarzer Text ohne Hintergrund)"
 
 #. i18n: ectx: property (text), widget (QCheckBox, scaleOutput)
 #. i18n: ectx: label, entry (ScaleOutput), group (PrintOptions)
-#: PrintOptions.ui:46 settings/konsole.kcfg:214
+#: PrintOptions.ui:46 settings/konsole.kcfg:224
 #, kde-format
 msgid "&Scale output"
 msgstr "Ausgabe &skalieren"
@@ -2224,8 +2223,8 @@ msgstr "Keine Aktivität in „%1“ (Sitzung „%2“)"
 
 #: session/Session.cpp:819 session/Session.cpp:2355
 #: session/SessionController.cpp:382 session/SessionController.cpp:1928
-#: terminalDisplay/TerminalBell.cpp:44 Vt102Emulation.cpp:1280
-#: Vt102Emulation.cpp:1535
+#: terminalDisplay/TerminalBell.cpp:44 Vt102Emulation.cpp:1281
+#: Vt102Emulation.cpp:1536
 #, kde-format
 msgid "Show session"
 msgstr "Sitzung anzeigen"
@@ -2713,7 +2712,7 @@ msgstr "Fortschritt in Taskleiste anzeigen"
 #: settings/GeneralSettings.ui:112
 #, kde-format
 msgid "Automatically switch profile based on system theme"
-msgstr ""
+msgstr "Profil je nach Systemdesign automatisch wechseln"
 
 #. i18n: ectx: property (text), widget (QLabel, label_3)
 #: settings/GeneralSettings.ui:119
@@ -3057,47 +3056,82 @@ msgstr "Legt fest, wo das neue Unterfenster eingefügt wird"
 msgid "Expand the tab widths"
 msgstr "Breite der Unterfenster erweitern"
 
+#. i18n: ectx: label, entry (ShowContainerTabColor), group (TabBar)
+#: settings/konsole.kcfg:208
+#, kde-format
+msgid "Color-code tab when running inside a container"
+msgstr "Unterfenster bei Ausführung in einem Container farblich kennzeichnen"
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_ShowContainerTabColor)
+#. i18n: ectx: tooltip, entry (ShowContainerTabColor), group (TabBar)
+#: settings/konsole.kcfg:209 settings/TabBarSettings.ui:301
+#, kde-format
+msgid ""
+"When running inside a container (e.g. Distrobox or Toolbox), color-code the "
+"tab with a container-specific color"
+msgstr ""
+"Das Unterfenster bei Ausführung in einem Container (z. B. Distrobox oder "
+"Toolbox) mit einer containerspezifischen Farbe kennzeichnen"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ShowContainerStatusBar)
+#. i18n: ectx: label, entry (ShowContainerStatusBar), group (TabBar)
+#: settings/konsole.kcfg:213 settings/TabBarSettings.ui:314
+#, kde-format
+msgid "Show container label in terminal footer"
+msgstr "Containerbeschriftung in der Fußzeile des Terminals anzeigen"
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_ShowContainerStatusBar)
+#. i18n: ectx: tooltip, entry (ShowContainerStatusBar), group (TabBar)
+#: settings/konsole.kcfg:214 settings/TabBarSettings.ui:311
+#, kde-format
+msgid ""
+"When running inside a container (e.g. Distrobox or Toolbox), show a label "
+"with the container name at the bottom of the terminal"
+msgstr ""
+"Bei Ausführung in einem Container (z. B. Distrobox oder Toolbox) den Namen "
+"des Containers am unteren Rand des Terminals anzeigen"
+
 #. i18n: ectx: label, entry (scrollbackUseSystemLocation), group (FileLocation)
-#: settings/konsole.kcfg:220
+#: settings/konsole.kcfg:230
 #, kde-format
 msgid "For scrollback files, use system-wide folder location"
 msgstr "System-Speicherort für Verlaufsdateien verwenden"
 
 #. i18n: ectx: label, entry (scrollbackUseCacheLocation), group (FileLocation)
-#: settings/konsole.kcfg:224
+#: settings/konsole.kcfg:234
 #, kde-format
 msgid "For scrollback files, use user's specific folder location"
 msgstr "Benutzer-Speicherort für Verlaufsdateien verwenden"
 
 #. i18n: ectx: label, entry (scrollbackUseSpecifiedLocation), group (FileLocation)
-#: settings/konsole.kcfg:228
+#: settings/konsole.kcfg:238
 #, kde-format
 msgid "For scrollback files, use specified folder location"
 msgstr "Angegebenen Speicherort für Verlaufsdateien verwenden"
 
 #. i18n: ectx: label, entry (scrollbackUseSpecifiedLocationDirectory), group (FileLocation)
-#: settings/konsole.kcfg:232
+#: settings/konsole.kcfg:242
 #, kde-format
 msgid "For scrollback files, use this folder"
 msgstr "Diesen Ordner für Verlaufsdateien verwenden"
 
 #. i18n: ectx: label, entry (SyncProfileWithSystemTheme), group (LightDarkTheme)
-#: settings/konsole.kcfg:238
+#: settings/konsole.kcfg:248
 #, kde-format
 msgid "Sync profile with system theme"
-msgstr ""
+msgstr "Profil mit dem Systemdesign synchronisieren"
 
 #. i18n: ectx: label, entry (LightThemeProfile), group (LightDarkTheme)
-#: settings/konsole.kcfg:242
+#: settings/konsole.kcfg:252
 #, kde-format
 msgid "Profile to use for light system theme"
-msgstr ""
+msgstr "Profil für das helle Systemdesign"
 
 #. i18n: ectx: label, entry (DarkThemeProfile), group (LightDarkTheme)
-#: settings/konsole.kcfg:246
+#: settings/konsole.kcfg:256
 #, kde-format
 msgid "Profile to use for dark system theme"
-msgstr ""
+msgstr "Profil für das dunkle Systemdesign"
 
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_EnableMemoryMonitoring)
 #: settings/MemorySettings.ui:17
@@ -3207,12 +3241,9 @@ msgstr "Als &Standard festlegen"
 
 #. i18n: ectx: property (toolTip), widget (QPushButton, setLightProfileButton)
 #: settings/ProfileSettings.ui:103
-#, fuzzy, kde-format
-#| msgid "Set the selected profile as the default for new terminal sessions"
+#, kde-format
 msgid "Set the selected profile as the light theme profile"
-msgstr ""
-"Das ausgewählte Profil als Voreinstellung für neue Terminalsitzungen "
-"festlegen"
+msgstr "Das ausgewählte Profil als Profil für das helle Design festlegen"
 
 #. i18n: ectx: property (text), widget (QPushButton, setLightProfileButton)
 #: settings/ProfileSettings.ui:106
@@ -3222,12 +3253,9 @@ msgstr "Als &hell festlegen"
 
 #. i18n: ectx: property (toolTip), widget (QPushButton, setDarkProfileButton)
 #: settings/ProfileSettings.ui:116
-#, fuzzy, kde-format
-#| msgid "Set the selected profile as the default for new terminal sessions"
+#, kde-format
 msgid "Set the selected profile as the dark theme profile"
-msgstr ""
-"Das ausgewählte Profil als Voreinstellung für neue Terminalsitzungen "
-"festlegen"
+msgstr "Das ausgewählte Profil als Profil für das dunkle Design festlegen"
 
 #. i18n: ectx: property (text), widget (QPushButton, setDarkProfileButton)
 #: settings/ProfileSettings.ui:119
@@ -3341,7 +3369,7 @@ msgstr "Niemals"
 
 #. i18n: ectx: property (text), widget (QLabel, miscellaneousAppearanceLabel)
 #. i18n: ectx: property (text), widget (QLabel, miscellaneousBehaviorLabel)
-#: settings/TabBarSettings.ui:277 settings/TabBarSettings.ui:410
+#: settings/TabBarSettings.ui:277 settings/TabBarSettings.ui:430
 #, kde-format
 msgctxt "@item:intext Miscellaneous Options"
 msgid "Miscellaneous:"
@@ -3359,105 +3387,111 @@ msgstr "Knöpfe „Neues Unterfenster“ anzeigen"
 msgid "Expand individual tab widths to full window"
 msgstr "Breite einzelner Unterfenster auf die volle Fensterbreite erweitern"
 
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ShowContainerTabColor)
+#: settings/TabBarSettings.ui:304
+#, kde-format
+msgid "Color-code tab when inside a container"
+msgstr "Unterfenster bei Ausführung in einem Container farblich kennzeichnen"
+
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_TabBarUseUserStyleSheet)
-#: settings/TabBarSettings.ui:301
+#: settings/TabBarSettings.ui:321
 #, kde-format
 msgid "Use user-defined stylesheet:"
 msgstr "Benutzerdefinierte Stilvorlage verwenden:"
 
 #. i18n: ectx: property (placeholderText), widget (KUrlRequester, kcfg_TabBarUserStyleSheetFile)
-#: settings/TabBarSettings.ui:327
+#: settings/TabBarSettings.ui:347
 #, kde-format
 msgctxt "@item:intext Optional file path is empty"
 msgid "(none)"
 msgstr "(keine)"
 
 #. i18n: ectx: attribute (title), widget (QWidget, behaviorTab)
-#: settings/TabBarSettings.ui:350
+#: settings/TabBarSettings.ui:370
 #, kde-format
 msgctxt "@title:tab Tab bar settings"
 msgid "Behavior"
 msgstr "Verhalten"
 
 #. i18n: ectx: property (text), widget (QLabel, putNewTabsLabel)
-#: settings/TabBarSettings.ui:364
+#: settings/TabBarSettings.ui:384
 #, kde-format
 msgid "Put new tabs:"
 msgstr "Neue Unterfenster:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, PutNewTabAtTheEnd)
-#: settings/TabBarSettings.ui:374
+#: settings/TabBarSettings.ui:394
 #, kde-format
 msgid "At &the end"
 msgstr "&Am Ende"
 
 #. i18n: ectx: property (text), widget (QRadioButton, PutNewTabAfterCurrentTab)
-#: settings/TabBarSettings.ui:384
+#: settings/TabBarSettings.ui:404
 #, kde-format
 msgid "After current &tab"
-msgstr "Nach dem akt&uelles Unterfenster"
+msgstr "Nach dem akt&uellen Unterfenster"
 
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_CloseTabOnMiddleMouseButton)
-#: settings/TabBarSettings.ui:420
+#: settings/TabBarSettings.ui:440
 #, kde-format
 msgid "Close tab on middle-click"
 msgstr "Unterfenster bei Klicken mit der mittleren Maustaste schließen"
 
 #. i18n: ectx: attribute (title), widget (QWidget, splitTab)
-#: settings/TabBarSettings.ui:443
+#: settings/TabBarSettings.ui:463
 #, kde-format
 msgid "Splits"
 msgstr "Geteilte Ansicht"
 
 #. i18n: ectx: property (text), widget (QLabel, label)
-#: settings/TabBarSettings.ui:449
+#: settings/TabBarSettings.ui:469
 #, kde-format
 msgid "Show Header:"
 msgstr "Titelzeile anzeigen:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, ShowSplitHeaderWhenNeeded)
-#: settings/TabBarSettings.ui:456
+#: settings/TabBarSettings.ui:476
 #, kde-format
 msgctxt "@option:radio When needed show the split header"
 msgid "When needed"
 msgstr "Wenn nötig"
 
 #. i18n: ectx: property (text), widget (QRadioButton, AlwaysHideSplitHeader)
-#: settings/TabBarSettings.ui:466
+#: settings/TabBarSettings.ui:486
 #, kde-format
 msgctxt "@option:radio Never show the split header"
 msgid "Never"
 msgstr "Niemals"
 
 #. i18n: ectx: property (text), widget (QLabel, label_2)
-#: settings/TabBarSettings.ui:492
+#: settings/TabBarSettings.ui:512
 #, kde-format
 msgid "Drag Handle Size:"
 msgstr "Größe des Ziehgriffs:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleSmall)
-#: settings/TabBarSettings.ui:502
+#: settings/TabBarSettings.ui:522
 #, kde-format
 msgctxt "@option:radio Small height/width of splitter widget"
 msgid "Small"
 msgstr "Klein"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleMedium)
-#: settings/TabBarSettings.ui:512
+#: settings/TabBarSettings.ui:532
 #, kde-format
 msgctxt "@option:radio Medium height/width of splitter widget"
 msgid "Medium"
 msgstr "Mittel"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleLarge)
-#: settings/TabBarSettings.ui:522
+#: settings/TabBarSettings.ui:542
 #, kde-format
 msgctxt "@option:radio Large height/width of splitter widget"
 msgid "Large"
 msgstr "Groß"
 
 #. i18n: ectx: property (text), widget (QRadioButton, AlwaysShowSplitHeader)
-#: settings/TabBarSettings.ui:545
+#: settings/TabBarSettings.ui:565
 #, kde-format
 msgctxt "@option:radio Always show the split header"
 msgid "Always"
@@ -3552,68 +3586,68 @@ msgstr "Strg"
 msgid "Enable thumbnails generation"
 msgstr "Vorschaubilderstellung aktivieren"
 
-#: terminalDisplay/TerminalDisplay.cpp:704
+#: terminalDisplay/TerminalDisplay.cpp:708
 #, kde-format
 msgid "Size: %1 x %2"
 msgstr "Größe: %1 × %2"
 
-#: terminalDisplay/TerminalDisplay.cpp:2432
+#: terminalDisplay/TerminalDisplay.cpp:2448
 #, kde-format
 msgid "Are you sure you want to paste %1 character?"
 msgid_plural "Are you sure you want to paste %1 characters?"
 msgstr[0] "Möchten Sie wirklich %1 Zeichen einfügen?"
 msgstr[1] "Möchten Sie wirklich %1 Zeichen einfügen?"
 
-#: terminalDisplay/TerminalDisplay.cpp:2433
+#: terminalDisplay/TerminalDisplay.cpp:2449
 #, kde-format
 msgid "Confirm Paste"
 msgstr "Einfügen bestätigen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2466
+#: terminalDisplay/TerminalDisplay.cpp:2482
 #, kde-format
 msgid "End Of Text/Interrupt: may exit the current process"
 msgstr ""
 "Textende/Unterbrechung (End Of Text/Interrupt): Kann den aktuellen Prozess "
 "beenden"
 
-#: terminalDisplay/TerminalDisplay.cpp:2467
+#: terminalDisplay/TerminalDisplay.cpp:2483
 #, kde-format
 msgid "End Of Transmission: may exit the current process"
 msgstr ""
 "Ende der Übertragung (End Of Transmission): Kann den aktuellen Prozess "
 "beenden"
 
-#: terminalDisplay/TerminalDisplay.cpp:2468
+#: terminalDisplay/TerminalDisplay.cpp:2484
 #, kde-format
 msgid "Bell: will try to emit an audible warning"
 msgstr "Signalton: versucht, eine akustische Warnung abzugeben"
 
-#: terminalDisplay/TerminalDisplay.cpp:2469
+#: terminalDisplay/TerminalDisplay.cpp:2485
 #, kde-format
 msgid "Backspace"
 msgstr "Rücktaste"
 
-#: terminalDisplay/TerminalDisplay.cpp:2470
+#: terminalDisplay/TerminalDisplay.cpp:2486
 #, kde-format
 msgid "Device Control Three/XOFF: suspends output"
 msgstr "Gerätekontrollzeichen 3/XOFF: Ausgabe aussetzen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2471
+#: terminalDisplay/TerminalDisplay.cpp:2487
 #, kde-format
 msgid "Substitute/Suspend: may suspend current process"
 msgstr "Ersatz/Aussetzen: kann den laufenden Prozess aussetzen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2472
+#: terminalDisplay/TerminalDisplay.cpp:2488
 #, kde-format
 msgid "Escape: used for manipulating terminal state"
 msgstr "Esc: für die Steuerung des Terminalstatus verwendet"
 
-#: terminalDisplay/TerminalDisplay.cpp:2473
+#: terminalDisplay/TerminalDisplay.cpp:2489
 #, kde-format
 msgid "File Separator/Quit: may abort the current process"
 msgstr "Datei-Trennzeichen/Beenden: kann den aktuellen Prozess abbrechen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2496
+#: terminalDisplay/TerminalDisplay.cpp:2512
 #, kde-format
 msgid ""
 "The text you're trying to paste contains hidden control characters, do you "
@@ -3622,31 +3656,31 @@ msgstr ""
 "Der Text, den Sie einfügen möchten, enthält ausgeblendete Kontrollzeichen, "
 "möchten Sie sie ausfiltern?"
 
-#: terminalDisplay/TerminalDisplay.cpp:2499
+#: terminalDisplay/TerminalDisplay.cpp:2515
 #, kde-format
 msgctxt "@title"
 msgid "Confirm Paste"
 msgstr "Einfügen bestätigen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2500
+#: terminalDisplay/TerminalDisplay.cpp:2516
 #, kde-format
 msgctxt "@action:button"
 msgid "Paste &without control characters"
 msgstr "&Ohne Kontrollzeichen einfügen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2501
+#: terminalDisplay/TerminalDisplay.cpp:2517
 #, kde-format
 msgctxt "@action:button"
 msgid "&Paste everything"
 msgstr "&Alles einfügen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2502
+#: terminalDisplay/TerminalDisplay.cpp:2518
 #, kde-format
 msgctxt "@action:button"
 msgid "&Cancel"
 msgstr "&Abbrechen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2745
+#: terminalDisplay/TerminalDisplay.cpp:2752
 #, kde-format
 msgid ""
 "<qt>Output has been <a href=\"https://en.wikipedia.org/wiki/"
@@ -3657,17 +3691,17 @@ msgstr ""
 "org/wiki/Datenflusskontrolle\">angehalten</a> worden. Drücken Sie <b>Strg+Q</"
 "b>, um fortzufahren.</qt>"
 
-#: terminalDisplay/TerminalDisplay.cpp:2800
+#: terminalDisplay/TerminalDisplay.cpp:2807
 #, kde-format
 msgid "This terminal is read-only."
 msgstr "Dieses Terminal ist schreibgeschützt."
 
-#: terminalDisplay/TerminalDisplay.cpp:3206
+#: terminalDisplay/TerminalDisplay.cpp:3213
 #, kde-format
 msgid "Change &Directory To"
 msgstr "Ordner &wechseln zu"
 
-#: terminalDisplay/TerminalDisplay.cpp:3241
+#: terminalDisplay/TerminalDisplay.cpp:3248
 #, kde-format
 msgid "&Paste Location"
 msgstr "Speicherort &einfügen"
@@ -3942,7 +3976,7 @@ msgctxt "@title:window"
 msgid "Load Tab Layout"
 msgstr "Unterfenster-Layout laden"
 
-#: Vt102Emulation.cpp:3342
+#: Vt102Emulation.cpp:3272
 #, kde-format
 msgid ""
 "No keyboard translator available.  The information needed to convert key "
@@ -4862,30 +4896,20 @@ msgid "None"
 msgstr "Kein"
 
 #: widgets/EditProfileDialog.cpp:557
-#, fuzzy, kde-format
-#| msgctxt ""
-#| "Suffix of the number of columns (N columns). The leading space is needed "
-#| "to separate it from the number value."
-#| msgid " column"
-#| msgid_plural " columns"
+#, kde-format
 msgctxt "@item number of columns"
 msgid "%v column"
 msgid_plural "%v columns"
-msgstr[0] " Spalte"
-msgstr[1] " Spalten"
+msgstr[0] "%v Spalte"
+msgstr[1] "%v Spalten"
 
 #: widgets/EditProfileDialog.cpp:558
-#, fuzzy, kde-format
-#| msgctxt ""
-#| "Suffix of the number of rows (N rows). The leading space is needed to "
-#| "separate it from the number value."
-#| msgid " row"
-#| msgid_plural " rows"
+#, kde-format
 msgctxt "@item number of rows"
 msgid "%v row"
 msgid_plural "%v rows"
-msgstr[0] " Zeile"
-msgstr[1] " Zeilen"
+msgstr[0] "%v Zeile"
+msgstr[1] "%v Zeilen"
 
 #: widgets/EditProfileDialog.cpp:570
 #, kde-format
@@ -4923,15 +4947,12 @@ msgid "One environment variable per line"
 msgstr "Eine Umgebungsvariable je Zeile"
 
 #: widgets/EditProfileDialog.cpp:720
-#, fuzzy, kde-format
-#| msgctxt "Unit of time"
-#| msgid " second"
-#| msgid_plural " seconds"
+#, kde-format
 msgctxt "@item number of seconds"
 msgid "%v second"
 msgid_plural "%v seconds"
-msgstr[0] " Sekunde"
-msgstr[1] " Sekunden"
+msgstr[0] "%v Sekunde"
+msgstr[1] "%v Sekunden"
 
 #: widgets/EditProfileDialog.cpp:850
 #, kde-format
@@ -5362,27 +5383,26 @@ msgstr "Von der Auswahl"
 #: widgets/EditProfileMousePage.ui:186
 #, kde-format
 msgid "Right-click:"
-msgstr ""
+msgstr "Rechtsklick:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, rightClickPasteDisabledButton)
 #: widgets/EditProfileMousePage.ui:196
 #, kde-format
 msgid "Opens context menu"
-msgstr ""
+msgstr "Öffnet das Kontextmenü"
 
 #. i18n: ectx: property (toolTip), widget (QRadioButton, rightClickPasteDisabledButton)
 #: widgets/EditProfileMousePage.ui:199
 #, kde-format
 msgctxt "@info:tooltip"
 msgid "Right-click shows context menu"
-msgstr ""
+msgstr "Rechsklick öffnet das Kontextmenü"
 
 #. i18n: ectx: property (text), widget (QRadioButton, rightClickPasteFromClipboardButton)
 #: widgets/EditProfileMousePage.ui:209
-#, fuzzy, kde-format
-#| msgid "From clipboard"
+#, kde-format
 msgid "Pastes from clipboard"
-msgstr "Aus der Zwischenablage"
+msgstr "Fügt den Inhalt der Zwischenablage ein"
 
 #. i18n: ectx: property (toolTip), widget (QRadioButton, rightClickPasteFromClipboardButton)
 #. i18n: ectx: property (toolTip), widget (QRadioButton, rightClickPasteFromX11SelectionButton)
@@ -5390,14 +5410,13 @@ msgstr "Aus der Zwischenablage"
 #, kde-format
 msgctxt "@info:tooltip"
 msgid "Control+right-click shows context menu"
-msgstr ""
+msgstr "Strg+Rechtsklick öffnet das Kontextmenü"
 
 #. i18n: ectx: property (text), widget (QRadioButton, rightClickPasteFromX11SelectionButton)
 #: widgets/EditProfileMousePage.ui:222
-#, fuzzy, kde-format
-#| msgid "Paste Selection"
+#, kde-format
 msgid "Pastes from selection"
-msgstr "Auswahl einfügen"
+msgstr "Fügt die Auswahl ein"
 
 #. i18n: ectx: property (text), widget (QLabel, label)
 #: widgets/EditProfileMousePage.ui:251
@@ -5816,15 +5835,12 @@ msgstr ""
 "Der Grenzwert für Inaktivität in Sekunden, die Konsole feststellen soll"
 
 #: widgets/HistorySizeWidget.cpp:41
-#, fuzzy, kde-format
-#| msgctxt "@label:textbox Unit of scrollback"
-#| msgid " line"
-#| msgid_plural " lines"
+#, kde-format
 msgctxt "@item number of lines"
 msgid "%v line"
 msgid_plural "%v lines"
-msgstr[0] " Zeile"
-msgstr[1] " Zeilen"
+msgstr[0] "%v Zeile"
+msgstr[1] "%v Zeilen"
 
 #: widgets/HistorySizeWidget.cpp:56
 #, kde-format
@@ -6194,20 +6210,19 @@ msgctxt "@action:inmenu"
 msgid "Close Tab"
 msgstr "Unterfenster schließen"
 
-#: widgets/ViewContainer.cpp:969 widgets/ViewContainer.cpp:978
-#, fuzzy, kde-format
-#| msgid "Maintainer"
+#: widgets/ViewContainer.cpp:990 widgets/ViewContainer.cpp:999
+#, kde-format
 msgctxt "As in Distrobox, Toolbox, Kapsule etc."
 msgid "Container"
-msgstr "Betreuer"
+msgstr "Container"
 
-#: widgets/ViewContainer.cpp:988
+#: widgets/ViewContainer.cpp:1009
 #, kde-format
 msgctxt ""
 "%1 is the type of container (e.g. Distrobox, Toolbox, Kapsule etc.), %2 its "
 "name"
 msgid "%1: %2"
-msgstr ""
+msgstr "%1: %2"
 
 #~ msgid ""
 #~ "The D-Bus methods sendText/runCommand were just used.  There are security "

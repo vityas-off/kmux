@@ -20,8 +20,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: konsole\n"
 "Report-Msgid-Bugs-To: https://bugs.kde.org\n"
-"POT-Creation-Date: 2026-08-19 00:50+0000\n"
-"PO-Revision-Date: 2026-01-05 17:20+0200\n"
+"POT-Creation-Date: 2026-10-13 00:49+0000\n"
+"PO-Revision-Date: 2026-09-07 19:43+0300\n"
 "Last-Translator: Tommi Nieminen <translator@legisign.org>\n"
 "Language-Team: Finnish <kde-i18n-doc@kde.org>\n"
 "Language: fi\n"
@@ -185,20 +185,16 @@ msgid "Hide the menubar, overriding the default setting"
 msgstr "Piilota valikkorivi oletusasetuksesta riippumatta"
 
 #: Application.cpp:68
-#, fuzzy, kde-format
-#| msgctxt "@info:shell"
-#| msgid "Show the tabbar, overriding the default setting"
+#, kde-format
 msgctxt "@info:shell"
 msgid "Show all the toolbars, overriding the default setting"
-msgstr "Näytä välilehtipalkki oletusasetuksesta riippumatta"
+msgstr "Sivuuta oletusasetus ja näytä kaikki työkalurivit"
 
 #: Application.cpp:69
-#, fuzzy, kde-format
-#| msgctxt "@info:shell"
-#| msgid "Hide the tabbar, overriding the default setting"
+#, kde-format
 msgctxt "@info:shell"
 msgid "Hide all the toolbars, overriding the default setting"
-msgstr "Piilota välilehtipalkki oletusasetuksesta riippumatta"
+msgstr "Sivuuta oletusasetus ja piilota kaikki työkalurivit"
 
 #: Application.cpp:70
 #, kde-format
@@ -697,45 +693,41 @@ msgid "AaZz09..."
 msgstr "AaÖö09..."
 
 #: containers/ContainerList.cpp:78
-#, fuzzy, kde-format
-#| msgid "Host: %1"
+#, kde-format
 msgctxt "@title:group section header in new-tab menu"
 msgid "Host"
-msgstr "Palvelin: %1"
+msgstr "Kone"
 
 #: containers/ContainerRegistry.cpp:43
 #, kde-format
 msgid ""
 "Container support is not available when Konsole is running inside Flatpak."
-msgstr ""
+msgstr "Säilötuki ei ole käytettävissä, kun Konsolea suoritetaan Flatpakissä."
 
 #: containers/DistroboxDetector.cpp:124
 #, kde-format
 msgid "Distrobox"
-msgstr ""
+msgstr "Distrobox"
 
 #: containers/KapsuleDetector.cpp:36
 #, kde-format
 msgid "Kapsule"
-msgstr ""
+msgstr "Kapsule"
 
 #: containers/KapsuleDetector.cpp:61 containers/KapsuleDetector.cpp:64
-#, fuzzy, kde-format
-#| msgid "Maintainer"
+#, kde-format
 msgid "Kapsule Container"
-msgstr "Ylläpitäjä"
+msgstr "Kapsule-säilö"
 
 #: containers/KapsuleDetector.cpp:99
-#, fuzzy, kde-format
-#| msgctxt "@label:textbox added to the name of the current default profile"
-#| msgid " [Default]"
+#, kde-format
 msgid " [default]"
-msgstr " [Oletus]"
+msgstr " [oletus]"
 
 #: containers/ToolboxDetector.cpp:89
 #, kde-format
 msgid "Toolbox"
-msgstr ""
+msgstr "Toolbox"
 
 #: CopyInputDialog.cpp:30
 #, kde-format
@@ -762,12 +754,10 @@ msgid "Deselect All"
 msgstr "Poista valinta"
 
 #: filterHotSpots/ColorFilterHotSpot.cpp:85
-#, fuzzy, kde-format
-#| msgctxt "@label:listbox Column header text for the actual colors"
-#| msgid "Color"
+#, kde-format
 msgctxt "@action:inmenu"
 msgid "Copy Color"
-msgstr "Väri"
+msgstr "Kopioi väri"
 
 #: filterHotSpots/ColorFilterHotSpot.cpp:148
 #, kde-format
@@ -935,9 +925,11 @@ msgid "Terminal emulator"
 msgstr "Pääte-emulaattori"
 
 #: main.cpp:177
-#, kde-format
+#, fuzzy, kde-format
+#| msgctxt "@info:credit"
+#| msgid "(c) 1997-2022, The Konsole Developers"
 msgctxt "@info:credit"
-msgid "(c) 1997-2022, The Konsole Developers"
+msgid "© 1997–%1, The Konsole Developers"
 msgstr "© 1997–2022 Konsolen kehittäjät"
 
 #: main.cpp:353
@@ -1290,36 +1282,36 @@ msgctxt "@title:menu"
 msgid "&Bookmarks"
 msgstr "&Kirjanmerkit"
 
-#: MainWindow.cpp:485
+#: MainWindow.cpp:491
 #, kde-format
 msgid "&Window Color Scheme"
 msgstr "&Ikkunan väriteema"
 
-#: MainWindow.cpp:497
+#: MainWindow.cpp:503
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Manage Profiles..."
 msgstr "Hallitse profiileja…"
 
-#: MainWindow.cpp:503
+#: MainWindow.cpp:509
 #, kde-format
 msgctxt "@item"
 msgid "Activate Menu"
 msgstr "Aktivoi valikko"
 
-#: MainWindow.cpp:509
+#: MainWindow.cpp:515
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Save Tab Layout..."
 msgstr "Tallenna välilehtiasettelu…"
 
-#: MainWindow.cpp:518
+#: MainWindow.cpp:524
 #, kde-format
 msgctxt "@action:inmenu"
 msgid "Load Tab Layout..."
 msgstr "Lataa välilehtiasettelu…"
 
-#: MainWindow.cpp:870 MainWindow.cpp:887
+#: MainWindow.cpp:876 MainWindow.cpp:893
 #, kde-format
 msgctxt "@info"
 msgid "There is a process running in this window. Do you still want to quit?"
@@ -1329,61 +1321,61 @@ msgstr[0] "Ikkunassa on prosessi käynnissä. Haluatko silti lopettaa ohjelman?"
 msgstr[1] ""
 "Ikkunassa on %1 prosessia käynnissä. Haluatko silti lopettaa ohjelman?"
 
-#: MainWindow.cpp:876 MainWindow.cpp:893 MainWindow.cpp:907
+#: MainWindow.cpp:882 MainWindow.cpp:899 MainWindow.cpp:913
 #, kde-format
 msgctxt "@title"
 msgid "Confirm Close"
 msgstr "Vahvista sulkeminen"
 
-#: MainWindow.cpp:877 MainWindow.cpp:894 MainWindow.cpp:908
+#: MainWindow.cpp:883 MainWindow.cpp:900 MainWindow.cpp:914
 #, kde-format
 msgctxt "@action:button"
 msgid "Close &Window"
 msgstr "&Sulje ikkuna"
 
-#: MainWindow.cpp:895 MainWindow.cpp:909
+#: MainWindow.cpp:901 MainWindow.cpp:915
 #, kde-format
 msgctxt "@action:button"
 msgid "Close Current &Tab"
 msgstr "Sulje nykyinen &välilehti"
 
-#: MainWindow.cpp:904
+#: MainWindow.cpp:910
 #, kde-format
 msgctxt "@info"
 msgid "There are %1 open terminals in this window. Do you still want to quit?"
 msgstr "Ikkunassa on auki %1 päätettä. Haluatko silti lopettaa?"
 
-#: MainWindow.cpp:1058 Part.cpp:317
+#: MainWindow.cpp:1064 Part.cpp:317
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Profiles"
 msgstr "Profiilit"
 
-#: MainWindow.cpp:1076
+#: MainWindow.cpp:1082
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "General"
 msgstr "Perusasetukset"
 
-#: MainWindow.cpp:1088
+#: MainWindow.cpp:1094
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Memory"
 msgstr "Muisti"
 
-#: MainWindow.cpp:1094
+#: MainWindow.cpp:1100
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Tab Bar / Splitters"
 msgstr "Välilehtipalkki / Jakoviivat"
 
-#: MainWindow.cpp:1099
+#: MainWindow.cpp:1105
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Temporary Files"
 msgstr "Väliaikaistiedostot"
 
-#: MainWindow.cpp:1104
+#: MainWindow.cpp:1110
 #, kde-format
 msgctxt "@title Preferences page name"
 msgid "Thumbnails"
@@ -1950,14 +1942,14 @@ msgstr "Tulosteasetukset"
 
 #. i18n: ectx: property (text), widget (QCheckBox, printerFriendly)
 #. i18n: ectx: label, entry (PrinterFriendly), group (PrintOptions)
-#: PrintOptions.ui:39 settings/konsole.kcfg:210
+#: PrintOptions.ui:39 settings/konsole.kcfg:220
 #, kde-format
 msgid "Printer &friendly mode (black text, no background)"
 msgstr "Tulostin&ystävällinen tila (musta teksti, ei taustaa)"
 
 #. i18n: ectx: property (text), widget (QCheckBox, scaleOutput)
 #. i18n: ectx: label, entry (ScaleOutput), group (PrintOptions)
-#: PrintOptions.ui:46 settings/konsole.kcfg:214
+#: PrintOptions.ui:46 settings/konsole.kcfg:224
 #, kde-format
 msgid "&Scale output"
 msgstr "&Sovita tuloste"
@@ -2014,14 +2006,13 @@ msgstr " [Oletus]"
 #, kde-format
 msgctxt "@label:textbox added to profile name when used for light system theme"
 msgid " [Light]"
-msgstr ""
+msgstr " [vaalea]"
 
 #: profile/ProfileModel.cpp:94
-#, fuzzy, kde-format
-#| msgid "Darken"
+#, kde-format
 msgctxt "@label:textbox added to profile name when used for dark system theme"
 msgid " [Dark]"
-msgstr "Tummenna"
+msgstr " [tumma]"
 
 #: profile/ProfileModel.cpp:110
 #, kde-format
@@ -2225,8 +2216,8 @@ msgstr "Hiljaisuus päätteessä ”%1” (istunto ”%2”)"
 
 #: session/Session.cpp:819 session/Session.cpp:2355
 #: session/SessionController.cpp:382 session/SessionController.cpp:1928
-#: terminalDisplay/TerminalBell.cpp:44 Vt102Emulation.cpp:1280
-#: Vt102Emulation.cpp:1535
+#: terminalDisplay/TerminalBell.cpp:44 Vt102Emulation.cpp:1281
+#: Vt102Emulation.cpp:1536
 #, kde-format
 msgid "Show session"
 msgstr "Näytä istunto"
@@ -2691,10 +2682,9 @@ msgstr "Muista ikkunan koko"
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_ForceNewTabs)
 #. i18n: ectx: label, entry (ForceNewTabs), group (KonsoleWindow)
 #: settings/GeneralSettings.ui:91 settings/konsole.kcfg:37
-#, fuzzy, kde-format
-#| msgid "Put new tabs:"
+#, kde-format
 msgid "Force new tabs"
-msgstr "Sijoita uudet välilehdet:"
+msgstr "Pakota uudet välilehdet"
 
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_ListenForZModemTerminalCodes)
 #: settings/GeneralSettings.ui:98
@@ -2706,13 +2696,13 @@ msgstr "Kuuntele ZModem-päätekoodeja"
 #: settings/GeneralSettings.ui:105
 #, kde-format
 msgid "Show progress in taskbar"
-msgstr ""
+msgstr "Näytä eteneminen tehtäväpalkissa"
 
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_SyncProfileWithSystemTheme)
 #: settings/GeneralSettings.ui:112
 #, kde-format
 msgid "Automatically switch profile based on system theme"
-msgstr ""
+msgstr "Vaihda automaattisesti järjestelmäteeman mukaiseen profiiliin"
 
 #. i18n: ectx: property (text), widget (QLabel, label_3)
 #: settings/GeneralSettings.ui:119
@@ -2860,26 +2850,25 @@ msgstr "Ikkunan koko tallennetaan, kun Konsole lopetetaan"
 
 #. i18n: ectx: tooltip, entry (ForceNewTabs), group (KonsoleWindow)
 #: settings/konsole.kcfg:38
-#, fuzzy, kde-format
-#| msgid "When launching Konsole re-use existing process if possible"
+#, kde-format
 msgid ""
 "When launching Konsole create a new tab instead of creating new windows if "
 "possible"
 msgstr ""
-"Konsolea käynnistettäessä käytä mahdollisuuksien mukaan uudelleen olemassa "
-"olevaa prosessia"
+"Konsolea käynnistettäessä luo uusi välilehti uusien ikkunoiden sijaan, jos "
+"mahdollista"
 
 #. i18n: ectx: label, entry (ShowProgressInTaskBar), group (KonsoleWindow)
 #: settings/konsole.kcfg:42
 #, kde-format
 msgid "Show progress in task bar"
-msgstr ""
+msgstr "Näytä eteneminen tehtäväpalkissa"
 
 #. i18n: ectx: tooltip, entry (ShowProgressInTaskBar), group (KonsoleWindow)
 #: settings/konsole.kcfg:43
 #, kde-format
 msgid "When a script reports its progress, it will be shown in the task bar"
-msgstr ""
+msgstr "Kun skripti ilmoittaa etenemisestään, se näytetään tehtäväpalkissa"
 
 #. i18n: ectx: tooltip, entry (EnableSecuritySensitiveDBusAPI), group (KonsoleWindow)
 #: settings/konsole.kcfg:48
@@ -3042,47 +3031,78 @@ msgstr "Aseta, minne uusi välilehti sijoitetaan"
 msgid "Expand the tab widths"
 msgstr "Lavenna sarkainleveydet"
 
+#. i18n: ectx: label, entry (ShowContainerTabColor), group (TabBar)
+#: settings/konsole.kcfg:208
+#, kde-format
+msgid "Color-code tab when running inside a container"
+msgstr ""
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_ShowContainerTabColor)
+#. i18n: ectx: tooltip, entry (ShowContainerTabColor), group (TabBar)
+#: settings/konsole.kcfg:209 settings/TabBarSettings.ui:301
+#, kde-format
+msgid ""
+"When running inside a container (e.g. Distrobox or Toolbox), color-code the "
+"tab with a container-specific color"
+msgstr ""
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ShowContainerStatusBar)
+#. i18n: ectx: label, entry (ShowContainerStatusBar), group (TabBar)
+#: settings/konsole.kcfg:213 settings/TabBarSettings.ui:314
+#, kde-format
+msgid "Show container label in terminal footer"
+msgstr ""
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_ShowContainerStatusBar)
+#. i18n: ectx: tooltip, entry (ShowContainerStatusBar), group (TabBar)
+#: settings/konsole.kcfg:214 settings/TabBarSettings.ui:311
+#, kde-format
+msgid ""
+"When running inside a container (e.g. Distrobox or Toolbox), show a label "
+"with the container name at the bottom of the terminal"
+msgstr ""
+
 #. i18n: ectx: label, entry (scrollbackUseSystemLocation), group (FileLocation)
-#: settings/konsole.kcfg:220
+#: settings/konsole.kcfg:230
 #, kde-format
 msgid "For scrollback files, use system-wide folder location"
 msgstr "Käytä rivihistoriatiedostoille järjestelmänlaajuista kansiota"
 
 #. i18n: ectx: label, entry (scrollbackUseCacheLocation), group (FileLocation)
-#: settings/konsole.kcfg:224
+#: settings/konsole.kcfg:234
 #, kde-format
 msgid "For scrollback files, use user's specific folder location"
 msgstr "Käytä rivihistoriatiedostoille käyttäjäkohtaista kansiota"
 
 #. i18n: ectx: label, entry (scrollbackUseSpecifiedLocation), group (FileLocation)
-#: settings/konsole.kcfg:228
+#: settings/konsole.kcfg:238
 #, kde-format
 msgid "For scrollback files, use specified folder location"
 msgstr "Aseta rivihistoriatiedostokansioiden sijainti"
 
 #. i18n: ectx: label, entry (scrollbackUseSpecifiedLocationDirectory), group (FileLocation)
-#: settings/konsole.kcfg:232
+#: settings/konsole.kcfg:242
 #, kde-format
 msgid "For scrollback files, use this folder"
 msgstr "Käytä rivihistoriatiedostoille tätä kansiota"
 
 #. i18n: ectx: label, entry (SyncProfileWithSystemTheme), group (LightDarkTheme)
-#: settings/konsole.kcfg:238
+#: settings/konsole.kcfg:248
 #, kde-format
 msgid "Sync profile with system theme"
-msgstr ""
+msgstr "Tahdista profiili ja järjestelmän teema"
 
 #. i18n: ectx: label, entry (LightThemeProfile), group (LightDarkTheme)
-#: settings/konsole.kcfg:242
+#: settings/konsole.kcfg:252
 #, kde-format
 msgid "Profile to use for light system theme"
-msgstr ""
+msgstr "Vaalean järjestelmäteeman kanssa käytettävä profiili"
 
 #. i18n: ectx: label, entry (DarkThemeProfile), group (LightDarkTheme)
-#: settings/konsole.kcfg:246
+#: settings/konsole.kcfg:256
 #, kde-format
 msgid "Profile to use for dark system theme"
-msgstr ""
+msgstr "Tumman järjestelmäteeman kanssa käytettävä profiili"
 
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_EnableMemoryMonitoring)
 #: settings/MemorySettings.ui:17
@@ -3188,31 +3208,27 @@ msgstr "&Aseta oletusprofiiliksi"
 
 #. i18n: ectx: property (toolTip), widget (QPushButton, setLightProfileButton)
 #: settings/ProfileSettings.ui:103
-#, fuzzy, kde-format
-#| msgid "Set the selected profile as the default for new terminal sessions"
+#, kde-format
 msgid "Set the selected profile as the light theme profile"
-msgstr "Aseta valittu profiili oletusprofiiliksi uusille pääteistunnoille"
+msgstr "Aseta valittu profiili vaalean teeman profiiliksi"
 
 #. i18n: ectx: property (text), widget (QPushButton, setLightProfileButton)
 #: settings/ProfileSettings.ui:106
-#, fuzzy, kde-format
-#| msgid "&Set as Default"
+#, kde-format
 msgid "&Set as Light"
-msgstr "&Aseta oletusprofiiliksi"
+msgstr "Aseta &vaaleaksi"
 
 #. i18n: ectx: property (toolTip), widget (QPushButton, setDarkProfileButton)
 #: settings/ProfileSettings.ui:116
-#, fuzzy, kde-format
-#| msgid "Set the selected profile as the default for new terminal sessions"
+#, kde-format
 msgid "Set the selected profile as the dark theme profile"
-msgstr "Aseta valittu profiili oletusprofiiliksi uusille pääteistunnoille"
+msgstr "Aseta valittu profiilin tumman teeman profiiliksi"
 
 #. i18n: ectx: property (text), widget (QPushButton, setDarkProfileButton)
 #: settings/ProfileSettings.ui:119
-#, fuzzy, kde-format
-#| msgid "&Set as Default"
+#, kde-format
 msgid "&Set as Dark"
-msgstr "&Aseta oletusprofiiliksi"
+msgstr "Aseta &tummaksi"
 
 #. i18n: ectx: attribute (title), widget (QWidget, appearanceTab)
 #: settings/TabBarSettings.ui:39
@@ -3320,7 +3336,7 @@ msgstr "ei koskaan"
 
 #. i18n: ectx: property (text), widget (QLabel, miscellaneousAppearanceLabel)
 #. i18n: ectx: property (text), widget (QLabel, miscellaneousBehaviorLabel)
-#: settings/TabBarSettings.ui:277 settings/TabBarSettings.ui:410
+#: settings/TabBarSettings.ui:277 settings/TabBarSettings.ui:430
 #, kde-format
 msgctxt "@item:intext Miscellaneous Options"
 msgid "Miscellaneous:"
@@ -3338,106 +3354,112 @@ msgstr "Näytä ”Uusi välilehti” - painike"
 msgid "Expand individual tab widths to full window"
 msgstr "Laajenna yksittäisten välilehtien leveydet koko ikkunaan"
 
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ShowContainerTabColor)
+#: settings/TabBarSettings.ui:304
+#, kde-format
+msgid "Color-code tab when inside a container"
+msgstr ""
+
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_TabBarUseUserStyleSheet)
-#: settings/TabBarSettings.ui:301
+#: settings/TabBarSettings.ui:321
 #, kde-format
 msgid "Use user-defined stylesheet:"
 msgstr "Käyttäjän määrittämä tyylisivu:"
 
 #. i18n: ectx: property (placeholderText), widget (KUrlRequester, kcfg_TabBarUserStyleSheetFile)
-#: settings/TabBarSettings.ui:327
+#: settings/TabBarSettings.ui:347
 #, kde-format
 msgctxt "@item:intext Optional file path is empty"
 msgid "(none)"
 msgstr "(ei mitään)"
 
 #. i18n: ectx: attribute (title), widget (QWidget, behaviorTab)
-#: settings/TabBarSettings.ui:350
+#: settings/TabBarSettings.ui:370
 #, kde-format
 msgctxt "@title:tab Tab bar settings"
 msgid "Behavior"
 msgstr "Toiminta"
 
 #. i18n: ectx: property (text), widget (QLabel, putNewTabsLabel)
-#: settings/TabBarSettings.ui:364
+#: settings/TabBarSettings.ui:384
 #, kde-format
 msgid "Put new tabs:"
 msgstr "Sijoita uudet välilehdet:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, PutNewTabAtTheEnd)
-#: settings/TabBarSettings.ui:374
+#: settings/TabBarSettings.ui:394
 #, kde-format
 msgid "At &the end"
 msgstr "&Viimeiseksi"
 
 #. i18n: ectx: property (text), widget (QRadioButton, PutNewTabAfterCurrentTab)
-#: settings/TabBarSettings.ui:384
+#: settings/TabBarSettings.ui:404
 #, kde-format
 msgid "After current &tab"
 msgstr "N&ykyisen välilehden jälkeen"
 
 # *** TARKISTA: mahtuisiko ”keskimmäisen painikkeen napsautuksella”, joka olisi selkeämpi?
 #. i18n: ectx: property (text), widget (QCheckBox, kcfg_CloseTabOnMiddleMouseButton)
-#: settings/TabBarSettings.ui:420
+#: settings/TabBarSettings.ui:440
 #, kde-format
 msgid "Close tab on middle-click"
 msgstr "Sulje välilehti keskinapsautuksella"
 
 #. i18n: ectx: attribute (title), widget (QWidget, splitTab)
-#: settings/TabBarSettings.ui:443
+#: settings/TabBarSettings.ui:463
 #, kde-format
 msgid "Splits"
 msgstr "Jakoviivat"
 
 #. i18n: ectx: property (text), widget (QLabel, label)
-#: settings/TabBarSettings.ui:449
+#: settings/TabBarSettings.ui:469
 #, kde-format
 msgid "Show Header:"
 msgstr "Näytä otsake:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, ShowSplitHeaderWhenNeeded)
-#: settings/TabBarSettings.ui:456
+#: settings/TabBarSettings.ui:476
 #, kde-format
 msgctxt "@option:radio When needed show the split header"
 msgid "When needed"
 msgstr "tarvittaessa"
 
 #. i18n: ectx: property (text), widget (QRadioButton, AlwaysHideSplitHeader)
-#: settings/TabBarSettings.ui:466
+#: settings/TabBarSettings.ui:486
 #, kde-format
 msgctxt "@option:radio Never show the split header"
 msgid "Never"
 msgstr "ei koskaan"
 
 #. i18n: ectx: property (text), widget (QLabel, label_2)
-#: settings/TabBarSettings.ui:492
+#: settings/TabBarSettings.ui:512
 #, kde-format
 msgid "Drag Handle Size:"
 msgstr "Vetokahvan koko:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleSmall)
-#: settings/TabBarSettings.ui:502
+#: settings/TabBarSettings.ui:522
 #, kde-format
 msgctxt "@option:radio Small height/width of splitter widget"
 msgid "Small"
 msgstr "Pieni"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleMedium)
-#: settings/TabBarSettings.ui:512
+#: settings/TabBarSettings.ui:532
 #, kde-format
 msgctxt "@option:radio Medium height/width of splitter widget"
 msgid "Medium"
 msgstr "Keskikokoinen"
 
 #. i18n: ectx: property (text), widget (QRadioButton, SplitDragHandleLarge)
-#: settings/TabBarSettings.ui:522
+#: settings/TabBarSettings.ui:542
 #, kde-format
 msgctxt "@option:radio Large height/width of splitter widget"
 msgid "Large"
 msgstr "Suuri"
 
 #. i18n: ectx: property (text), widget (QRadioButton, AlwaysShowSplitHeader)
-#: settings/TabBarSettings.ui:545
+#: settings/TabBarSettings.ui:565
 #, kde-format
 msgctxt "@option:radio Always show the split header"
 msgid "Always"
@@ -3532,95 +3554,95 @@ msgstr "Ctrl"
 msgid "Enable thumbnails generation"
 msgstr "Käytä pienoiskuvien luontia"
 
-#: terminalDisplay/TerminalDisplay.cpp:704
+#: terminalDisplay/TerminalDisplay.cpp:708
 #, kde-format
 msgid "Size: %1 x %2"
 msgstr "Koko %1×%2"
 
-#: terminalDisplay/TerminalDisplay.cpp:2432
+#: terminalDisplay/TerminalDisplay.cpp:2448
 #, kde-format
 msgid "Are you sure you want to paste %1 character?"
 msgid_plural "Are you sure you want to paste %1 characters?"
 msgstr[0] "Haluatko varmasti liittää %1 merkin?"
 msgstr[1] "Haluatko varmasti liittää %1 merkkiä?"
 
-#: terminalDisplay/TerminalDisplay.cpp:2433
+#: terminalDisplay/TerminalDisplay.cpp:2449
 #, kde-format
 msgid "Confirm Paste"
 msgstr "Vahvista liittäminen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2466
+#: terminalDisplay/TerminalDisplay.cpp:2482
 #, kde-format
 msgid "End Of Text/Interrupt: may exit the current process"
 msgstr "Tekstin loppu/Keskeytys: voi lopettaa nykyisen prosessin"
 
-#: terminalDisplay/TerminalDisplay.cpp:2467
+#: terminalDisplay/TerminalDisplay.cpp:2483
 #, kde-format
 msgid "End Of Transmission: may exit the current process"
 msgstr "Siirron loppu: voi lopettaa nykyisen prosessin"
 
-#: terminalDisplay/TerminalDisplay.cpp:2468
+#: terminalDisplay/TerminalDisplay.cpp:2484
 #, kde-format
 msgid "Bell: will try to emit an audible warning"
 msgstr "Kello: yrittää tuottaa äänimerkin"
 
-#: terminalDisplay/TerminalDisplay.cpp:2469
+#: terminalDisplay/TerminalDisplay.cpp:2485
 #, kde-format
 msgid "Backspace"
 msgstr "Askelpalautin"
 
-#: terminalDisplay/TerminalDisplay.cpp:2470
+#: terminalDisplay/TerminalDisplay.cpp:2486
 #, kde-format
 msgid "Device Control Three/XOFF: suspends output"
 msgstr "XOFF: keskeyttää tulostuksen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2471
+#: terminalDisplay/TerminalDisplay.cpp:2487
 #, kde-format
 msgid "Substitute/Suspend: may suspend current process"
 msgstr "Korvaa/Keskeytä: voi keskeyttää nykyisen prosessin"
 
-#: terminalDisplay/TerminalDisplay.cpp:2472
+#: terminalDisplay/TerminalDisplay.cpp:2488
 #, kde-format
 msgid "Escape: used for manipulating terminal state"
 msgstr "Escape: käytetään päätteen tilan muuttamiseen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2473
+#: terminalDisplay/TerminalDisplay.cpp:2489
 #, kde-format
 msgid "File Separator/Quit: may abort the current process"
 msgstr "Tiedostoerotin/Lopetus: voi lopettaa nykyisen prosessin"
 
-#: terminalDisplay/TerminalDisplay.cpp:2496
+#: terminalDisplay/TerminalDisplay.cpp:2512
 #, kde-format
 msgid ""
 "The text you're trying to paste contains hidden control characters, do you "
 "want to filter them out?"
 msgstr "Liitettävä teksti sisältää ohjausmerkkejä. Haluatko suodattaa ne pois?"
 
-#: terminalDisplay/TerminalDisplay.cpp:2499
+#: terminalDisplay/TerminalDisplay.cpp:2515
 #, kde-format
 msgctxt "@title"
 msgid "Confirm Paste"
 msgstr "Vahvista liittäminen"
 
-#: terminalDisplay/TerminalDisplay.cpp:2500
+#: terminalDisplay/TerminalDisplay.cpp:2516
 #, kde-format
 msgctxt "@action:button"
 msgid "Paste &without control characters"
 msgstr "Liitä &ohjausmerkeittä"
 
-#: terminalDisplay/TerminalDisplay.cpp:2501
+#: terminalDisplay/TerminalDisplay.cpp:2517
 #, kde-format
 msgctxt "@action:button"
 msgid "&Paste everything"
 msgstr "Liitä k&aikki"
 
-#: terminalDisplay/TerminalDisplay.cpp:2502
+#: terminalDisplay/TerminalDisplay.cpp:2518
 #, kde-format
 msgctxt "@action:button"
 msgid "&Cancel"
 msgstr "&Peru"
 
-#: terminalDisplay/TerminalDisplay.cpp:2745
+#: terminalDisplay/TerminalDisplay.cpp:2752
 #, kde-format
 msgid ""
 "<qt>Output has been <a href=\"https://en.wikipedia.org/wiki/"
@@ -3631,17 +3653,17 @@ msgstr ""
 "\">keskeytetty</a> painamalla Ctrl+S. Jatka suoritusta painamalla <b>Ctrl+Q</"
 "b>.</qt>"
 
-#: terminalDisplay/TerminalDisplay.cpp:2800
+#: terminalDisplay/TerminalDisplay.cpp:2807
 #, kde-format
 msgid "This terminal is read-only."
 msgstr "Tätä päätettä voi vain lukea."
 
-#: terminalDisplay/TerminalDisplay.cpp:3206
+#: terminalDisplay/TerminalDisplay.cpp:3213
 #, kde-format
 msgid "Change &Directory To"
 msgstr "&Siirry kansioon"
 
-#: terminalDisplay/TerminalDisplay.cpp:3241
+#: terminalDisplay/TerminalDisplay.cpp:3248
 #, kde-format
 msgid "&Paste Location"
 msgstr "Liitä &sijainti"
@@ -3916,7 +3938,7 @@ msgctxt "@title:window"
 msgid "Load Tab Layout"
 msgstr "Lataa välilehtiasettelu"
 
-#: Vt102Emulation.cpp:3342
+#: Vt102Emulation.cpp:3272
 #, kde-format
 msgid ""
 "No keyboard translator available.  The information needed to convert key "
@@ -4009,12 +4031,14 @@ msgid ""
 "Allow terminal programs to use the Kitty keyboard protocol for enhanced "
 "keyboard input"
 msgstr ""
+"Salli pääteohjelmien käyttää Kittyn näppäimistöyhteyskäytäntöä tehostettuun "
+"näppäimistösyötteeseen"
 
 #. i18n: ectx: property (text), widget (QCheckBox, enableKittyKeyboardButton)
 #: widgets/EditProfileAdvancedPage.ui:215
 #, kde-format
 msgid "Kitty keyboard protocol"
-msgstr ""
+msgstr "Kittyn näppäimistöyhteyskäytäntö"
 
 #. i18n: ectx: property (text), widget (QLabel, label_14)
 #: widgets/EditProfileAdvancedPage.ui:238
@@ -4294,17 +4318,15 @@ msgstr "Käytössä"
 
 #. i18n: ectx: property (text), widget (QLabel, label_12)
 #: widgets/EditProfileAppearancePage.ui:457
-#, fuzzy, kde-format
-#| msgid "Activation:"
+#, kde-format
 msgid "Animation:"
-msgstr "Aktivointi:"
+msgstr "Animointi:"
 
 #. i18n: ectx: property (toolTip), widget (QCheckBox, enableAnimatingCursorButton)
 #: widgets/EditProfileAppearancePage.ui:473
-#, fuzzy, kde-format
-#| msgid "Make the cursor blink regularly"
+#, kde-format
 msgid "Make the cursor animate smoothly"
-msgstr "Panee kohdistimen vilkkumaan tasaisesti"
+msgstr "Animoi kohdistinta pehmeästi"
 
 #. i18n: ectx: attribute (title), widget (QWidget, tab_2)
 #. i18n: ectx: attribute (title), widget (QWidget, miscTab)
@@ -4506,13 +4528,14 @@ msgid ""
 "Render words made of characters that usually appear in coding ligatures "
 "together."
 msgstr ""
+"Hahmonna yleensä ligatuurien koodaamiseen käytetyistä merkeistä koostuvat "
+"sanat yhteen."
 
 #. i18n: ectx: property (text), widget (QCheckBox, wordModeCoding)
 #: widgets/EditProfileAppearancePage.ui:938
-#, fuzzy, kde-format
-#| msgid "Word characters:"
+#, kde-format
 msgid "Coding ligatures characters"
-msgstr "Sanamerkit:"
+msgstr "Ligatuurimerkkien koodaus"
 
 #. i18n: ectx: property (toolTip), widget (QCheckBox, wordModeBrahmic)
 #: widgets/EditProfileAppearancePage.ui:951
@@ -4534,12 +4557,14 @@ msgid ""
 "Apply hinting to glyphs when rendering, which may improve the legibility of "
 "certain fonts with some displays"
 msgstr ""
+"Käytä glyyfeihin hahmonnettaessa vihjeistystä, mikä saattaa parantaa "
+"joidenkin fonttien luettavuutta joillakin näytöillä"
 
 #. i18n: ectx: property (text), widget (QCheckBox, fontHinting)
 #: widgets/EditProfileAppearancePage.ui:970
 #, kde-format
 msgid "Font hinting"
-msgstr ""
+msgstr "Fontin vihjeistys"
 
 #. i18n: ectx: property (text), widget (QLabel, label_17)
 #: widgets/EditProfileAppearancePage.ui:983
@@ -4602,10 +4627,9 @@ msgstr "Sivuuta wc-leveys"
 
 #. i18n: ectx: property (toolTip), widget (QWidget, badgeTab)
 #: widgets/EditProfileAppearancePage.ui:1081
-#, fuzzy, kde-format
-#| msgid "<html><head/><body><p>Complex Text Layout</p></body></html>"
+#, kde-format
 msgid "<html><head/><body><p>Badge overlay options</p></body></html>"
-msgstr "<html><head/><body><p>Monimutkaisen tekstin asettelu</p></body></html>"
+msgstr "<html><head/><body><p>Tunnuspeittokuvan valinnat</p></body></html>"
 
 #. i18n: ectx: attribute (title), widget (QWidget, badgeTab)
 #. i18n: ectx: property (text), widget (QCheckBox, badgeEnabled)
@@ -4613,20 +4637,19 @@ msgstr "<html><head/><body><p>Monimutkaisen tekstin asettelu</p></body></html>"
 #: widgets/EditProfileAppearancePage.ui:1114
 #, kde-format
 msgid "Badge Overlay"
-msgstr ""
+msgstr "Tunnuspeittokuva"
 
 #. i18n: ectx: property (text), widget (QLabel, badgeOverlayLabel)
 #: widgets/EditProfileAppearancePage.ui:1094
 #, kde-format
 msgid "Badge Overlay Options"
-msgstr ""
+msgstr "Tunnuspeittokuvan valinnat"
 
 #. i18n: ectx: property (toolTip), widget (QCheckBox, badgeEnabled)
 #: widgets/EditProfileAppearancePage.ui:1111
-#, fuzzy, kde-format
-#| msgid "Enable word mode text rendering"
+#, kde-format
 msgid "Enable badge overlay rendering"
-msgstr "Käytä sanatilan tekstinhahmonnusta"
+msgstr "Käytä tunnuspeittokuvan hahmonnusta"
 
 #. i18n: ectx: property (toolTip), widget (QLabel, badge_label_1)
 #. i18n: ectx: property (toolTip), widget (QLineEdit, badgeTextEdit)
@@ -4635,13 +4658,13 @@ msgstr "Käytä sanatilan tekstinhahmonnusta"
 #, kde-format
 msgctxt "@info:tooltip"
 msgid "Default text of badge."
-msgstr ""
+msgstr "Tunnuksen oletusteksti."
 
 #. i18n: ectx: property (text), widget (QLabel, badge_label_1)
 #: widgets/EditProfileAppearancePage.ui:1124
 #, kde-format
 msgid "Badge text:"
-msgstr ""
+msgstr "Tunnuksen teksti:"
 
 #. i18n: ectx: property (text), widget (QLabel, badgeVariablesHelpLabel)
 #: widgets/EditProfileAppearancePage.ui:1150
@@ -4652,6 +4675,10 @@ msgid ""
 "hostname), \\(session.process), \\(env.VARIABLE_NAME)</small></p></body></"
 "html>"
 msgstr ""
+"<html><head/><body><p><small><b>Käytettävissä olevat muuttujat:</b> "
+"\\(session.title), \\(session.name), \\(session.id), \\(session.directory), "
+"\\(session.hostname), \\(session.process), \\(env.MUUTTUJAN_NIMI)</small></"
+"p></body></html>"
 
 #. i18n: ectx: property (text), widget (QLabel, badgeEscapeSequenceHelpLabel)
 #: widgets/EditProfileAppearancePage.ui:1170
@@ -4661,6 +4688,9 @@ msgid ""
 "settings on this page to configure badge text, color, font, text-only mode "
 "and transparency.</small></p></body></html>"
 msgstr ""
+"<html><head/><body><p><small><b>Tunnuksen asetukset:</b><br/>Käytä tämän "
+"sivun profiiliasetuksia tunnuksen tekstin, värin, fontin, vain teksti -tilan "
+"ja läpikuultavuuden asetuksiin.</small></p></body></html>"
 
 #. i18n: ectx: property (toolTip), widget (QLabel, badge_label_2)
 #. i18n: ectx: property (toolTip), widget (QLineEdit, badgeFontEdit)
@@ -4669,65 +4699,62 @@ msgstr ""
 #, kde-format
 msgctxt "@info:tooltip"
 msgid "Badge font family."
-msgstr ""
+msgstr "Tunnuksen fonttiperhe."
 
 #. i18n: ectx: property (text), widget (QLabel, badge_label_2)
 #: widgets/EditProfileAppearancePage.ui:1193
 #, kde-format
 msgid "Badge font family:"
-msgstr ""
+msgstr "Tunnuksen fonttiperhe:"
 
 #. i18n: ectx: property (text), widget (QLabel, badgeFontSizeLabel)
 #: widgets/EditProfileAppearancePage.ui:1226
 #, kde-format
 msgid "Badge font size:"
-msgstr ""
+msgstr "Tunnuksen fonttikoko:"
 
 #. i18n: ectx: property (text), widget (QLabel, badgeColorLabel)
 #: widgets/EditProfileAppearancePage.ui:1256
-#, fuzzy, kde-format
-#| msgid "Background color:"
+#, kde-format
 msgid "Badge color:"
-msgstr "Taustaväri:"
+msgstr "Tunnuksen väri:"
 
 #. i18n: ectx: property (toolTip), widget (KColorButton, badgeColorSelectButton)
 #: widgets/EditProfileAppearancePage.ui:1269
-#, fuzzy, kde-format
-#| msgid "Select the color used to draw the border"
+#, kde-format
 msgid "Select the color used to draw the badge"
-msgstr "Valitse reunaviivan piirtoväri"
+msgstr "Valitse tunnuksen piirtoväri"
 
 #. i18n: ectx: property (toolTip), widget (QCheckBox, badgeTextOnlyCheckBox)
 #: widgets/EditProfileAppearancePage.ui:1283
 #, kde-format
 msgid "Display badge as text only without background rectangle"
-msgstr ""
+msgstr "Näytä tunnus vain tekstinä taustanelikulmiotta"
 
 #. i18n: ectx: property (text), widget (QCheckBox, badgeTextOnlyCheckBox)
 #: widgets/EditProfileAppearancePage.ui:1286
-#, fuzzy, kde-format
-#| msgid "Red error background:"
+#, kde-format
 msgid "Text only (no background)"
-msgstr "Punainen virhetausta:"
+msgstr "Vain teksti (ei taustaa)"
 
 #. i18n: ectx: property (text), widget (QLabel, badgeTransparencyLabel)
 #: widgets/EditProfileAppearancePage.ui:1300
-#, fuzzy, kde-format
-#| msgid "Wallpaper transparency:"
+#, kde-format
 msgid "Transparency:"
-msgstr "Taustakuvan läpinäkyvyys:"
+msgstr "Läpikuultavuus:"
 
 #. i18n: ectx: property (toolTip), widget (QSlider, badgeTransparencySlider)
 #: widgets/EditProfileAppearancePage.ui:1327
 #, kde-format
 msgid "Set badge transparency (0 = fully transparent, 255 = opaque)"
 msgstr ""
+"Aseta tunnuksen läpikuultavuus (0 = täysin läpikuultava, 255 = peittävä)"
 
 #. i18n: ectx: property (text), widget (QLabel, badgeTransparencyValueLabel)
 #: widgets/EditProfileAppearancePage.ui:1334
 #, kde-format
 msgid "180"
-msgstr ""
+msgstr "180"
 
 #: widgets/EditProfileDialog.cpp:73
 #, kde-format
@@ -4830,37 +4857,25 @@ msgid "Edit Profile \"%1\""
 msgstr "Muokkaa profiilia ”%1”"
 
 #: widgets/EditProfileDialog.cpp:538
-#, fuzzy, kde-format
-#| msgctxt "Do not show a close button"
-#| msgid "None"
+#, kde-format
 msgid "None"
-msgstr "Ei milloinkaan"
+msgstr "Ei mitään"
 
 #: widgets/EditProfileDialog.cpp:557
-#, fuzzy, kde-format
-#| msgctxt ""
-#| "Suffix of the number of columns (N columns). The leading space is needed "
-#| "to separate it from the number value."
-#| msgid " column"
-#| msgid_plural " columns"
+#, kde-format
 msgctxt "@item number of columns"
 msgid "%v column"
 msgid_plural "%v columns"
-msgstr[0] " sarake"
-msgstr[1] " saraketta"
+msgstr[0] "%v sarake"
+msgstr[1] "%v saraketta"
 
 #: widgets/EditProfileDialog.cpp:558
-#, fuzzy, kde-format
-#| msgctxt ""
-#| "Suffix of the number of rows (N rows). The leading space is needed to "
-#| "separate it from the number value."
-#| msgid " row"
-#| msgid_plural " rows"
+#, kde-format
 msgctxt "@item number of rows"
 msgid "%v row"
 msgid_plural "%v rows"
-msgstr[0] " rivi"
-msgstr[1] " riviä"
+msgstr[0] "%v rivi"
+msgstr[1] "%v riviä"
 
 #: widgets/EditProfileDialog.cpp:570
 #, kde-format
@@ -4898,15 +4913,12 @@ msgid "One environment variable per line"
 msgstr "Yksi ympäristömuuttuja per rivi"
 
 #: widgets/EditProfileDialog.cpp:720
-#, fuzzy, kde-format
-#| msgctxt "Unit of time"
-#| msgid " second"
-#| msgid_plural " seconds"
+#, kde-format
 msgctxt "@item number of seconds"
 msgid "%v second"
 msgid_plural "%v seconds"
-msgstr[0] " sekunti"
-msgstr[1] " sekuntia"
+msgstr[0] "%v sekunti"
+msgstr[1] "%v sekuntia"
 
 #: widgets/EditProfileDialog.cpp:850
 #, kde-format
@@ -5068,26 +5080,27 @@ msgid ""
 "When opening a new tab or split, automatically enter the same container "
 "(Toolbox, Distrobox) as the current session"
 msgstr ""
+"Avattaessa uutta välilehteä tai jakoa, siirry automaattisesti samaan säilöön "
+"(Toolbox, Distrobox) kuin nykyinen istunto"
 
 #. i18n: ectx: property (text), widget (QCheckBox, inheritContainerButton)
 #: widgets/EditProfileGeneralPage.ui:203
-#, fuzzy, kde-format
-#| msgid "Start in same directory as current session"
+#, kde-format
 msgid "Enter same container as current session"
-msgstr "Aloita nykyisen istunnon kansiossa"
+msgstr "Siirry samaan säilöön kuin nykyinen istunto"
 
 #. i18n: ectx: property (text), widget (QLabel, containerLabel)
 #: widgets/EditProfileGeneralPage.ui:229
 #, kde-format
 msgid "Always start in container:"
-msgstr ""
+msgstr "Käynnistä aina säilöön:"
 
 #. i18n: ectx: property (toolTip), widget (QComboBox, containerCombo)
 #: widgets/EditProfileGeneralPage.ui:242
 #, kde-format
 msgid ""
 "Always start new sessions using this profile inside the selected container"
-msgstr ""
+msgstr "Käynnistä uudet istunnot aina tällä profiililla valittuun säilöön"
 
 #. i18n: ectx: property (text), widget (QLabel, label_4)
 #: widgets/EditProfileGeneralPage.ui:255
@@ -5322,27 +5335,26 @@ msgstr "valinnan"
 #: widgets/EditProfileMousePage.ui:186
 #, kde-format
 msgid "Right-click:"
-msgstr ""
+msgstr "Oikean painikkeen napsautus:"
 
 #. i18n: ectx: property (text), widget (QRadioButton, rightClickPasteDisabledButton)
 #: widgets/EditProfileMousePage.ui:196
 #, kde-format
 msgid "Opens context menu"
-msgstr ""
+msgstr "avaa kontekstivalikon"
 
 #. i18n: ectx: property (toolTip), widget (QRadioButton, rightClickPasteDisabledButton)
 #: widgets/EditProfileMousePage.ui:199
 #, kde-format
 msgctxt "@info:tooltip"
 msgid "Right-click shows context menu"
-msgstr ""
+msgstr "Oikean painikkeen napsautus näyttää kontekstivalikon"
 
 #. i18n: ectx: property (text), widget (QRadioButton, rightClickPasteFromClipboardButton)
 #: widgets/EditProfileMousePage.ui:209
-#, fuzzy, kde-format
-#| msgid "From clipboard"
+#, kde-format
 msgid "Pastes from clipboard"
-msgstr "leikepöydän sisällön"
+msgstr "Liittää leikepöydältä"
 
 #. i18n: ectx: property (toolTip), widget (QRadioButton, rightClickPasteFromClipboardButton)
 #. i18n: ectx: property (toolTip), widget (QRadioButton, rightClickPasteFromX11SelectionButton)
@@ -5350,14 +5362,13 @@ msgstr "leikepöydän sisällön"
 #, kde-format
 msgctxt "@info:tooltip"
 msgid "Control+right-click shows context menu"
-msgstr ""
+msgstr "Ctrl+oikean painikkeen napsautus näyttää kontekstivalikon"
 
 #. i18n: ectx: property (text), widget (QRadioButton, rightClickPasteFromX11SelectionButton)
 #: widgets/EditProfileMousePage.ui:222
-#, fuzzy, kde-format
-#| msgid "Paste Selection"
+#, kde-format
 msgid "Pastes from selection"
-msgstr "Liitä hiirivalinnan sisältö"
+msgstr "Liittää valinnasta"
 
 #. i18n: ectx: property (text), widget (QLabel, label)
 #: widgets/EditProfileMousePage.ui:251
@@ -5417,14 +5428,13 @@ msgstr "Poista välilyönnit lopusta"
 #: widgets/EditProfileMousePage.ui:301
 #, kde-format
 msgid "Clear selection after copying"
-msgstr ""
+msgstr "Tyhjennä valinta kopioinnin jälkeen"
 
 #. i18n: ectx: property (text), widget (QCheckBox, clearSelectionButton)
 #: widgets/EditProfileMousePage.ui:304
-#, fuzzy, kde-format
-#| msgid "From selection"
+#, kde-format
 msgid "Clear selection"
-msgstr "valinnan"
+msgstr "Tyhjennä valinta"
 
 #. i18n: ectx: property (toolTip), widget (QCheckBox, underlineLinksButton)
 #: widgets/EditProfileMousePage.ui:341
@@ -5486,10 +5496,9 @@ msgstr ""
 
 #. i18n: ectx: property (text), widget (QCheckBox, openLinksByDirectClickButton)
 #: widgets/EditProfileMousePage.ui:413
-#, fuzzy, kde-format
-#| msgid "Open files/links by direct click"
+#, kde-format
 msgid "Open underlined files/links by direct click"
-msgstr "Avaa tiedostot ja linkit suoraan napsauttamalla"
+msgstr "Avaa alleviivatut tiedostot ja linkit suoraan napsauttamalla"
 
 #. i18n: ectx: property (text), widget (QCheckBox, allowLinkEscapeSequenceButton)
 #: widgets/EditProfileMousePage.ui:424
@@ -5767,15 +5776,12 @@ msgid "The threshold for continuous silence to be detected by Konsole"
 msgstr "Yhtäjaksoisen hiljaisuuden havaitsemisraja sekunteina"
 
 #: widgets/HistorySizeWidget.cpp:41
-#, fuzzy, kde-format
-#| msgctxt "@label:textbox Unit of scrollback"
-#| msgid " line"
-#| msgid_plural " lines"
+#, kde-format
 msgctxt "@item number of lines"
 msgid "%v line"
 msgid_plural "%v lines"
-msgstr[0] " rivi"
-msgstr[1] " riviä"
+msgstr[0] "%v rivi"
+msgstr[1] "%v riviä"
 
 #: widgets/HistorySizeWidget.cpp:56
 #, kde-format
@@ -6012,10 +6018,9 @@ msgstr "&Välilehden väri:"
 
 #. i18n: ectx: property (text), widget (QLabel, label_4)
 #: widgets/RenameTabWidget.ui:128
-#, fuzzy, kde-format
-#| msgid "Select &Tab Color"
+#, kde-format
 msgid "&Activity Tab Color:"
-msgstr "Valitse &välilehden väri"
+msgstr "&Aktiivisen välilehden väri:"
 
 #: widgets/TabTitleFormatButton.cpp:21
 #, c-format
@@ -6146,20 +6151,19 @@ msgctxt "@action:inmenu"
 msgid "Close Tab"
 msgstr "Sulje välilehti"
 
-#: widgets/ViewContainer.cpp:969 widgets/ViewContainer.cpp:978
-#, fuzzy, kde-format
-#| msgid "Maintainer"
+#: widgets/ViewContainer.cpp:990 widgets/ViewContainer.cpp:999
+#, kde-format
 msgctxt "As in Distrobox, Toolbox, Kapsule etc."
 msgid "Container"
-msgstr "Ylläpitäjä"
+msgstr "Säilö"
 
-#: widgets/ViewContainer.cpp:988
+#: widgets/ViewContainer.cpp:1009
 #, kde-format
 msgctxt ""
 "%1 is the type of container (e.g. Distrobox, Toolbox, Kapsule etc.), %2 its "
 "name"
 msgid "%1: %2"
-msgstr ""
+msgstr "%1: %2"
 
 #~ msgid ""
 #~ "The D-Bus methods sendText/runCommand were just used.  There are security "

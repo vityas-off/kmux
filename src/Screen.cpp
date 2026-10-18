@@ -2086,7 +2086,8 @@ void Screen::writeToStream(TerminalCharacterDecoder *decoder, int startIndex, in
         int start = 0;
         int count = -1;
 
-        if (_blockSelectionMode) {
+        // Bypass block selection bounds for non-selection text extraction.
+        if (_blockSelectionMode && !options.testFlag(IgnoreBlockSelection)) {
             // Normalize selection bounds to ensure a valid [min, max] column range
             const auto [minimum, maximum] = std::minmax(left, right);
             start = minimum;
@@ -2151,11 +2152,13 @@ QList<int> Screen::getCharacterCounts() const
     for (int line = 0; line < totalLines; ++line) {
         int count = getLineLength(line);
         bool lineIsWrapped = false;
-        Character *characterBuffer = getCharacterBuffer(count - 1);
+        Character *characterBuffer = getCharacterBuffer(count);
+        const Character *lineData = characterBuffer;
 
         Q_ASSERT(count >= 0);
 
-        if (line < _history->getLines()) {
+        const bool isInHistoryBuffer = line < _history->getLines();
+        if (isInHistoryBuffer) {
             // safety checks
             Q_ASSERT(count <= _history->getLineLen(line));
 
@@ -2178,6 +2181,7 @@ QList<int> Screen::getCharacterCounts() const
             screenLine = qMin(screenLine, _screenLinesSize);
 
             auto *data = _screenLines[screenLine].data();
+            lineData = data;
             int length = _screenLines.at(screenLine).count();
 
             // Exclude trailing empty cells from count and don't bother processing them further.
@@ -2199,7 +2203,7 @@ QList<int> Screen::getCharacterCounts() const
         }
 
         // If the last character is wide, account for it
-        if (Character::width(characterBuffer[count - 1].character, _ignoreWcWidth) == 2)
+        if (count > 0 && Character::width(lineData[count - 1].character, _ignoreWcWidth) == 2)
             count++;
 
         // When users ask not to preserve the linebreaks, they usually mean:
@@ -2314,7 +2318,7 @@ int Screen::copyLineToStream(int line,
     }
 
     // If the last character is wide, account for it
-    if (Character::width(characterBuffer[count - 1].character, _ignoreWcWidth) == 2) {
+    if (count > 0 && Character::width(characterBuffer[count - 1].character, _ignoreWcWidth) == 2) {
         characterBuffer[count].setRightHalfOfDoubleWide();
         count++;
     }
