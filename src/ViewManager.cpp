@@ -1290,6 +1290,7 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(session, &Konsole::Session::started, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::notificationsChanged, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::terminalNotificationReceived, this, &Konsole::ViewManager::handleSessionTerminalNotification, Qt::UniqueConnection);
+    connect(session, &Konsole::Session::programStateReported, this, &Konsole::ViewManager::handleSessionProgramState, Qt::UniqueConnection);
     connect(session, &Konsole::Session::projectStatusChanged, this, &Konsole::ViewManager::handleSessionProjectStatusChanged, Qt::UniqueConnection);
     connect(view, &Konsole::TerminalDisplay::keyPressedSignal, this, [this, session, view](QKeyEvent *keyEvent) {
         handleSessionAgentKey(session, containerForTerminal(view), keyEvent);
@@ -3190,7 +3191,33 @@ void ViewManager::handleSessionProjectStatusChanged(const QString &status,
                                                     const QString &promptId,
                                                     const QString &agentId)
 {
+    applySessionProjectStatus(qobject_cast<Session *>(sender()), status, agentProcessId, agent, event, sessionId, promptId, agentId);
+}
+
+void ViewManager::handleSessionProgramState(Enum::ProgramStateEnum state, const QString &app)
+{
     auto *session = qobject_cast<Session *>(sender());
+    const auto status = _sessionProjectStatuses.constFind(session);
+    if (state != Enum::ProgramIdle || app != QLatin1String("codex") || status == _sessionProjectStatuses.constEnd() || status->agent != QLatin1String("codex")
+        || (status->status != ProjectWorkspaceContainer::ProjectStatus::Running && status->status != ProjectWorkspaceContainer::ProjectStatus::NeedsInput)) {
+        return;
+    }
+
+    // Codex runs no hook when a turn fails, for example when the model is at
+    // capacity, but it reports that it waits for the next instruction. It
+    // reports itself blocked, not idle, while it asks for a decision.
+    applySessionProjectStatus(session, QStringLiteral("idle"), 0, QStringLiteral("codex"), QStringLiteral("ProgramIdle"), {}, {}, {});
+}
+
+void ViewManager::applySessionProjectStatus(Session *session,
+                                            const QString &status,
+                                            qlonglong agentProcessId,
+                                            const QString &agent,
+                                            const QString &event,
+                                            const QString &sessionId,
+                                            const QString &promptId,
+                                            const QString &agentId)
+{
     const auto containers = containersForSession(session);
     TabbedViewContainer *attentionContainer = nullptr;
     for (TabbedViewContainer *container : containers) {
@@ -3395,7 +3422,8 @@ void ViewManager::setSessionProjectStatus(Session *session,
     const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
     const bool startsTurn = beginsTurn;
     const bool stopsTurn = event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("StopFailure"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("RateLimit"), Qt::CaseInsensitive) == 0;
+        || event.compare(QLatin1String("StopFailure"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("RateLimit"), Qt::CaseInsensitive) == 0
+        || event.compare(QLatin1String("ProgramIdle"), Qt::CaseInsensitive) == 0;
     const bool endsAgentSession = event.compare(QLatin1String("SessionEnd"), Qt::CaseInsensitive) == 0;
     const bool resetsPendingDecisions = startsTurn || stopsTurn || isInterrupt;
 

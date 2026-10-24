@@ -202,6 +202,8 @@ private:
         Image = 1337,
         // https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
         ConEmu = 9,
+        // https://www.superlogical.com/rex/docs/build/program-status
+        ProgramStatus = 7501,
     };
 
     ParserStates _state = Ground;
@@ -265,6 +267,7 @@ protected:
 
 private:
     void processGraphicsToken(int tokenSize);
+    void processProgramStatusReport(QStringView report);
 
     void sendGraphicsReply(const QString &params, const QString &error);
     void reportTerminalType();

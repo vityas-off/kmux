@@ -449,6 +449,16 @@ Q_SIGNALS:
     void terminalNotificationReceived(const QString &title, const QString &body);
 
     /**
+     * Emitted when a program reports the state of its root record with the
+     * OSC 7501 program status sequence.
+     * See https://www.superlogical.com/rex/docs/build/program-status
+     *
+     * @param state The state that the program reported.
+     * @param app The stable program identifier, such as "codex", or empty.
+     */
+    void programStateReported(Enum::ProgramStateEnum state, const QString &app);
+
+    /**
      * Mainly used to communicate dropped lines to active autosave tasks.
      * Takes into account lines dropped by Screen::addHistLine and Screen::fastAddHistLine.
      * Also includes lines dropped by clearing scrollback and resetting the screen.

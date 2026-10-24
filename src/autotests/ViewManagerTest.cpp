@@ -1260,6 +1260,53 @@ void ViewManagerTest::testProjectWorkspaceCodexAutoReviewedPermissionStaysRunnin
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 }
 
+void ViewManagerTest::testProjectWorkspaceCodexIdleReportEndsTurn()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *terminal = project->activeViewSplitter()->activeTerminalDisplay();
+    QVERIFY(terminal != nullptr);
+    Session *session = terminal->sessionController()->session();
+    QVERIFY(session != nullptr);
+    const auto receive = [session](const QByteArray &data) {
+        session->emulation()->receiveData(data.constData(), data.size());
+    };
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    receive("\033]7501;state=working:app=codex\033\\");
+    receive("\033]7501;state=idle:app=cargo\033\\");
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+
+    // A turn that fails, for example because the model is at capacity, runs no Stop hook.
+    receive("\033]7501;state=idle:app=codex\033\\");
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).agentProcessId, processId);
+    QVERIFY(!viewManager->_sessionProjectStatuses.value(session).turnInterrupted);
+
+    // A decision that was answered with a key other than Enter is no longer pending.
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("codex"), QStringLiteral("PermissionRequest"), {}, {}, {});
+    receive("\033]7501;state=blocked:app=codex\033\\");
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+    receive("\033]7501;state=working:app=codex\033\\");
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PostToolUse"), {}, {}, {});
+    receive("\033]7501;state=idle:app=codex\033\\");
+    QCOMPARE(viewManager->_sessionProjectStatuses.value(session).pendingTerminalDecisions, 0);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    // Only the status of Codex follows its own report.
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("claude"), QStringLiteral("UserPromptSubmit"), {}, {}, {});
+    receive("\033]7501;state=idle:app=codex\033\\");
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+}
+
 void ViewManagerTest::testProjectWorkspaceClaudeDenialDoesNotOverrideStop()
 {
     auto mw = MainWindow();

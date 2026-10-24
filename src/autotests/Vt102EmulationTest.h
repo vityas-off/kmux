@@ -34,6 +34,8 @@ private Q_SLOTS:
 
     void testBufferedUpdates();
 
+    void testProgramStatusReport();
+
     void testKittyKeyboardPushPopQuery();
     void testKittyKeyboardSet();
     void testKittyKeyboardReset();

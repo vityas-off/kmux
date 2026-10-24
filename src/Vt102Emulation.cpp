@@ -1857,6 +1857,11 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
         return;
     }
 
+    if (attribute == ProgramStatus) {
+        processProgramStatusReport(value);
+        return;
+    }
+
     if (attribute == ConEmu) {
         const auto list = QStringView(value).split(QLatin1Char(';'));
         if (list.size() >= 2) {
@@ -1895,6 +1900,50 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
 
     _pendingSessionAttributesUpdates[attribute] = value;
     _sessionAttributesUpdateTimer->start(20);
+}
+
+void Vt102Emulation::processProgramStatusReport(QStringView report)
+{
+    QStringView state;
+    QStringView app;
+    bool hasRecordId = false;
+    for (const QStringView pair : report.split(QLatin1Char(':'))) {
+        const qsizetype separator = pair.indexOf(QLatin1Char('='));
+        if (separator <= 0) {
+            continue;
+        }
+        const QStringView key = pair.first(separator).trimmed();
+        const QStringView pairValue = pair.sliced(separator + 1).trimmed();
+        if (key == QLatin1String("state")) {
+            state = pairValue;
+        } else if (key == QLatin1String("app")) {
+            app = pairValue;
+        } else if (key == QLatin1String("id")) {
+            hasRecordId = true;
+        }
+    }
+
+    // A record with an id describes a task of the program rather than the
+    // program itself.
+    if (hasRecordId) {
+        return;
+    }
+    Enum::ProgramStateEnum programState;
+    if (state == QLatin1String("idle")) {
+        programState = Enum::ProgramIdle;
+    } else if (state == QLatin1String("working")) {
+        programState = Enum::ProgramWorking;
+    } else if (state == QLatin1String("done")) {
+        programState = Enum::ProgramDone;
+    } else if (state == QLatin1String("blocked")) {
+        programState = Enum::ProgramBlocked;
+    } else if (state == QLatin1String("error")) {
+        programState = Enum::ProgramError;
+    } else {
+        // "clear" removes records instead of reporting a state.
+        return;
+    }
+    Q_EMIT programStateReported(programState, app.toString());
 }
 
 void Vt102Emulation::deletePlayer(QMediaPlayer::MediaStatus mediaStatus)

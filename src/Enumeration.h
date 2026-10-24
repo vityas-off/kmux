@@ -153,6 +153,23 @@ public:
          */
         BackwardsSearch,
     };
+
+    /**
+     * This enum describes the states that a program reports for itself with
+     * the OSC 7501 program status sequence.
+     */
+    enum ProgramStateEnum {
+        /** At rest, waiting for the user's next instruction. */
+        ProgramIdle,
+        /** Running. */
+        ProgramWorking,
+        /** Finished, with a result that the user has not seen yet. */
+        ProgramDone,
+        /** Unable to continue until the user acts. */
+        ProgramBlocked,
+        /** Failed and stopped. */
+        ProgramError,
+    };
 };
 }
 #endif // ENUMERATION_H

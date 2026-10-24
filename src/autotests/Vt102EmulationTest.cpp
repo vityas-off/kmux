@@ -463,6 +463,38 @@ void Vt102EmulationTest::testBufferedUpdates()
     QCOMPARE(outputChangedSpy.count(), 2);
 }
 
+void Vt102EmulationTest::testProgramStatusReport()
+{
+    TestEmulation em;
+    em.reset();
+    em.setCodec(TestEmulation::Utf8Codec);
+    QSignalSpy programStateSpy(&em, &TestEmulation::programStateReported);
+    const auto receive = [&em](const QByteArray &data) {
+        em.receiveData(data.constData(), data.size());
+    };
+
+    receive("\033]7501;state=idle:app=codex\033\\");
+    QCOMPARE(programStateSpy.count(), 1);
+    QCOMPARE(programStateSpy.at(0).at(0).value<Enum::ProgramStateEnum>(), Enum::ProgramIdle);
+    QCOMPARE(programStateSpy.at(0).at(1).toString(), QStringLiteral("codex"));
+
+    // Whitespace around keys and values is stripped, unknown keys and pairs
+    // without a value are skipped, and the last value of a key wins.
+    receive("\033]7501; app = cargo :progress=40:malformed:state=idle:state=working\007");
+    QCOMPARE(programStateSpy.count(), 2);
+    QCOMPARE(programStateSpy.at(1).at(0).value<Enum::ProgramStateEnum>(), Enum::ProgramWorking);
+    QCOMPARE(programStateSpy.at(1).at(1).toString(), QStringLiteral("cargo"));
+
+    // Task records, removals, feature queries, and unknown or missing states
+    // do not report the state of the program.
+    receive("\033]7501;state=done:id=build/test:app=cargo\033\\");
+    receive("\033]7501;state=clear\033\\");
+    receive("\033]7501;?\033\\");
+    receive("\033]7501;state=sleeping:app=codex\033\\");
+    receive("\033]7501;app=codex\033\\");
+    QCOMPARE(programStateSpy.count(), 2);
+}
+
 void Vt102EmulationTest::testKittyKeyboardPushPopQuery()
 {
     TestEmulation em;

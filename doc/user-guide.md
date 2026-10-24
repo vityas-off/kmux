@@ -89,6 +89,11 @@ when its terminal closes. The helper leaves the command unchanged for
 `codex agents`, with `--remote`, or when `KMUX_CODEX_HOOKS_DISABLED=1` is set;
 Codex status may then appear on the wrong tab.
 
+Codex runs no hook when a turn fails, for example when the model is at
+capacity. It also reports its state with the OSC 7501 program status sequence,
+and Kmux shows the turn as idle once Codex reports that it waits for the next
+instruction.
+
 Codex reports an interrupted turn with its `Interrupt` hook, and Kmux shows it
 as idle. Claude Code reports no such event, and Escape may only close a dialog,
 such as `/usage`. While a turn runs, Claude animates a spinner at the start of

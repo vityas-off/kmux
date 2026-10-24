@@ -18,6 +18,7 @@
 #include <QSet>
 #include <QTimer>
 
+#include "Enumeration.h"
 #include "containers/ContainerInfo.h"
 #include "konsoleprivate_export.h"
 #include "widgets/ProjectWorkspaceContainer.h"
@@ -562,6 +563,15 @@ private:
                                            const QString &sessionId,
                                            const QString &promptId,
                                            const QString &agentId);
+    void handleSessionProgramState(Enum::ProgramStateEnum state, const QString &app);
+    void applySessionProjectStatus(Session *session,
+                                   const QString &status,
+                                   qlonglong agentProcessId,
+                                   const QString &agent,
+                                   const QString &event,
+                                   const QString &sessionId,
+                                   const QString &promptId,
+                                   const QString &agentId);
     void handleSessionDestroyed(Session *session);
     void acknowledgeSessionAttention(SessionController *controller);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
