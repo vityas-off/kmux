@@ -89,35 +89,28 @@ when its terminal closes. The helper leaves the command unchanged for
 `codex agents`, with `--remote`, or when `KMUX_CODEX_HOOKS_DISABLED=1` is set;
 Codex status may then appear on the wrong tab.
 
-Codex runs no hook when a turn fails, for example when the model is at
-capacity. It also reports its state with the OSC 7501 program status sequence,
-and Kmux shows the turn as idle once Codex reports that it waits for the next
-instruction.
+Codex and Claude Code report their own state with the
+[OSC 7501 program status sequence](https://www.superlogical.com/rex/docs/build/program-status),
+and Kmux shows that state: running, waiting for permission or an answer, or
+idle once a turn ends, fails, or is interrupted. Claude Code reports its state
+only after Kmux answers its support query, and it then leaves the spinner out
+of the terminal title. A result that you have not seen yet marks an inactive
+project. Background agents and workflows keep Claude Code shown as running
+after its turn ends; background shells, such as a development server, do not.
+Other programs that report OSC 7501 status appear the same way.
 
-Codex reports an interrupted turn with its `Interrupt` hook, and Kmux shows it
-as idle. Claude Code reports no such event, and Escape may only close a dialog,
-such as `/usage`. While a turn runs, Claude animates a spinner at the start of
-the terminal title, so after Escape Kmux shows Claude as idle only when the
-spinner gives way to Claude's idle mark, ✳. Claude shows the same mark while it
-asks for permission, so a permission request that follows shows the request
-instead. Under tmux, screen, or zellij,
-Claude does not animate the title: Escape then shows Claude as idle right away,
-and if the turn goes on, the running status returns with Claude's next tool
-call made more than five seconds after the key press.
+When a program exits without withdrawing its status, for example after a
+crash, Kmux removes the status once the shell returns to the foreground or
+prints a new prompt. Terminal multiplexers such as tmux do not pass the
+sequence through, so agents that run inside them show no status.
 
-After a turn ends, Claude Code remains shown as running while its background
-subagents or workflows work. Background shells, such as a development server,
-and monitors do not keep it running, because they may run for as long as the
-session.
-
-When Claude Code reports that a turn stopped because of a rate limit, Kmux
-shows an amber clock in the terminal tab and project rail. The exclamation
-mark remains reserved for requests for input or permission. When another
-agent in the same tab or project is still running, the running indicator
-takes precedence, and the clock returns once that work stops. An idle reminder
-does not clear the rate-limit status; it clears when work resumes or the
-agent session ends. Kmux does not yet distinguish Claude's "Wrapping up"
-phase or show the limit reset time.
+When Claude Code reports through its hooks that a turn stopped because of a
+usage limit, Kmux shows an amber clock in the terminal tab and project rail.
+The exclamation mark remains reserved for requests for input or permission.
+When another agent in the same tab or project is still running, the running
+indicator takes precedence, and the clock returns once that work stops. The
+clock remains until the agent starts new work or exits. Kmux does not yet show
+the limit reset time or Codex usage limits.
 
 Hooks can also be installed or inspected explicitly:
 

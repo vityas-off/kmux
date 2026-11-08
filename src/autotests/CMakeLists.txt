@@ -50,6 +50,11 @@ ecm_add_test(
 )
 
 ecm_add_test(
+    ProgramStatusTest.cpp
+    LINK_LIBRARIES konsoleprivate Qt::Test
+)
+
+ecm_add_test(
     ProjectIconTest.cpp
     LINK_LIBRARIES konsoleprivate Qt::Test
 )

@@ -25,7 +25,6 @@
 #endif
 
 // Konsole
-#include "Enumeration.h"
 #include "Shortcut_p.h"
 #include "config-konsole.h"
 #include "containers/ContainerInfo.h"
@@ -952,10 +951,10 @@ Q_SIGNALS:
     void terminalNotificationReceived(const QString &title, const QString &body);
 
     /**
-     * Emitted when the terminal process reports its own state with the OSC
-     * 7501 program status sequence.
+     * Emitted when the records that programs report with the OSC 7501 program
+     * status sequence change. See Emulation::programStatus().
      */
-    void programStateReported(Enum::ProgramStateEnum state, const QString &app);
+    void programStatusChanged();
 
     /**
      * Emitted when an external agent hook updates the project-level status

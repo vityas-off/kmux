@@ -108,6 +108,7 @@ target_sources(konsoleprivate PRIVATE
     NullProcessInfo.cpp
     PrintOptions.cpp
     ProcessInfo.cpp
+    ProgramStatus.cpp
     Pty.cpp
     RenameTabDialog.cpp
     SSHProcessInfo.cpp
