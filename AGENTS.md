@@ -40,6 +40,11 @@ unless a change is explicitly part of the fork's workspace UI.
 - `ProjectWorkspaceModel` owns project IDs, order, titles, summaries, statuses,
   notifications, and default numbering. `ProjectWorkspaceContainer` only maps
   those IDs to tab containers and renders/binds the project rail.
+- Agent and program statuses come from the OSC 7501 program status sequence:
+  `ProgramStatusRecords` keeps a terminal's records, and `ViewManager` derives
+  tab and project statuses from them. Agent hooks report only what the
+  protocol cannot express, such as a Claude Code usage limit. Do not infer an
+  agent's state from key presses or terminal titles.
 - Keep UI widgets thin: they should bind actions and display state, not own core
   project/tab behavior.
 - Do not duplicate terminal session management for projects. Reuse existing tab,

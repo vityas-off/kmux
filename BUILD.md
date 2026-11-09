@@ -62,7 +62,7 @@ Build options:
 | Option | Default | Description |
 | --- | --- | --- |
 | `WITH_LIBSSH` | `ON` on Linux and BSD | Resolve host aliases from SSH configuration in the titles of tabs running `ssh`. |
-| `USE_DBUS` | `ON` on Linux and BSD | DBus interfaces, global shortcuts, agent status integration, and sleep inhibition. |
+| `USE_DBUS` | `ON` on Linux and BSD | DBus interfaces, global shortcuts, Claude Code usage limits, `kmux-project-status`, and sleep inhibition. |
 | `WITH_X11` | `ON` on Linux and BSD | X11-specific window integration. |
 | `WITH_KAPSULE` | `OFF` | Kapsule container support; needs QCoro6 and Kapsule. |
 | `BUILD_TESTING` | `ON` | Build the test suite. |
@@ -98,6 +98,11 @@ xargs -d '\n' sudo rm -f -- < build/install_manifest.txt
 
 When installing into another prefix, source `build/prefix.sh` before starting
 Kmux so that Qt and KDE Frameworks find its plugins and data files.
+
+An installation does not remove files that a newer version no longer
+installs. Before installing an upgrade, remove the previous installation with
+the manifest of its build, as shown above, or delete the files that the
+[changelog](CHANGELOG.md) names.
 
 ## Packaging Notes
 

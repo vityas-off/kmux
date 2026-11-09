@@ -17,10 +17,11 @@ The first public alpha of Kmux, a KDE Konsole fork with
 - Workspace restoration: projects, tabs, split layouts, working directories,
   profiles, and tab appearance are restored after a restart. Background
   projects start their terminals when first opened.
-- Status integration for Claude Code and Codex: the `claude` and `codex`
-  commands inside Kmux install their hooks automatically and report running,
-  idle, and needs-input states on the project and on the tab. System sleep is
-  inhibited while an agent is running.
+- Agent statuses: Codex, Claude Code, and other programs that report their
+  state with the OSC 7501 program status sequence show as running, needing
+  input, idle, or stopped at a usage limit, on the project and on the tab. A
+  Codex usage limit shows when it resets. System sleep is inhibited while an
+  agent is running.
 - `Shift+Enter` sends a newline by default, for multiline input in coding
   agents.
 - Kmux installs next to Konsole: it uses its own application ID
@@ -40,6 +41,16 @@ Arch Linux users can install the development package
 [`kmux-workspaces-git`](https://aur.archlinux.org/packages/kmux-workspaces-git)
 from the AUR, or build a package of this release from
 `packaging/aur/kmux-workspaces` with `makepkg -si`.
+
+### Upgrading from a development build
+
+Development builds before the OSC 7501 integration installed Codex hooks and a
+`codex` helper. Remove the hooks with `kmux-agent-hooks uninstall codex`. If
+you installed Kmux with `cmake --install`, also delete the helper files
+`bin/kmux-codex` and `kmux/agent-shims/codex` in the libexec directory under
+the installation prefix; an installation does not remove them. The
+[user guide](doc/user-guide.md#upgrading-from-an-earlier-version) explains
+why.
 
 ### Known limitations
 
