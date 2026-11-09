@@ -2811,6 +2811,99 @@ void ViewManagerTest::testCodexUsageLimitShowsUntilReset()
 #endif
 }
 
+void ViewManagerTest::testUnseenResultSurvivesBackgroundWork()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    Session *session = project->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session();
+    QVERIFY(session != nullptr);
+    viewManager->createProject();
+    QVERIFY(viewManager->activeContainer() != project);
+
+    receiveProgramStatus(session, "state=working:app=claude-code");
+    receiveProgramStatus(session, "state=working:id=agent-1");
+    receiveProgramStatus(session, "state=done:app=claude-code");
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(workspaces->projectHasActivity(project));
+
+    // The background agent finishes, and the result is still unseen.
+    receiveProgramStatus(session, "state=clear:id=agent-1");
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(workspaces->projectHasActivity(project));
+}
+
+void ViewManagerTest::testLateUsageLimitAnswerIsIgnored()
+{
+#ifndef Q_OS_LINUX
+    QSKIP("Codex usage limits are only read on Linux.");
+#else
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    // A Codex whose answer about a failed turn arrives after the next turn ended.
+    const QString codexPath = m_testDir->filePath(QStringLiteral("codex"));
+    QFile codex(codexPath);
+    QVERIFY(codex.open(QIODevice::WriteOnly));
+    codex.write(
+        "#!/bin/sh\n"
+        "case \" $* \" in\n"
+        "*\" app-server \"*)\n"
+        "    while IFS= read -r line; do\n"
+        "        case \"$line\" in\n"
+        "        *'\"id\":1'*) printf '%s\\n' '{\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{}}' ;;\n"
+        "        *'\"id\":2'*) sleep 1; printf '%s\\n' "
+        "'{\"id\":2,\"jsonrpc\":\"2.0\",\"result\":{\"rateLimits\":{\"rateLimitReachedType\":\"rate_limit_reached\"}}}'; exit 0 ;;\n"
+        "        esac\n"
+        "    done\n"
+        "    ;;\n"
+        "*)\n"
+        "    printf '\\033]7501;state=working:app=codex\\033\\\\'\n"
+        "    printf '\\033]7501;state=error:app=codex\\033\\\\'\n"
+        "    sleep 0.3\n"
+        "    printf '\\033]7501;state=working:app=codex\\033\\\\'\n"
+        "    printf '\\033]7501;state=done:app=codex\\033\\\\'\n"
+        "    sleep 30 &\n"
+        "    trap 'kill $!; exit 0' INT\n"
+        "    wait\n"
+        "    ;;\n"
+        "esac\n");
+    codex.close();
+    QVERIFY(QFile::setPermissions(codexPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    const QString shell = QStandardPaths::findExecutable(QStringLiteral("bash"));
+    QVERIFY(!shell.isEmpty());
+    Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+    profile->setProperty(Profile::Command, shell);
+    profile->setProperty(Profile::Arguments, QStringList{shell, QStringLiteral("--noprofile"), QStringLiteral("--norc")});
+    Session *session = mw.createSession(profile, m_testDir->path());
+    QVERIFY(session != nullptr);
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    QSignalSpy outputSpy(session->emulation(), &Emulation::outputChanged);
+    session->run();
+    QTRY_VERIFY(session->isRunning());
+    QTRY_VERIFY_WITH_TIMEOUT(!outputSpy.isEmpty(), 5000);
+
+    session->sendTextToTerminal(QStringLiteral("PATH=%1:$PATH codex").arg(m_testDir->path()), QLatin1Char('\r'));
+    QTRY_COMPARE_WITH_TIMEOUT(viewManager->_usageLimitRequestSerial, quint64(1), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(viewManager->_programSessionStatuses.value(session).rootState == ProgramState::Done, 5000);
+    // Let the late answer arrive.
+    QTest::qWait(2000);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+
+    session->sendSignal(SIGINT);
+    QTRY_VERIFY(!session->isForegroundProcessActive());
+#endif
+}
+
 QTEST_MAIN(ViewManagerTest)
 
 #include "moc_ViewManagerTest.cpp"

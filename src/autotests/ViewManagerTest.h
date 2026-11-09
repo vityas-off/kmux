@@ -44,6 +44,8 @@ private Q_SLOTS:
     void testAgentHooksOnlyReportClaudeRateLimit();
     void testProgramStatusClearsWhenProgramReturnsToShell();
     void testCodexUsageLimitShowsUntilReset();
+    void testUnseenResultSurvivesBackgroundWork();
+    void testLateUsageLimitAnswerIsIgnored();
     void testSessionSignalsAreHandledOnceAcrossMultipleViews();
     void testProjectWorkspaceNavigationShortcuts();
     void testProjectWorkspaceRailDoesNotAcceptFocus();

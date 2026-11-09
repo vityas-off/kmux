@@ -3242,10 +3242,12 @@ void ViewManager::handleSessionProgramStatusChanged()
     auto &programStatus = _programSessionStatuses[session];
     // Done and error mean a result that the user has not seen yet.
     const bool hasNewResult = rootState != programStatus.rootState && (rootState == ProgramState::Done || rootState == ProgramState::Error);
-    // New work after a stop at a usage limit means that the limit is over.
+    // New work after a stop at a usage limit means that the limit is over,
+    // and that an answer about the earlier failed turn no longer applies.
     if (isActive(status) && !isActive(programStatus.status)) {
         programStatus.rateLimited = false;
         programStatus.rateLimitResetsAt = {};
+        programStatus.usageLimitRequest = 0;
     }
     programStatus.status = status;
     programStatus.rootState = rootState;
@@ -3362,14 +3364,15 @@ void ViewManager::sessionStatusChanged(Session *session, std::optional<ProjectWo
 {
     const auto status = sessionStatus(session);
     const auto containers = containersForSession(session);
-    if (status != previousStatus || demandsAttention) {
-        if (demandsAttention || (status.has_value() && isWaitingForUser(*status))) {
-            for (TabbedViewContainer *container : containers) {
-                markSessionAttention(session, container);
-            }
-        } else {
-            _sessionsNeedingAttention.remove(session);
+    const bool statusChanged = status != previousStatus;
+    if (demandsAttention || (statusChanged && status.has_value() && isWaitingForUser(*status))) {
+        for (TabbedViewContainer *container : containers) {
+            markSessionAttention(session, container);
         }
+    } else if (statusChanged && previousStatus.has_value() && isWaitingForUser(*previousStatus)) {
+        // The wait ended without the user, for example after an automatic
+        // approval. Other changes keep the mark of a result not seen yet.
+        _sessionsNeedingAttention.remove(session);
     }
 
     updateAgentSleepInhibition();

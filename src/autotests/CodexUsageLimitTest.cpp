@@ -26,6 +26,7 @@ private Q_SLOTS:
     void testReadsLimitOfAnotherBucket();
     void testProbeAsksAppServer();
     void testProbeReportsFailure();
+    void testDestroyedProbeDoesNotAnswer();
     void testProbeRunsCodexOfProcess();
 
 private:
@@ -167,6 +168,31 @@ void CodexUsageLimitTest::testProbeReportsFailure()
     QVERIFY(!answer->has_value());
 }
 
+void CodexUsageLimitTest::testDestroyedProbeDoesNotAnswer()
+{
+    // A server that never answers keeps the request open.
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString codex = directory.filePath(QStringLiteral("codex"));
+    QFile file(codex);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("#!/bin/sh\nexec sleep 30\n");
+    file.close();
+    QVERIFY(QFile::setPermissions(codex, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    bool answered = false;
+    auto *owner = new QObject;
+    auto *probe = new CodexUsageLimitProbe(codex, QProcessEnvironment::systemEnvironment(), directory.path(), owner);
+    probe->start([&answered](std::optional<CodexUsageLimit>) {
+        answered = true;
+    });
+    QTest::qWait(200);
+
+    // The owner, such as a closing window, may be gone when the probe stops.
+    delete owner;
+    QVERIFY(!answered);
+}
+
 void CodexUsageLimitTest::testProbeRunsCodexOfProcess()
 {
 #ifndef Q_OS_LINUX
@@ -188,6 +214,9 @@ void CodexUsageLimitTest::testProbeRunsCodexOfProcess()
     agent.setWorkingDirectory(directory.path());
     agent.start(directory.filePath(QStringLiteral("codex")), {});
     QVERIFY(agent.waitForStarted());
+    // Until the agent prints its status, its process may still carry the
+    // environment of this test, as a process does before it runs a program.
+    QVERIFY(agent.waitForReadyRead(5000));
 
     std::optional<std::optional<CodexUsageLimit>> answer;
     auto *probe = CodexUsageLimitProbe::forProcess(agent.processId(), nullptr);

@@ -91,8 +91,7 @@ for name in \
     kmux_quickcommandsplugin.so \
     kmux_sshmanagerplugin.so \
     kmux.mo \
-    claude \
-    codex
+    claude
 do
     if [ -z "$(find "$root" -name "$name" -print -quit)" ]; then
         echo "missing: $name" >&2

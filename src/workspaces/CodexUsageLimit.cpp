@@ -132,6 +132,9 @@ CodexUsageLimitProbe::CodexUsageLimitProbe(const QString &program, const QProces
 
 CodexUsageLimitProbe::~CodexUsageLimitProbe()
 {
+    // A probe destroyed early, for example together with its window, answers
+    // nobody: stopping the process would otherwise report a failure.
+    _finished = true;
     if (_process.state() != QProcess::NotRunning) {
         _process.kill();
         _process.waitForFinished(ProcessExitTimeoutMs);
