@@ -65,7 +65,6 @@ for path in \
     bin/kmux \
     bin/kmux-agent-hooks \
     bin/kmux-claude \
-    bin/kmux-codex \
     bin/kmux-project-status \
     bin/kmuxprofile \
     share/applications/$app_id.desktop \

@@ -3177,19 +3177,8 @@ void ViewManager::handleSessionTerminalNotification(const QString &title, const 
     }
 }
 
-void ViewManager::handleSessionProjectStatusChanged(const QString &status,
-                                                    qlonglong processId,
-                                                    const QString &agent,
-                                                    const QString &event,
-                                                    const QString &sessionId,
-                                                    const QString &promptId,
-                                                    const QString &agentId)
+void ViewManager::handleSessionProjectStatusChanged(const QString &status, qlonglong processId, const QString &agent)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(sessionId)
-    Q_UNUSED(promptId)
-    Q_UNUSED(agentId)
-
     auto *session = qobject_cast<Session *>(sender());
     if (session == nullptr) {
         return;
@@ -3207,7 +3196,7 @@ void ViewManager::handleSessionProjectStatusChanged(const QString &status,
         return;
     }
 
-    // Agents report their own state with OSC 7501. Their hooks matter only for
+    // Agents report their own state with OSC 7501. Their hooks report only
     // what that protocol cannot express: Claude Code reports a stop at a usage
     // limit as an ordinary error or result.
     const auto programStatus = _programSessionStatuses.find(session);

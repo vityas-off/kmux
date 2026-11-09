@@ -2657,18 +2657,17 @@ void ViewManagerTest::testAgentHooksOnlyReportClaudeRateLimit()
     QVERIFY(project != nullptr);
     Session *session = project->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session();
     QVERIFY(session != nullptr);
-    const qlonglong processId = QCoreApplication::applicationPid();
-    const auto reportRateLimit = [session, processId](const QString &agent) {
-        session->setProjectStatusForAgentEvent(QStringLiteral("rateLimited"), processId, agent, QStringLiteral("RateLimit"), {}, {}, {});
+    const auto reportRateLimit = [session](const QString &agent) {
+        session->setProjectStatusForAgent(QStringLiteral("rateLimited"), agent);
     };
 
     // Agents report their state themselves; their hooks do not.
-    session->setProjectStatusForAgentEvent(QStringLiteral("running"), processId, QStringLiteral("codex"), QStringLiteral("PreToolUse"), {}, {}, {});
+    session->setProjectStatusForAgent(QStringLiteral("running"), QStringLiteral("codex"));
     reportRateLimit(QStringLiteral("claude"));
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
 
     receiveProgramStatus(session, "state=working:app=claude-code");
-    session->setProjectStatusForAgentEvent(QStringLiteral("needsInput"), processId, QStringLiteral("claude"), QStringLiteral("PermissionRequest"), {}, {}, {});
+    session->setProjectStatusForAgent(QStringLiteral("needsInput"), QStringLiteral("claude"));
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
 
     // The hook of a stop at a usage limit may arrive before the stop itself.

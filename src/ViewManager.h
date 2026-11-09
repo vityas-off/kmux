@@ -557,13 +557,7 @@ private:
     QSet<TabbedViewContainer *> containersForSession(Session *session) const;
     void handleSessionStateChanged();
     void handleSessionTerminalNotification(const QString &title, const QString &body);
-    void handleSessionProjectStatusChanged(const QString &status,
-                                           qlonglong processId,
-                                           const QString &agent,
-                                           const QString &event,
-                                           const QString &sessionId,
-                                           const QString &promptId,
-                                           const QString &agentId);
+    void handleSessionProjectStatusChanged(const QString &status, qlonglong processId, const QString &agent);
     void handleSessionProgramStatusChanged();
     void handleSessionDestroyed(Session *session);
     void acknowledgeSessionAttention(SessionController *controller);

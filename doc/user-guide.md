@@ -72,22 +72,8 @@ kept.
 
 ## Agent Status Integration
 
-Kmux can show when Codex or Claude Code is running, idle, or waiting for input.
-Inside Kmux terminals, the regular `codex` and `claude` commands are
-transparently routed through Kmux helpers. The helpers install or repair the
-matching hooks on first launch, associate status with the agent process, and
-then launch the original command from the rest of `PATH`.
-
-Codex 0.157 and later run sessions on a shared background server, which runs
-the hooks of every session with the environment of the terminal that started
-it, so every session's status would appear on that terminal's tab. Until Codex
-tells hooks which terminal triggered them
-([openai/codex#44902](https://github.com/openai/codex/issues/44902)), the
-`codex` helper adds `--no-daemon`, and each session runs its own server as
-before 0.157. These sessions do not appear in `codex agents`, and a turn stops
-when its terminal closes. The helper leaves the command unchanged for
-`codex agents`, with `--remote`, or when `KMUX_CODEX_HOOKS_DISABLED=1` is set;
-Codex status may then appear on the wrong tab.
+Kmux can show when Codex, Claude Code, or another program in a terminal is
+running, idle, or waiting for input.
 
 Codex and Claude Code report their own state with the
 [OSC 7501 program status sequence](https://www.superlogical.com/rex/docs/build/program-status),
@@ -112,19 +98,23 @@ indicator takes precedence, and the clock returns once that work stops. The
 clock remains until the agent starts new work or exits. Kmux does not yet show
 the limit reset time or Codex usage limits.
 
-Hooks can also be installed or inspected explicitly:
+Claude Code reports a stop at a usage limit as an ordinary result, so Kmux
+also installs two Claude Code hooks. Inside Kmux terminals, the regular
+`claude` command is transparently routed through a Kmux helper. The helper
+installs or repairs the hooks in `~/.claude/settings.json` and then launches
+Claude Code from the rest of `PATH`. Set `KMUX_CLAUDE_HOOKS_DISABLED=1` to
+launch Claude Code without installing or updating the hooks. The hooks can
+also be managed explicitly:
 
 ```sh
-kmux-agent-hooks install codex
 kmux-agent-hooks install claude
+kmux-agent-hooks status claude
+kmux-agent-hooks uninstall claude
 ```
 
-The commands update the respective agent configuration under `~/.codex` or
-`~/.claude`. Use `status` or `uninstall` in place of `install` to inspect or
-remove the integration. Set `KMUX_CODEX_HOOKS_DISABLED=1` or
-`KMUX_CLAUDE_HOOKS_DISABLED=1` to launch the agent without installing or
-updating its hooks. The legacy
-`KONSOLE_CODEX_HOOKS_DISABLED=1` name remains supported for compatibility.
+Kmux no longer uses Codex hooks. Earlier versions installed them under
+`~/.codex` and started Codex with `--no-daemon`. The hooks that remain do no
+harm; remove them with `kmux-agent-hooks uninstall codex`.
 
 Agent hooks communicate with the Kmux session through the
 `KMUX_DBUS_*` environment exported inside Kmux terminals. These helpers are

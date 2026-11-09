@@ -112,8 +112,8 @@ The public install surface is renamed to avoid conflicts:
 - config file: `kmuxrc`; workspace state: `kmuxstaterc`;
 - data directory: `~/.local/share/kmux`;
 - DBus environment variables: `KMUX_DBUS_*`;
-- helper tools: `kmux-project-status`, `kmux-codex`, `kmux-claude`,
-  `kmux-agent-hooks`, and `kmuxprofile`;
+- helper tools: `kmux-project-status`, `kmux-claude`, `kmux-agent-hooks`, and
+  `kmuxprofile`;
 - plugin namespace: `kmuxplugins`; terminal part: `kmuxpart`;
 - translation domain: `kmux`.
 
