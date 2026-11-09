@@ -90,13 +90,18 @@ crash, Kmux removes the status once the shell returns to the foreground or
 prints a new prompt. Terminal multiplexers such as tmux do not pass the
 sequence through, so agents that run inside them show no status.
 
-When Claude Code reports through its hooks that a turn stopped because of a
-usage limit, Kmux shows an amber clock in the terminal tab and project rail.
-The exclamation mark remains reserved for requests for input or permission.
-When another agent in the same tab or project is still running, the running
-indicator takes precedence, and the clock returns once that work stops. The
-clock remains until the agent starts new work or exits. Kmux does not yet show
-the limit reset time or Codex usage limits.
+When an agent stops at a usage limit, Kmux shows an amber clock in the
+terminal tab and project rail. Claude Code reports such a stop through its
+hooks. Codex reports it only as a failed turn, so after a failed turn Kmux asks
+Codex for the usage limits of the signed-in account. Codex keeps working on
+credits after the included usage runs out, and Kmux then shows no clock. For
+Codex, the project tooltip shows when the limit resets; at that time the clock
+gives way to the idle status and the project is marked, because Codex can work
+again. The exclamation mark remains reserved for requests for input or
+permission. When another agent in the same tab or project is still running, the
+running indicator takes precedence, and the clock returns once that work stops.
+Otherwise the clock remains until the agent starts new work or exits, or until
+the reset time passes.
 
 Claude Code reports a stop at a usage limit as an ordinary result, so Kmux
 also installs two Claude Code hooks. Inside Kmux terminals, the regular

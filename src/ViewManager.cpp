@@ -12,6 +12,7 @@
 #include "config-konsole.h"
 #include "konsoledebug.h"
 #include "workspaces/AgentSleepInhibitor.h"
+#include "workspaces/CodexUsageLimit.h"
 
 // Qt
 #include <QColor>
@@ -83,9 +84,16 @@ Q_DECLARE_METATYPE(QList<double>);
 namespace
 {
 constexpr int ProjectStatusProcessCheckIntervalMs = 2000;
-// The app name that Claude Code reports in OSC 7501 program status.
+// The app names that Claude Code and Codex report in OSC 7501 program status.
 constexpr auto ClaudeProgramStatusApp = "claude-code";
+constexpr auto CodexProgramStatusApp = "codex";
 constexpr auto ClaudeAgentName = "claude";
+
+QString usageLimitResetText(const QDateTime &resetsAt)
+{
+    const QLocale locale;
+    return resetsAt.date() == QDate::currentDate() ? locale.toString(resetsAt.time(), QLocale::ShortFormat) : locale.toString(resetsAt, QLocale::ShortFormat);
+}
 
 bool projectStatusProcessIsAlive(qlonglong processId)
 {
@@ -280,6 +288,8 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
 
     _projectStatusProcessTimer.setInterval(ProjectStatusProcessCheckIntervalMs);
     connect(&_projectStatusProcessTimer, &QTimer::timeout, this, &ViewManager::clearExitedSessionStatuses);
+    _rateLimitResetTimer.setSingleShot(true);
+    connect(&_rateLimitResetTimer, &QTimer::timeout, this, &ViewManager::endResetRateLimits);
     AgentSleepInhibitor::instance()->setAgentRunning(this, false);
 
     // setup actions which are related to the views
@@ -3235,6 +3245,7 @@ void ViewManager::handleSessionProgramStatusChanged()
     // New work after a stop at a usage limit means that the limit is over.
     if (isActive(status) && !isActive(programStatus.status)) {
         programStatus.rateLimited = false;
+        programStatus.rateLimitResetsAt = {};
     }
     programStatus.status = status;
     programStatus.rootState = rootState;
@@ -3242,6 +3253,95 @@ void ViewManager::handleSessionProgramStatusChanged()
         programStatus.reportedFromForeground = true;
     }
     sessionStatusChanged(session, previousStatus, hasNewResult);
+    if (hasNewResult && rootState == ProgramState::Error && records.app({}) == QLatin1String(CodexProgramStatusApp)) {
+        checkCodexUsageLimit(session);
+    }
+}
+
+void ViewManager::checkCodexUsageLimit(Session *session)
+{
+    // Codex reports a stop at a usage limit only as a failed turn. Ask the
+    // account of the Codex that runs in this terminal for its usage limits.
+    const int processId = session->foregroundProcessId();
+    if (processId <= 0 || session->foregroundProcessName() != QLatin1String(CodexProgramStatusApp)) {
+        return;
+    }
+    auto *probe = CodexUsageLimitProbe::forProcess(processId, this);
+    if (probe == nullptr) {
+        return;
+    }
+
+    const quint64 request = ++_usageLimitRequestSerial;
+    _programSessionStatuses[session].usageLimitRequest = request;
+    probe->start([this, guardedSession = QPointer<Session>(session), request](std::optional<CodexUsageLimit> usageLimit) {
+        Session *session = guardedSession.data();
+        qCDebug(KonsoleDebug) << "Codex usage limit request" << request
+                              << (!usageLimit.has_value()   ? "failed"
+                                      : usageLimit->reached ? "reached"
+                                                            : "not reached");
+        const auto programStatus = session != nullptr ? _programSessionStatuses.find(session) : _programSessionStatuses.end();
+        if (programStatus == _programSessionStatuses.end() || programStatus->usageLimitRequest != request || isActive(programStatus->status)
+            || !usageLimit.has_value() || !usageLimit->reached) {
+            return;
+        }
+
+        const auto previousStatus = sessionStatus(session);
+        programStatus->rateLimited = true;
+        programStatus->rateLimitResetsAt = usageLimit->resetsAt;
+        setSessionProjectNotification(
+            session,
+            usageLimit->resetsAt.isValid()
+                ? i18nc("@info:project notification", "Codex usage limit reached; resets at %1", usageLimitResetText(usageLimit->resetsAt))
+                : i18nc("@info:project notification", "Codex usage limit reached"));
+        sessionStatusChanged(session, previousStatus, false);
+    });
+}
+
+void ViewManager::setSessionProjectNotification(Session *session, const QString &notification)
+{
+    if (_workspaceContainer.isNull()) {
+        return;
+    }
+    const auto containers = containersForSession(session);
+    for (TabbedViewContainer *container : containers) {
+        _workspaceContainer->setProjectNotification(container, notification);
+    }
+}
+
+void ViewManager::updateRateLimitResetTimer()
+{
+    QDateTime earliestReset;
+    for (const ProgramSessionStatus &status : std::as_const(_programSessionStatuses)) {
+        if (status.rateLimited && status.rateLimitResetsAt.isValid() && (!earliestReset.isValid() || status.rateLimitResetsAt < earliestReset)) {
+            earliestReset = status.rateLimitResetsAt;
+        }
+    }
+    if (!earliestReset.isValid()) {
+        _rateLimitResetTimer.stop();
+        return;
+    }
+    const qint64 delay = std::clamp<qint64>(QDateTime::currentDateTime().msecsTo(earliestReset), 0, std::numeric_limits<int>::max());
+    _rateLimitResetTimer.start(static_cast<int>(delay));
+}
+
+void ViewManager::endResetRateLimits()
+{
+    // The agent can work again, which the user is waiting for.
+    const QDateTime now = QDateTime::currentDateTime();
+    const auto sessions = _programSessionStatuses.keys();
+    for (Session *session : sessions) {
+        const auto programStatus = _programSessionStatuses.find(session);
+        if (programStatus == _programSessionStatuses.end() || !programStatus->rateLimited || !programStatus->rateLimitResetsAt.isValid()
+            || programStatus->rateLimitResetsAt > now) {
+            continue;
+        }
+        const auto previousStatus = sessionStatus(session);
+        programStatus->rateLimited = false;
+        programStatus->rateLimitResetsAt = {};
+        setSessionProjectNotification(session, i18nc("@info:project notification", "Codex usage limit has reset"));
+        sessionStatusChanged(session, previousStatus, true);
+    }
+    updateRateLimitResetTimer();
 }
 
 std::optional<ProjectWorkspaceContainer::ProjectStatus> ViewManager::sessionStatus(Session *session) const
@@ -3258,12 +3358,12 @@ std::optional<ProjectWorkspaceContainer::ProjectStatus> ViewManager::sessionStat
     return std::nullopt;
 }
 
-void ViewManager::sessionStatusChanged(Session *session, std::optional<ProjectWorkspaceContainer::ProjectStatus> previousStatus, bool hasNewResult)
+void ViewManager::sessionStatusChanged(Session *session, std::optional<ProjectWorkspaceContainer::ProjectStatus> previousStatus, bool demandsAttention)
 {
     const auto status = sessionStatus(session);
     const auto containers = containersForSession(session);
-    if (status != previousStatus || hasNewResult) {
-        if (hasNewResult || (status.has_value() && isWaitingForUser(*status))) {
+    if (status != previousStatus || demandsAttention) {
+        if (demandsAttention || (status.has_value() && isWaitingForUser(*status))) {
             for (TabbedViewContainer *container : containers) {
                 markSessionAttention(session, container);
             }
@@ -3274,6 +3374,7 @@ void ViewManager::sessionStatusChanged(Session *session, std::optional<ProjectWo
 
     updateAgentSleepInhibition();
     updateProjectStatusProcessTimer();
+    updateRateLimitResetTimer();
     for (TabbedViewContainer *container : containers) {
         refreshProjectSummary(container);
     }
@@ -3287,6 +3388,7 @@ void ViewManager::handleSessionDestroyed(Session *session)
     _programSessionStatuses.remove(session);
     updateAgentSleepInhibition();
     updateProjectStatusProcessTimer();
+    updateRateLimitResetTimer();
 }
 
 void ViewManager::acknowledgeSessionAttention(SessionController *controller)

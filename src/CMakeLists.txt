@@ -159,6 +159,7 @@ target_sources(konsoleprivate PRIVATE
     widgets/ProjectWorkspaceContainer.cpp
     widgets/ProjectIconDialog.cpp
     workspaces/AgentSleepInhibitor.cpp
+    workspaces/CodexUsageLimit.cpp
     workspaces/ProjectIcon.cpp
     workspaces/ProjectIconCatalog.cpp
     workspaces/ProjectWorkspaceModel.cpp

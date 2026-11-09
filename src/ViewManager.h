@@ -10,6 +10,7 @@
 // Qt
 #include <QAction>
 #include <QColor>
+#include <QDateTime>
 #include <QHash>
 #include <QJsonArray>
 #include <QObject>
@@ -564,7 +565,11 @@ private:
     void markSessionAttention(Session *session, TabbedViewContainer *container);
     void clearProjectAttention(TabbedViewContainer *container);
     std::optional<ProjectWorkspaceContainer::ProjectStatus> sessionStatus(Session *session) const;
-    void sessionStatusChanged(Session *session, std::optional<ProjectWorkspaceContainer::ProjectStatus> previousStatus, bool hasNewResult);
+    void sessionStatusChanged(Session *session, std::optional<ProjectWorkspaceContainer::ProjectStatus> previousStatus, bool demandsAttention);
+    void checkCodexUsageLimit(Session *session);
+    void setSessionProjectNotification(Session *session, const QString &notification);
+    void updateRateLimitResetTimer();
+    void endResetRateLimits();
     void clearExitedSessionStatuses();
     void updateProjectStatusProcessTimer();
     void updateProjectInputRequirement();
@@ -602,11 +607,17 @@ private:
         // The reporting program ran in the foreground, so a return to the
         // shell means that it exited.
         bool reportedFromForeground = false;
-        // Claude Code reports a stop at a usage limit as an ordinary result;
-        // only its hooks tell the limit apart.
+        // Agents report a stop at a usage limit as an ordinary result: Claude
+        // Code's hooks tell the limit apart, and Codex reports it on request.
         bool rateLimited = false;
+        // When the usage limit resets, if the agent reports it.
+        QDateTime rateLimitResetsAt;
+        // Identifies the latest usage limit request, so older answers are ignored.
+        quint64 usageLimitRequest = 0;
     };
     QHash<Session *, ProgramSessionStatus> _programSessionStatuses;
+    quint64 _usageLimitRequestSerial = 0;
+    QTimer _rateLimitResetTimer;
     struct DeferredProjectRestore {
         QJsonArray tabs;
         int activeTab = 0;

@@ -2739,6 +2739,78 @@ void ViewManagerTest::testProgramStatusClearsWhenProgramReturnsToShell()
 #endif
 }
 
+void ViewManagerTest::testCodexUsageLimitShowsUntilReset()
+{
+#ifndef Q_OS_LINUX
+    QSKIP("Codex usage limits are only read on Linux.");
+#else
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    // A Codex that reports a failed turn and answers the usage limit request.
+    const QString codexPath = m_testDir->filePath(QStringLiteral("codex"));
+    QFile codex(codexPath);
+    QVERIFY(codex.open(QIODevice::WriteOnly));
+    codex.write(
+        "#!/bin/sh\n"
+        "case \" $* \" in\n"
+        "*\" app-server \"*)\n"
+        "    while IFS= read -r line; do\n"
+        "        case \"$line\" in\n"
+        "        *'\"id\":1'*) printf '%s\\n' '{\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{}}' ;;\n"
+        "        *'\"id\":2'*) printf '{\"id\":2,\"jsonrpc\":\"2.0\",\"result\":{\"rateLimits\":{\"primary\":{\"usedPercent\":100,\"resetsAt\":%s},"
+        "\"rateLimitReachedType\":\"rate_limit_reached\"}}}\\n' \"$KMUX_TEST_RESETS_AT\"; exit 0 ;;\n"
+        "        esac\n"
+        "    done\n"
+        "    ;;\n"
+        "*)\n"
+        "    printf '\\033]7501;state=working:app=codex\\033\\\\'\n"
+        "    printf '\\033]7501;state=error:app=codex\\033\\\\'\n"
+        "    sleep 30 &\n"
+        "    trap 'kill $!; exit 0' INT\n"
+        "    wait\n"
+        "    ;;\n"
+        "esac\n");
+    codex.close();
+    QVERIFY(QFile::setPermissions(codexPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    const QString shell = QStandardPaths::findExecutable(QStringLiteral("bash"));
+    QVERIFY(!shell.isEmpty());
+    Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+    profile->setProperty(Profile::Command, shell);
+    profile->setProperty(Profile::Arguments, QStringList{shell, QStringLiteral("--noprofile"), QStringLiteral("--norc")});
+    Session *session = mw.createSession(profile, m_testDir->path());
+    QVERIFY(session != nullptr);
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    QSignalSpy outputSpy(session->emulation(), &Emulation::outputChanged);
+    session->run();
+    QTRY_VERIFY(session->isRunning());
+    QTRY_VERIFY_WITH_TIMEOUT(!outputSpy.isEmpty(), 5000);
+    viewManager->createProject();
+    QVERIFY(viewManager->activeContainer() != project);
+
+    const qint64 resetsAt = QDateTime::currentSecsSinceEpoch() + 3;
+    session->sendTextToTerminal(QStringLiteral("PATH=%1:$PATH KMUX_TEST_RESETS_AT=%2 codex").arg(m_testDir->path()).arg(resetsAt), QLatin1Char('\r'));
+    QTRY_COMPARE_WITH_TIMEOUT(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::RateLimited, 10000);
+    QVERIFY(workspaces->projectNotification(project).contains(QStringLiteral("resets at")));
+    QVERIFY(viewManager->_rateLimitResetTimer.isActive());
+
+    // When the limit resets, Codex can work again, which the project shows.
+    workspaces->activateProject(project);
+    workspaces->activateProject(viewManager->_workspaceContainer->containers().constLast());
+    QVERIFY(!workspaces->projectHasActivity(project));
+    QTRY_COMPARE_WITH_TIMEOUT(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle, 10000);
+    QCOMPARE(workspaces->projectNotification(project), QStringLiteral("Codex usage limit has reset"));
+    QVERIFY(workspaces->projectHasActivity(project));
+
+    session->sendSignal(SIGINT);
+    QTRY_VERIFY(!session->isForegroundProcessActive());
+#endif
+}
+
 QTEST_MAIN(ViewManagerTest)
 
 #include "moc_ViewManagerTest.cpp"
