@@ -19,6 +19,8 @@ private Q_SLOTS:
     void testScrollBarPositions();
     void testColorTable();
     void testSize();
+    void testLinkClickMouseTracking_data();
+    void testLinkClickMouseTracking();
 
 private:
 };

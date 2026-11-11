@@ -791,6 +791,7 @@ private: // data members
     QTimer *_blinkCursorTimer = nullptr;
 
     bool _openLinksByDirectClick = false; // Open URL and hosts by single mouse click
+    bool _linkClickPending = false;
 
     bool _ctrlRequiredForDrag = true; // require Ctrl key for drag selected text
     bool _dropUrlsAsText = false; // always paste URLs as text without showing copy/move menu
