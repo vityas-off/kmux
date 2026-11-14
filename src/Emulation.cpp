@@ -379,4 +379,23 @@ QList<int> Emulation::getCurrentScreenCharacterCounts() const
     return _currentScreen->getCharacterCounts();
 }
 
+const ProgramStatusRecords &Emulation::programStatus() const
+{
+    return _programStatus;
+}
+
+void Emulation::dropTransientProgramStatus()
+{
+    if (_programStatus.dropTransientRecords()) {
+        Q_EMIT programStatusChanged();
+    }
+}
+
+void Emulation::clearProgramStatus()
+{
+    if (_programStatus.clear()) {
+        Q_EMIT programStatusChanged();
+    }
+}
+
 #include "moc_Emulation.cpp"

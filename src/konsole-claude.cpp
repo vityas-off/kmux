@@ -9,63 +9,22 @@
 #include <cstring>
 #include <iostream>
 #include <string>
-#include <string_view>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
-#ifndef KMUX_AGENT_NAME
-#define KMUX_AGENT_NAME "codex"
-#endif
-
-#ifndef KMUX_AGENT_PID_ENV
-#define KMUX_AGENT_PID_ENV "KMUX_CODEX_PID"
-#endif
-
-#ifndef KMUX_HOOKS_DISABLED_ENV
-#define KMUX_HOOKS_DISABLED_ENV "KMUX_CODEX_HOOKS_DISABLED"
-#endif
-
-#ifndef KMUX_HOOKS_DISABLED_COMPAT_ENV
-#define KMUX_HOOKS_DISABLED_COMPAT_ENV "KONSOLE_CODEX_HOOKS_DISABLED"
-#endif
-
-#ifndef KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT
-#define KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT "--no-daemon"
-#endif
+// Inside Kmux terminals, "claude" runs this launcher first. It installs or
+// repairs the Kmux hooks that report a stop at a usage limit, then runs the
+// real Claude Code from the rest of PATH.
+#define KMUX_AGENT_NAME "claude"
 
 namespace
 {
-bool environmentDisablesHooks(const char *name)
+bool hooksDisabled()
 {
-    if (name[0] == '\0') {
-        return false;
-    }
-
-    const char *value = std::getenv(name);
+    const char *value = std::getenv("KMUX_CLAUDE_HOOKS_DISABLED");
     return value != nullptr && std::strcmp(value, "1") == 0;
-}
-
-// Codex 0.157 runs sessions on a shared app-server daemon, which runs hooks with
-// the environment of the terminal that started it, so every tab's hooks would
-// report to that terminal. An embedded server runs them with this terminal's
-// environment. Codex rejects the argument with a remote server and with the
-// agents overview; any matching argument keeps the shared server.
-bool shouldAddEmbeddedServerArgument(int argc, char **argv)
-{
-    const std::string_view embeddedServerArgument = KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT;
-    if (embeddedServerArgument.empty()) {
-        return false;
-    }
-
-    for (int i = 1; i < argc; ++i) {
-        const std::string_view argument = argv[i];
-        if (argument == embeddedServerArgument || argument == "agents" || argument == "--remote" || argument.starts_with("--remote=")) {
-            return false;
-        }
-    }
-    return true;
 }
 
 std::vector<std::string> executableCandidates(const char *executable)
@@ -119,7 +78,7 @@ std::string agentHooksExecutable(const char *launcherPath)
     return std::string("kmux-agent-hooks");
 }
 
-bool installTrustedHooks(const char *launcherPath)
+bool installHooks(const char *launcherPath)
 {
     const std::string executable = agentHooksExecutable(launcherPath);
     const pid_t installerPid = fork();
@@ -199,21 +158,13 @@ int main(int argc, char **argv)
     std::vector<std::string> args;
     args.emplace_back(KMUX_AGENT_NAME);
 
-    if (!environmentDisablesHooks(KMUX_HOOKS_DISABLED_ENV) && !environmentDisablesHooks(KMUX_HOOKS_DISABLED_COMPAT_ENV)) {
-        if (!installTrustedHooks(argv[0])) {
-            std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to install Kmux hooks; continuing without updating the agent configuration\n";
-        }
-        if (shouldAddEmbeddedServerArgument(argc, argv)) {
-            args.emplace_back(KMUX_AGENT_EMBEDDED_SERVER_ARGUMENT);
-        }
+    if (!hooksDisabled() && !installHooks(argv[0])) {
+        std::cerr << "kmux-" KMUX_AGENT_NAME ": failed to install Kmux hooks; continuing without updating the agent configuration\n";
     }
 
     for (int i = 1; i < argc; ++i) {
         args.emplace_back(argv[i]);
     }
-
-    const std::string agentPid = std::to_string(getpid());
-    setenv(KMUX_AGENT_PID_ENV, agentPid.c_str(), 1);
 
     std::vector<char *> execArgs;
     execArgs.reserve(args.size() + 1);

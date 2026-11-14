@@ -43,57 +43,19 @@ constexpr auto ClaudeAgentName = "claude";
 struct HookEvent {
     QString eventName;
     QString eventLabel;
-    QString status;
+    // The kmux-project-status option that tells the hook apart.
+    QString helperOption;
     int timeout = 5;
     QString matcher;
 };
 
-// Codex SessionStart describes the agent process, not an active turn. The
-// project-status helper resolves PermissionRequest dynamically because Codex
-// runs the hook before either the user or automatic approval reviewer.
-// Manual compaction is a standalone turn; automatic compaction inherits the
-// running state of the turn that triggered it. Codex runs Interrupt instead of
-// Stop when a turn is interrupted, and clamps that hook's timeout to three
-// seconds, which must also be the configured value for its trust hash to match.
-const QList<HookEvent> CodexHookEvents = {
-    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("idle"), 5, QString()},
-    {QStringLiteral("UserPromptSubmit"), QStringLiteral("user_prompt_submit"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("PreToolUse"), QStringLiteral("pre_tool_use"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("PostToolUse"), QStringLiteral("post_tool_use"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("PreCompact"), QStringLiteral("pre_compact"), QStringLiteral("running"), 5, QStringLiteral("manual")},
-    {QStringLiteral("PostCompact"), QStringLiteral("post_compact"), QStringLiteral("idle"), 5, QStringLiteral("manual")},
-    {QStringLiteral("PermissionRequest"), QStringLiteral("permission_request"), QStringLiteral("needsInput"), 5, QString()},
-    {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
-    {QStringLiteral("Interrupt"), QStringLiteral("interrupt"), QStringLiteral("idle"), 3, QString()},
-};
-
-// Claude auto mode answers permission questions with its own classifier.
-// PermissionDenied reports the denied action as feedback while the turn keeps
-// going; subsequent hooks determine whether the turn continues or stops.
-// Manual compaction is a standalone turn that no other event brackets, so it
-// needs both compaction hooks to show progress and to stop showing it. Automatic
-// compaction inherits the running state of the turn that triggered it, and the
-// session it restarts underneath that turn is not a session the tab may report
-// as idle -- hence the "manual" matcher and the SessionStart sources.
+// Claude Code reports its running state with OSC 7501 itself. Its hooks tell
+// Kmux only about a stop at a usage limit, which the protocol reports as an
+// ordinary result: a graceful stop ends with Stop, a failed request with
+// StopFailure.
 const QList<HookEvent> ClaudeHookEvents = {
-    {QStringLiteral("SessionStart"), QStringLiteral("session_start"), QStringLiteral("idle"), 5, QStringLiteral("startup|resume|clear|fork")},
-    {QStringLiteral("UserPromptSubmit"), QStringLiteral("user_prompt_submit"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("PreToolUse"), QStringLiteral("pre_tool_use"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("PostToolUse"), QStringLiteral("post_tool_use"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("PostToolUseFailure"), QStringLiteral("post_tool_use_failure"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("PreCompact"), QStringLiteral("pre_compact"), QStringLiteral("running"), 5, QStringLiteral("manual")},
-    {QStringLiteral("PostCompact"), QStringLiteral("post_compact"), QStringLiteral("idle"), 5, QStringLiteral("manual")},
-    {QStringLiteral("PermissionRequest"), QStringLiteral("permission_request"), QStringLiteral("needsInput"), 5, QString()},
-    {QStringLiteral("PermissionDenied"), QStringLiteral("permission_denied"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("Notification"),
-     QStringLiteral("notification"),
-     QStringLiteral("needsInput"),
-     5,
-     QStringLiteral("permission_prompt|idle_prompt|elicitation_dialog")},
-    {QStringLiteral("ElicitationResult"), QStringLiteral("elicitation_result"), QStringLiteral("running"), 5, QString()},
-    {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("idle"), 5, QString()},
-    {QStringLiteral("StopFailure"), QStringLiteral("stop_failure"), QStringLiteral("idle"), 5, QString()},
-    {QStringLiteral("SessionEnd"), QStringLiteral("session_end"), QStringLiteral("none"), 5, QString()},
+    {QStringLiteral("Stop"), QStringLiteral("stop"), QStringLiteral("--claude-stop"), 5, QString()},
+    {QStringLiteral("StopFailure"), QStringLiteral("stop_failure"), QStringLiteral("--claude-stop-failure"), 5, QString()},
 };
 
 QString homePath()
@@ -241,56 +203,19 @@ QString hookCommandScriptPath(const QString &command)
 
 QString hookScriptContent(const QString &agentName, const HookEvent &event)
 {
-    const QString helper = projectStatusHelperPath();
-    const QString quotedHelper = shellQuote(helper);
-    const QString quotedAgentName = shellQuote(agentName);
-    const QString quotedEventName = shellQuote(event.eventName);
-    const QString agentPidEnvironment = agentName == QLatin1String(CodexAgentName) ? QStringLiteral("KMUX_CODEX_PID") : QStringLiteral("KMUX_CLAUDE_PID");
-    const QString agentProcessArguments = QStringLiteral(
-                                              "agent_pid=${%1:-}\n"
-                                              "if [ -n \"$agent_pid\" ]; then\n"
-                                              "    set -- \"$@\" --agent-pid \"$agent_pid\"\n"
-                                              "fi\n")
-                                              .arg(agentPidEnvironment);
-    const QString reviewerAwareArguments = agentName == QLatin1String(CodexAgentName) && event.eventName == QLatin1String("PermissionRequest")
-        ? QStringLiteral("set -- \"$@\" --codex-permission-request\n")
-        : QString();
-    const QString backgroundTaskAwareArguments =
-        agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("Stop") ? QStringLiteral("set -- \"$@\" --claude-stop\n") : QString();
-    const QString notificationAwareArguments = agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("Notification")
-        ? QStringLiteral("set -- \"$@\" --claude-notification\n")
-        : QString();
-    const QString stopFailureAwareArguments = agentName == QLatin1String(ClaudeAgentName) && event.eventName == QLatin1String("StopFailure")
-        ? QStringLiteral("set -- \"$@\" --claude-stop-failure\n")
-        : QString();
-
     return QStringLiteral(
                "#!/bin/sh\n"
-               "# kmux-%1-hook v1\n"
+               "# kmux-%1-hook v2\n"
                "helper=%2\n"
-               "set -- --hook-output --agent %3 --event %4\n"
-               "%5"
-               "%6"
-               "%7"
-               "%8"
-               "%9"
+               "set -- --hook-output --agent %3 --event %4 %5\n"
                "if [ -x \"$helper\" ]; then\n"
-               "    \"$helper\" \"$@\" %10\n"
+               "    \"$helper\" \"$@\"\n"
                "elif command -v kmux-project-status >/dev/null 2>&1; then\n"
-               "    kmux-project-status \"$@\" %10\n"
+               "    kmux-project-status \"$@\"\n"
                "else\n"
                "    printf '{}\\n'\n"
                "fi\n")
-        .arg(agentName,
-             quotedHelper,
-             quotedAgentName,
-             quotedEventName,
-             agentProcessArguments,
-             reviewerAwareArguments,
-             backgroundTaskAwareArguments,
-             notificationAwareArguments,
-             stopFailureAwareArguments,
-             event.status);
+        .arg(agentName, shellQuote(projectStatusHelperPath()), shellQuote(agentName), shellQuote(event.eventName), event.helperOption);
 }
 
 bool writeTextFileAtomically(const QString &path, const QString &content, QString *error)
@@ -438,78 +363,6 @@ QJsonObject buildHookGroup(const QString &scriptDirectory, const QString &agentN
     return group;
 }
 
-QString canonicalPathForTrust(const QString &path)
-{
-    const QString canonical = QFileInfo(path).canonicalFilePath();
-    if (!canonical.isEmpty()) {
-        return canonical;
-    }
-
-    const QFileInfo parentInfo(QFileInfo(path).absolutePath());
-    const QString parentCanonical = parentInfo.canonicalFilePath();
-    if (!parentCanonical.isEmpty()) {
-        return QDir(parentCanonical).filePath(QFileInfo(path).fileName());
-    }
-
-    return QFileInfo(path).absoluteFilePath();
-}
-
-QString hookTrustHash(const HookEvent &event, const QString &command)
-{
-    QJsonObject handler;
-    handler.insert(QStringLiteral("async"), false);
-    handler.insert(QStringLiteral("command"), command);
-    handler.insert(QStringLiteral("timeout"), event.timeout);
-    handler.insert(QStringLiteral("type"), QStringLiteral("command"));
-
-    QJsonArray hooks;
-    hooks.append(handler);
-
-    // Codex hashes the normalized TOML hook identity after converting it to
-    // canonical JSON. QJsonDocument sorts object keys in the same order, while
-    // optional TOML fields remain absent rather than becoming JSON nulls.
-    QJsonObject identity;
-    identity.insert(QStringLiteral("event_name"), event.eventLabel);
-    identity.insert(QStringLiteral("hooks"), hooks);
-    if (!event.matcher.isEmpty()) {
-        identity.insert(QStringLiteral("matcher"), event.matcher);
-    }
-
-    const QByteArray json = QJsonDocument(identity).toJson(QJsonDocument::Compact);
-    const QByteArray digest = QCryptographicHash::hash(json, QCryptographicHash::Sha256).toHex();
-    return QStringLiteral("sha256:%1").arg(QString::fromLatin1(digest));
-}
-
-QString tomlQuoted(const QString &value)
-{
-    QString escaped;
-    escaped.reserve(value.size());
-    for (const QChar ch : value) {
-        switch (ch.unicode()) {
-        case '\\':
-            escaped += QStringLiteral("\\\\");
-            break;
-        case '"':
-            escaped += QStringLiteral("\\\"");
-            break;
-        case '\n':
-            escaped += QStringLiteral("\\n");
-            break;
-        case '\r':
-            escaped += QStringLiteral("\\r");
-            break;
-        case '\t':
-            escaped += QStringLiteral("\\t");
-            break;
-        default:
-            escaped += ch;
-            break;
-        }
-    }
-
-    return escaped;
-}
-
 QStringList splitTomlLines(const QString &content)
 {
     if (content.isEmpty()) {
@@ -537,125 +390,6 @@ bool lineStartsTable(const QString &line, const QString &table)
 bool lineStartsAnyTable(const QString &line)
 {
     return QRegularExpression(QStringLiteral(R"(^\s*\[\[?\s*[^]]+\s*\]\]?\s*(#.*)?$)")).match(line).hasMatch();
-}
-
-bool lineDefinesKey(const QString &line, const QString &key)
-{
-    const QString escapedKey = QRegularExpression::escape(key);
-    return QRegularExpression(QStringLiteral(R"(^\s*(?:%1|"%1"|'%1')\s*=)").arg(escapedKey)).match(line).hasMatch();
-}
-
-bool lineDefinesDottedFeatureHooks(const QString &line)
-{
-    return QRegularExpression(QStringLiteral(R"(^\s*(?:features|"features"|'features')\s*\.\s*(?:hooks|"hooks"|'hooks')\s*=)")).match(line).hasMatch();
-}
-
-bool lineDefinesDottedFeature(const QString &line)
-{
-    return QRegularExpression(QStringLiteral(R"(^\s*(?:features|"features"|'features')\s*\.)")).match(line).hasMatch();
-}
-
-bool lineDefinesTrueValue(const QString &line, const QString &keyPattern)
-{
-    return QRegularExpression(QStringLiteral(R"(^\s*%1\s*=\s*true\s*(#.*)?$)").arg(keyPattern)).match(line).hasMatch();
-}
-
-QString inlineTableWithHooksEnabled(const QString &line)
-{
-    const QRegularExpression assignmentPattern(QStringLiteral(R"(^\s*(?:features|"features"|'features')\s*=\s*\{)"));
-    const QRegularExpressionMatch assignment = assignmentPattern.match(line);
-    if (!assignment.hasMatch()) {
-        return {};
-    }
-
-    const int openingBrace = line.indexOf(QLatin1Char('{'), assignment.capturedStart());
-    int closingBrace = -1;
-    QChar quote;
-    bool escaped = false;
-    int nestedBraces = 0;
-    int nestedBrackets = 0;
-    for (int i = openingBrace + 1; i < line.size(); ++i) {
-        const QChar ch = line.at(i);
-        if (!quote.isNull()) {
-            if (quote == QLatin1Char('"') && ch == QLatin1Char('\\') && !escaped) {
-                escaped = true;
-                continue;
-            }
-            if (ch == quote && !escaped) {
-                quote = QChar();
-            }
-            escaped = false;
-            continue;
-        }
-        if (ch == QLatin1Char('"') || ch == QLatin1Char('\'')) {
-            quote = ch;
-        } else if (ch == QLatin1Char('{')) {
-            ++nestedBraces;
-        } else if (ch == QLatin1Char('}')) {
-            if (nestedBraces == 0 && nestedBrackets == 0) {
-                closingBrace = i;
-                break;
-            }
-            --nestedBraces;
-        } else if (ch == QLatin1Char('[')) {
-            ++nestedBrackets;
-        } else if (ch == QLatin1Char(']')) {
-            --nestedBrackets;
-        }
-    }
-    if (closingBrace < 0) {
-        return {};
-    }
-
-    const QString contents = line.mid(openingBrace + 1, closingBrace - openingBrace - 1);
-    const QString hooksKeyPattern = QStringLiteral(R"((?:hooks|"hooks"|'hooks'))");
-    const QRegularExpression hooksPattern(QStringLiteral(R"(^\s*%1\s*=)").arg(hooksKeyPattern));
-    const QRegularExpression hooksTruePattern(QStringLiteral(R"(^\s*%1\s*=\s*true\s*$)").arg(hooksKeyPattern));
-    int entryStart = 0;
-    quote = QChar();
-    escaped = false;
-    nestedBraces = 0;
-    nestedBrackets = 0;
-    for (int i = 0; i <= contents.size(); ++i) {
-        const QChar ch = i < contents.size() ? contents.at(i) : QLatin1Char(',');
-        if (!quote.isNull()) {
-            if (quote == QLatin1Char('"') && ch == QLatin1Char('\\') && !escaped) {
-                escaped = true;
-                continue;
-            }
-            if (ch == quote && !escaped) {
-                quote = QChar();
-            }
-            escaped = false;
-            continue;
-        }
-        if (ch == QLatin1Char('"') || ch == QLatin1Char('\'')) {
-            quote = ch;
-        } else if (ch == QLatin1Char('{')) {
-            ++nestedBraces;
-        } else if (ch == QLatin1Char('}')) {
-            --nestedBraces;
-        } else if (ch == QLatin1Char('[')) {
-            ++nestedBrackets;
-        } else if (ch == QLatin1Char(']')) {
-            --nestedBrackets;
-        } else if (ch == QLatin1Char(',') && nestedBraces == 0 && nestedBrackets == 0) {
-            const QString entry = contents.mid(entryStart, i - entryStart);
-            if (hooksPattern.match(entry).hasMatch()) {
-                if (hooksTruePattern.match(entry).hasMatch()) {
-                    return line;
-                }
-                QString rewrittenContents = contents;
-                rewrittenContents.replace(entryStart, i - entryStart, QStringLiteral(" hooks = true"));
-                return line.left(openingBrace + 1) + rewrittenContents + line.mid(closingBrace);
-            }
-            entryStart = i + 1;
-        }
-    }
-
-    const QString rewrittenContents =
-        contents.trimmed().isEmpty() ? QStringLiteral(" hooks = true ") : QStringLiteral(" %1, hooks = true ").arg(contents.trimmed());
-    return line.left(openingBrace + 1) + rewrittenContents + line.mid(closingBrace);
 }
 
 bool removeKonsoleBlocks(QStringList *lines)
@@ -738,154 +472,30 @@ void removeEmptyFeaturesTable(QStringList *lines)
     }
 }
 
-QString installHooksFeature(const QString &content)
+// Removes the agent's Kmux hook scripts in the managed directory, except those
+// for the given events, so events that Kmux no longer uses leave no scripts.
+bool removeHookScripts(const QString &scriptDirectory, const QString &agentName, const QList<HookEvent> &keptEvents, QString *error)
 {
-    QStringList lines = splitTomlLines(content);
-    removeKonsoleBlocks(&lines);
+    QStringList keptScripts;
+    for (const HookEvent &event : keptEvents) {
+        keptScripts.append(QFileInfo(hookScriptPath(scriptDirectory, agentName, event)).fileName());
+    }
 
-    const QString hooksPattern = QStringLiteral(R"((?:hooks|"hooks"|'hooks'))");
-    const QString dottedHooksPattern = QStringLiteral(R"((?:features|"features"|'features')\s*\.\s*(?:hooks|"hooks"|'hooks'))");
-
-    for (int i = 0; i < lines.size(); ++i) {
-        if (lineStartsTable(lines.at(i), QStringLiteral("features"))) {
-            const int end = tableEnd(lines, i);
-            for (int j = i + 1; j < end; ++j) {
-                if (!lineDefinesKey(lines.at(j), QStringLiteral("hooks"))) {
-                    continue;
-                }
-                if (lineDefinesTrueValue(lines.at(j), hooksPattern)) {
-                    return joinTomlLines(lines);
-                }
-                lines.replace(j,
-                              QStringList{QString::fromLatin1(HooksFeatureBegin),
-                                          QString::fromLatin1(HooksFeaturePreviousLinePrefix) + lines.at(j),
-                                          QStringLiteral("hooks = true"),
-                                          QString::fromLatin1(HooksFeatureEnd)}
-                                  .join(QLatin1Char('\n')));
-                const QString block = lines.takeAt(j);
-                const QStringList blockLines = block.split(QLatin1Char('\n'));
-                for (int k = 0; k < blockLines.size(); ++k) {
-                    lines.insert(j + k, blockLines.at(k));
-                }
-                return joinTomlLines(lines);
+    const QDir dir(scriptDirectory);
+    const QStringList scripts = dir.entryList({agentName + QStringLiteral("-*.sh")}, QDir::Files);
+    for (const QString &script : scripts) {
+        if (keptScripts.contains(script)) {
+            continue;
+        }
+        QFile file(dir.filePath(script));
+        if (!file.remove()) {
+            if (error != nullptr) {
+                *error = file.errorString();
             }
-
-            lines.insert(i + 1, QString::fromLatin1(HooksFeatureEnd));
-            lines.insert(i + 1, QStringLiteral("hooks = true"));
-            lines.insert(i + 1, QString::fromLatin1(HooksFeatureBegin));
-            return joinTomlLines(lines);
+            return false;
         }
     }
-
-    int firstTable = lines.size();
-    for (int i = 0; i < lines.size(); ++i) {
-        if (lineStartsAnyTable(lines.at(i))) {
-            firstTable = i;
-            break;
-        }
-    }
-
-    for (int i = 0; i < firstTable; ++i) {
-        if (!lineDefinesDottedFeatureHooks(lines.at(i))) {
-            continue;
-        }
-        if (lineDefinesTrueValue(lines.at(i), dottedHooksPattern)) {
-            return joinTomlLines(lines);
-        }
-        lines.replace(i,
-                      QStringList{QString::fromLatin1(HooksFeatureBegin),
-                                  QString::fromLatin1(HooksFeaturePreviousLinePrefix) + lines.at(i),
-                                  QStringLiteral("features.hooks = true"),
-                                  QString::fromLatin1(HooksFeatureEnd)}
-                          .join(QLatin1Char('\n')));
-        const QString block = lines.takeAt(i);
-        const QStringList blockLines = block.split(QLatin1Char('\n'));
-        for (int k = 0; k < blockLines.size(); ++k) {
-            lines.insert(i + k, blockLines.at(k));
-        }
-        return joinTomlLines(lines);
-    }
-
-    for (int i = 0; i < firstTable; ++i) {
-        const QString rewrittenInlineTable = inlineTableWithHooksEnabled(lines.at(i));
-        if (rewrittenInlineTable.isEmpty()) {
-            continue;
-        }
-        if (rewrittenInlineTable == lines.at(i)) {
-            return joinTomlLines(lines);
-        }
-        lines.replace(i,
-                      QStringList{QString::fromLatin1(HooksFeatureBegin),
-                                  QString::fromLatin1(HooksFeaturePreviousLinePrefix) + lines.at(i),
-                                  rewrittenInlineTable,
-                                  QString::fromLatin1(HooksFeatureEnd)}
-                          .join(QLatin1Char('\n')));
-        const QString block = lines.takeAt(i);
-        const QStringList blockLines = block.split(QLatin1Char('\n'));
-        for (int k = 0; k < blockLines.size(); ++k) {
-            lines.insert(i + k, blockLines.at(k));
-        }
-        return joinTomlLines(lines);
-    }
-
-    for (int i = 0; i < firstTable; ++i) {
-        if (!lineDefinesDottedFeature(lines.at(i))) {
-            continue;
-        }
-        lines.insert(i + 1, QString::fromLatin1(HooksFeatureEnd));
-        lines.insert(i + 1, QStringLiteral("features.hooks = true"));
-        lines.insert(i + 1, QString::fromLatin1(HooksFeatureBegin));
-        return joinTomlLines(lines);
-    }
-
-    const bool addFeatureSeparator = !lines.isEmpty() && !lines.last().isEmpty();
-    lines.append(QString::fromLatin1(HooksFeatureBegin));
-    if (addFeatureSeparator) {
-        lines.append(QString());
-    }
-    lines.append(QStringLiteral("[features]"));
-    lines.append(QStringLiteral("hooks = true"));
-    lines.append(QString::fromLatin1(HooksFeatureEnd));
-    return joinTomlLines(lines);
-}
-
-QString installHookTrust(const QString &content, const QString &hooksJsonPath, const QJsonObject &hooks, const QString &scriptDirectory)
-{
-    QStringList lines = splitTomlLines(content);
-    if (removeKonsoleBlocks(&lines)) {
-        removeEmptyFeaturesTable(&lines);
-    }
-    lines = splitTomlLines(installHooksFeature(joinTomlLines(lines)));
-
-    QStringList trustLines;
-    const QString keySource = canonicalPathForTrust(hooksJsonPath);
-    for (const HookEvent &event : CodexHookEvents) {
-        const QJsonArray groups = hooks.value(event.eventName).toArray();
-        for (int groupIndex = 0; groupIndex < groups.size(); ++groupIndex) {
-            const QJsonArray hookList = groups.at(groupIndex).toObject().value(QStringLiteral("hooks")).toArray();
-            for (int hookIndex = 0; hookIndex < hookList.size(); ++hookIndex) {
-                const QString command = hookList.at(hookIndex).toObject().value(QStringLiteral("command")).toString();
-                if (!commandIsKmuxOwned(command, scriptDirectory, QString::fromLatin1(CodexAgentName))) {
-                    continue;
-                }
-                const QString key = QStringLiteral("%1:%2:%3:%4").arg(keySource, event.eventLabel).arg(groupIndex).arg(hookIndex);
-                trustLines.append(QStringLiteral("[hooks.state.\"%1\"]").arg(tomlQuoted(key)));
-                trustLines.append(QStringLiteral("trusted_hash = \"%1\"").arg(hookTrustHash(event, command)));
-            }
-        }
-    }
-
-    if (!trustLines.isEmpty()) {
-        const bool addTrustSeparator = !lines.isEmpty() && !lines.last().isEmpty();
-        lines.append(QString::fromLatin1(HookTrustBegin));
-        if (addTrustSeparator) {
-            lines.append(QString());
-        }
-        lines.append(trustLines);
-        lines.append(QString::fromLatin1(HookTrustEnd));
-    }
-
-    return joinTomlLines(lines);
+    return true;
 }
 
 bool installHookScripts(const QString &scriptDirectory, const QString &agentName, const QList<HookEvent> &events, QString *error)
@@ -913,22 +523,34 @@ bool installHookScripts(const QString &scriptDirectory, const QString &agentName
         }
     }
 
-    return true;
+    return removeHookScripts(scriptDirectory, agentName, events, error);
 }
 
-bool uninstallHookScripts(const QString &scriptDirectory, const QString &agentName, const QList<HookEvent> &events, QString *error)
+bool uninstallHookScripts(const QString &scriptDirectory, const QString &agentName, QString *error)
 {
-    for (const HookEvent &event : events) {
-        QFile file(hookScriptPath(scriptDirectory, agentName, event));
-        if (file.exists() && !file.remove()) {
-            if (error != nullptr) {
-                *error = file.errorString();
-            }
-            return false;
-        }
+    if (!removeHookScripts(scriptDirectory, agentName, {}, error)) {
+        return false;
     }
     QDir().rmdir(scriptDirectory);
     return true;
+}
+
+// Removes the hook groups that Kmux owns from every event, including events
+// that Kmux no longer uses. Returns the number of removed groups.
+int removeKmuxOwnedHooks(QJsonObject *hooks, const QString &scriptDirectory, const QString &agentName)
+{
+    int removed = 0;
+    for (const QString &eventName : hooks->keys()) {
+        const QJsonArray originalGroups = hooks->value(eventName).toArray();
+        const QJsonArray rewrittenGroups = removeKmuxOwnedHookGroups(originalGroups, scriptDirectory, agentName);
+        removed += originalGroups.size() - rewrittenGroups.size();
+        if (rewrittenGroups.isEmpty()) {
+            hooks->remove(eventName);
+        } else {
+            hooks->insert(eventName, rewrittenGroups);
+        }
+    }
+    return removed;
 }
 
 struct HookInstallationStatus {
@@ -980,73 +602,8 @@ void printHookInstallationStatus(QTextStream &out, const HookInstallationStatus 
     }
 }
 
-int installCodexHooks(const QString &codexHomeOverride, bool quiet)
-{
-    QTextStream out(stdout);
-    QTextStream err(stderr);
-    QString error;
-
-    const QString configDir = codexHome(codexHomeOverride);
-    HookTransactionLock transactionLock(QString::fromLatin1(CodexAgentName), configDir);
-    if (!transactionLock.acquire(&error)) {
-        err << error << '\n';
-        return 1;
-    }
-    if (!QDir().mkpath(configDir)) {
-        err << "Could not create " << configDir << '\n';
-        return 1;
-    }
-    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(CodexAgentName), configDir);
-    if (!installHookScripts(scriptDirectory, QString::fromLatin1(CodexAgentName), CodexHookEvents, &error)) {
-        err << error << '\n';
-        return 1;
-    }
-
-    const QString hooksPath = QDir(configDir).filePath(QStringLiteral("hooks.json"));
-    QJsonObject root = readJsonObject(hooksPath, &error);
-    if (!error.isEmpty()) {
-        err << error << '\n';
-        return 1;
-    }
-
-    QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
-    for (const HookEvent &event : CodexHookEvents) {
-        QJsonArray groups = removeKmuxOwnedHookGroups(hooks.value(event.eventName).toArray(), scriptDirectory, QString::fromLatin1(CodexAgentName));
-        groups.append(buildHookGroup(scriptDirectory, QString::fromLatin1(CodexAgentName), event));
-        hooks.insert(event.eventName, groups);
-    }
-    root.insert(QStringLiteral("hooks"), hooks);
-
-    if (!writeJsonFileAtomically(hooksPath, root, &error)) {
-        err << error << '\n';
-        return 1;
-    }
-
-    const QString configPath = QDir(configDir).filePath(QStringLiteral("config.toml"));
-    QString configContent;
-    QFile configFile(configPath);
-    if (configFile.exists()) {
-        if (!configFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            err << configFile.errorString() << '\n';
-            return 1;
-        }
-        configContent = QString::fromUtf8(configFile.readAll());
-    }
-
-    const QString newConfigContent = installHookTrust(configContent, hooksPath, hooks, scriptDirectory);
-    if (!writeTextFileAtomically(configPath, newConfigContent, &error)) {
-        err << error << '\n';
-        return 1;
-    }
-
-    if (!quiet) {
-        out << "Installed Codex hooks at " << hooksPath << '\n';
-        out << "Enabled and trusted Codex hooks in " << configPath << '\n';
-        out << "Hook scripts are in " << scriptDirectory << '\n';
-    }
-    return 0;
-}
-
+// Codex reports its state with OSC 7501, so Kmux no longer installs Codex
+// hooks. This removes the hooks that earlier versions installed.
 int uninstallCodexHooks(const QString &codexHomeOverride)
 {
     QTextStream out(stdout);
@@ -1068,17 +625,7 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
     }
 
     QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
-    int removed = 0;
-    for (const QString &eventName : hooks.keys()) {
-        const QJsonArray originalGroups = hooks.value(eventName).toArray();
-        const QJsonArray rewrittenGroups = removeKmuxOwnedHookGroups(originalGroups, scriptDirectory, QString::fromLatin1(CodexAgentName));
-        removed += originalGroups.size() - rewrittenGroups.size();
-        if (rewrittenGroups.isEmpty()) {
-            hooks.remove(eventName);
-        } else {
-            hooks.insert(eventName, rewrittenGroups);
-        }
-    }
+    const int removed = removeKmuxOwnedHooks(&hooks, scriptDirectory, QString::fromLatin1(CodexAgentName));
     setRemainingHooks(&root, hooks);
 
     // hooks.json holds nothing but hooks, so remove it when none remain.
@@ -1108,7 +655,7 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
         }
     }
 
-    if (!uninstallHookScripts(scriptDirectory, QString::fromLatin1(CodexAgentName), CodexHookEvents, &error)) {
+    if (!uninstallHookScripts(scriptDirectory, QString::fromLatin1(CodexAgentName), &error)) {
         err << error << '\n';
         return 1;
     }
@@ -1116,36 +663,6 @@ int uninstallCodexHooks(const QString &codexHomeOverride)
     out << "Removed " << removed << " Kmux Codex hook group(s) from " << hooksPath << '\n';
     out << "Removed Kmux Codex hook trust from " << configPath << '\n';
     return 0;
-}
-
-int statusCodexHooks(const QString &codexHomeOverride)
-{
-    QTextStream out(stdout);
-    QTextStream err(stderr);
-    const QString configDir = codexHome(codexHomeOverride);
-    const QString scriptDirectory = hookScriptDirectory(QString::fromLatin1(CodexAgentName), configDir);
-    const QString hooksPath = QDir(configDir).filePath(QStringLiteral("hooks.json"));
-    const QString configPath = QDir(configDir).filePath(QStringLiteral("config.toml"));
-
-    QString error;
-    HookTransactionLock transactionLock(QString::fromLatin1(CodexAgentName), configDir);
-    if (!transactionLock.acquire(&error)) {
-        err << error << '\n';
-        return 1;
-    }
-    const QJsonObject root = readJsonObject(hooksPath, &error);
-    if (!error.isEmpty()) {
-        err << error << '\n';
-        return 1;
-    }
-    const QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
-    const HookInstallationStatus status = hookInstallationStatus(hooks, scriptDirectory, QString::fromLatin1(CodexAgentName));
-
-    out << "Codex home: " << configDir << '\n';
-    out << "hooks.json: " << hooksPath << (QFileInfo::exists(hooksPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
-    out << "config.toml: " << configPath << (QFileInfo::exists(configPath) ? QStringLiteral(" exists") : QStringLiteral(" missing")) << '\n';
-    printHookInstallationStatus(out, status, scriptDirectory);
-    return status.groups == CodexHookEvents.size() && status.handlers == CodexHookEvents.size() && status.executableHandlers == status.handlers ? 0 : 1;
 }
 
 int installClaudeHooks(const QString &claudeHomeOverride, bool quiet)
@@ -1178,8 +695,9 @@ int installClaudeHooks(const QString &claudeHomeOverride, bool quiet)
     }
 
     QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
+    removeKmuxOwnedHooks(&hooks, scriptDirectory, QString::fromLatin1(ClaudeAgentName));
     for (const HookEvent &event : ClaudeHookEvents) {
-        QJsonArray groups = removeKmuxOwnedHookGroups(hooks.value(event.eventName).toArray(), scriptDirectory, QString::fromLatin1(ClaudeAgentName));
+        QJsonArray groups = hooks.value(event.eventName).toArray();
         groups.append(buildHookGroup(scriptDirectory, QString::fromLatin1(ClaudeAgentName), event));
         hooks.insert(event.eventName, groups);
     }
@@ -1218,17 +736,7 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
     }
 
     QJsonObject hooks = root.value(QStringLiteral("hooks")).toObject();
-    int removed = 0;
-    for (const QString &eventName : hooks.keys()) {
-        const QJsonArray originalGroups = hooks.value(eventName).toArray();
-        const QJsonArray rewrittenGroups = removeKmuxOwnedHookGroups(originalGroups, scriptDirectory, QString::fromLatin1(ClaudeAgentName));
-        removed += originalGroups.size() - rewrittenGroups.size();
-        if (rewrittenGroups.isEmpty()) {
-            hooks.remove(eventName);
-        } else {
-            hooks.insert(eventName, rewrittenGroups);
-        }
-    }
+    const int removed = removeKmuxOwnedHooks(&hooks, scriptDirectory, QString::fromLatin1(ClaudeAgentName));
     setRemainingHooks(&root, hooks);
 
     if (QFileInfo::exists(settingsPath) && !writeJsonFileAtomically(settingsPath, root, &error)) {
@@ -1236,7 +744,7 @@ int uninstallClaudeHooks(const QString &claudeHomeOverride)
         return 1;
     }
 
-    if (!uninstallHookScripts(scriptDirectory, QString::fromLatin1(ClaudeAgentName), ClaudeHookEvents, &error)) {
+    if (!uninstallHookScripts(scriptDirectory, QString::fromLatin1(ClaudeAgentName), &error)) {
         err << error << '\n';
         return 1;
     }
@@ -1295,7 +803,7 @@ int main(int argc, char **argv)
                                               QStringLiteral("Use a custom Claude Code config directory instead of ~/.claude."),
                                               QStringLiteral("path"));
     parser.addOption(claudeHomeOption);
-    parser.addPositionalArgument(QStringLiteral("command"), QStringLiteral("install, uninstall, or status."));
+    parser.addPositionalArgument(QStringLiteral("command"), QStringLiteral("install, uninstall, or status; only uninstall for codex."));
     parser.addPositionalArgument(QStringLiteral("agent"), QStringLiteral("Agent name: codex or claude."));
     parser.process(app);
 
@@ -1311,10 +819,13 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    if (agent == QLatin1String(CodexAgentName) && command != QLatin1String("uninstall")) {
+        QTextStream(stderr) << "Codex reports its state to Kmux itself, so Kmux no longer installs Codex hooks.\n"
+                               "Run \"kmux-agent-hooks uninstall codex\" to remove the hooks that earlier versions installed.\n";
+        return 2;
+    }
+
     if (command == QLatin1String("install")) {
-        if (agent == QLatin1String(CodexAgentName)) {
-            return installCodexHooks(parser.value(codexHomeOption), parser.isSet(quietOption));
-        }
         return installClaudeHooks(parser.value(claudeHomeOption), parser.isSet(quietOption));
     }
     if (command == QLatin1String("uninstall")) {
@@ -1324,9 +835,6 @@ int main(int argc, char **argv)
         return uninstallClaudeHooks(parser.value(claudeHomeOption));
     }
     if (command == QLatin1String("status")) {
-        if (agent == QLatin1String(CodexAgentName)) {
-            return statusCodexHooks(parser.value(codexHomeOption));
-        }
         return statusClaudeHooks(parser.value(claudeHomeOption));
     }
 

@@ -468,31 +468,44 @@ void Vt102EmulationTest::testProgramStatusReport()
     TestEmulation em;
     em.reset();
     em.setCodec(TestEmulation::Utf8Codec);
-    QSignalSpy programStateSpy(&em, &TestEmulation::programStateReported);
+    QSignalSpy changedSpy(&em, &TestEmulation::programStatusChanged);
+    QSignalSpy sendDataSpy(&em, &TestEmulation::sendData);
     const auto receive = [&em](const QByteArray &data) {
         em.receiveData(data.constData(), data.size());
     };
 
-    receive("\033]7501;state=idle:app=codex\033\\");
-    QCOMPARE(programStateSpy.count(), 1);
-    QCOMPARE(programStateSpy.at(0).at(0).value<Enum::ProgramStateEnum>(), Enum::ProgramIdle);
-    QCOMPARE(programStateSpy.at(0).at(1).toString(), QStringLiteral("codex"));
-
-    // Whitespace around keys and values is stripped, unknown keys and pairs
-    // without a value are skipped, and the last value of a key wins.
-    receive("\033]7501; app = cargo :progress=40:malformed:state=idle:state=working\007");
-    QCOMPARE(programStateSpy.count(), 2);
-    QCOMPARE(programStateSpy.at(1).at(0).value<Enum::ProgramStateEnum>(), Enum::ProgramWorking);
-    QCOMPARE(programStateSpy.at(1).at(1).toString(), QStringLiteral("cargo"));
-
-    // Task records, removals, feature queries, and unknown or missing states
-    // do not report the state of the program.
-    receive("\033]7501;state=done:id=build/test:app=cargo\033\\");
-    receive("\033]7501;state=clear\033\\");
+    // A supporting terminal answers the feature query with the terminator of the query.
     receive("\033]7501;?\033\\");
-    receive("\033]7501;state=sleeping:app=codex\033\\");
-    receive("\033]7501;app=codex\033\\");
-    QCOMPARE(programStateSpy.count(), 2);
+    receive("\033]7501;?\007");
+    QCOMPARE(sendDataSpy.count(), 2);
+    QCOMPARE(sendDataSpy.at(0).at(0).toByteArray(), programStatusQueryReply());
+    QCOMPARE(sendDataSpy.at(1).at(0).toByteArray(), programStatusQueryReply().chopped(2) + "\007");
+    QCOMPARE(changedSpy.count(), 0);
+
+    receive("\033]7501;state=working:app=claude-code\033\\");
+    receive("\033]7501;state=working:id=agents/a1\007");
+    QCOMPARE(changedSpy.count(), 2);
+    QCOMPARE(em.programStatus().record({})->state, ProgramState::Working);
+    QCOMPARE(em.programStatus().app(QStringLiteral("agents/a1")), QStringLiteral("claude-code"));
+
+    // Invalid reports and repeated ones change nothing.
+    receive("\033]7501;state=sleeping\033\\");
+    receive("\033]7501;state=working:app=claude-code\033\\");
+    QCOMPARE(changedSpy.count(), 2);
+
+    // When the program exits, running work is dropped but unseen results remain.
+    receive("\033]7501;state=done:app=claude-code\033\\");
+    em.dropTransientProgramStatus();
+    QCOMPARE(changedSpy.count(), 4);
+    QCOMPARE(em.programStatus().records().size(), 1);
+    QCOMPARE(em.programStatus().record({})->state, ProgramState::Done);
+
+    // A soft reset keeps the records and a full reset removes them.
+    receive("\033[!p");
+    QCOMPARE(em.programStatus().records().size(), 1);
+    receive("\033c");
+    QVERIFY(em.programStatus().isEmpty());
+    QCOMPARE(changedSpy.count(), 5);
 }
 
 void Vt102EmulationTest::testKittyKeyboardPushPopQuery()

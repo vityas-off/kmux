@@ -147,7 +147,7 @@ Session::Session(QObject *parent)
     connect(_emulation, &Konsole::Emulation::sessionAttributeChanged, this, &Konsole::Session::setSessionAttribute);
     connect(_emulation, &Konsole::Emulation::osc777Received, this, &Konsole::Session::handleOsc777);
     connect(_emulation, &Konsole::Emulation::terminalNotificationReceived, this, &Konsole::Session::terminalNotificationReceived);
-    connect(_emulation, &Konsole::Emulation::programStateReported, this, &Konsole::Session::programStateReported);
+    connect(_emulation, &Konsole::Emulation::programStatusChanged, this, &Konsole::Session::programStatusChanged);
     connect(_emulation, &Konsole::Emulation::bell, this, [this]() {
         Q_EMIT bellRequest(i18n("Bell in '%1' (Session '%2')", _displayTitle, _nameTitle));
         this->setPendingNotification(Notification::Bell);
@@ -1274,9 +1274,7 @@ void Session::prependKmuxAgentShimsToPath()
     }
 
     const QString shimDirectory = kmuxAgentShimDirectory();
-    const bool hasAgentShim = QFileInfo(QDir(shimDirectory).filePath(QStringLiteral("codex"))).isExecutable()
-        || QFileInfo(QDir(shimDirectory).filePath(QStringLiteral("claude"))).isExecutable();
-    if (!hasAgentShim) {
+    if (!QFileInfo(QDir(shimDirectory).filePath(QStringLiteral("claude"))).isExecutable()) {
         return;
     }
 
@@ -2745,23 +2743,17 @@ bool Session::isCalledViaDbusAndForbidden() const
 
 void Session::setProjectStatus(const QString &status)
 {
-    Q_EMIT projectStatusChanged(status, 0, {}, {}, {}, {}, {});
+    Q_EMIT projectStatusChanged(status, 0, {});
 }
 
 void Session::setProjectStatusWithProcess(const QString &status, qlonglong processId)
 {
-    Q_EMIT projectStatusChanged(status, processId, {}, {}, {}, {}, {});
+    Q_EMIT projectStatusChanged(status, processId, {});
 }
 
-void Session::setProjectStatusForAgentEvent(const QString &status,
-                                            qlonglong processId,
-                                            const QString &agent,
-                                            const QString &event,
-                                            const QString &sessionId,
-                                            const QString &promptId,
-                                            const QString &agentId)
+void Session::setProjectStatusForAgent(const QString &status, const QString &agent)
 {
-    Q_EMIT projectStatusChanged(status, processId, agent, event, sessionId, promptId, agentId);
+    Q_EMIT projectStatusChanged(status, 0, agent);
 }
 
 #include "moc_Session.cpp"

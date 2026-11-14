@@ -16,6 +16,7 @@
 
 // Konsole
 #include "Enumeration.h"
+#include "ProgramStatus.h"
 #include "konsoleprivate_export.h"
 #include "terminalDisplay/TerminalDisplay.h"
 
@@ -207,6 +208,24 @@ public:
     bool programBracketedPasteMode() const;
 
     QList<int> getCurrentScreenCharacterCounts() const;
+
+    /**
+     * Returns the records that programs reported with the OSC 7501 program
+     * status sequence. See https://www.superlogical.com/rex/docs/build/program-status
+     */
+    const ProgramStatusRecords &programStatus() const;
+
+    /**
+     * Drops the program status records that describe running work, as the
+     * protocol requires when a new shell prompt starts.
+     */
+    void dropTransientProgramStatus();
+
+    /**
+     * Removes every program status record, for example after the reporting
+     * program exits without withdrawing its records.
+     */
+    void clearProgramStatus();
 
 public Q_SLOTS:
 
@@ -449,14 +468,9 @@ Q_SIGNALS:
     void terminalNotificationReceived(const QString &title, const QString &body);
 
     /**
-     * Emitted when a program reports the state of its root record with the
-     * OSC 7501 program status sequence.
-     * See https://www.superlogical.com/rex/docs/build/program-status
-     *
-     * @param state The state that the program reported.
-     * @param app The stable program identifier, such as "codex", or empty.
+     * Emitted when the records returned by programStatus() change.
      */
-    void programStateReported(Enum::ProgramStateEnum state, const QString &app);
+    void programStatusChanged();
 
     /**
      * Mainly used to communicate dropped lines to active autosave tasks.
@@ -523,6 +537,8 @@ protected:
     QStringEncoder _encoder;
 
     const KeyboardTranslator *_keyTranslator = nullptr; // the keyboard layout
+
+    ProgramStatusRecords _programStatus;
 
 protected Q_SLOTS:
     /**

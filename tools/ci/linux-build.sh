@@ -65,7 +65,6 @@ for path in \
     bin/kmux \
     bin/kmux-agent-hooks \
     bin/kmux-claude \
-    bin/kmux-codex \
     bin/kmux-project-status \
     bin/kmuxprofile \
     share/applications/$app_id.desktop \
@@ -92,8 +91,7 @@ for name in \
     kmux_quickcommandsplugin.so \
     kmux_sshmanagerplugin.so \
     kmux.mo \
-    claude \
-    codex
+    claude
 do
     if [ -z "$(find "$root" -name "$name" -print -quit)" ]; then
         echo "missing: $name" >&2

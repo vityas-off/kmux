@@ -10,7 +10,7 @@
 // Qt
 #include <QAction>
 #include <QColor>
-#include <QDeadlineTimer>
+#include <QDateTime>
 #include <QHash>
 #include <QJsonArray>
 #include <QObject>
@@ -18,7 +18,9 @@
 #include <QSet>
 #include <QTimer>
 
-#include "Enumeration.h"
+#include <optional>
+
+#include "ProgramStatus.h"
 #include "containers/ContainerInfo.h"
 #include "konsoleprivate_export.h"
 #include "widgets/ProjectWorkspaceContainer.h"
@@ -556,42 +558,19 @@ private:
     QSet<TabbedViewContainer *> containersForSession(Session *session) const;
     void handleSessionStateChanged();
     void handleSessionTerminalNotification(const QString &title, const QString &body);
-    void handleSessionProjectStatusChanged(const QString &status,
-                                           qlonglong agentProcessId,
-                                           const QString &agent,
-                                           const QString &event,
-                                           const QString &sessionId,
-                                           const QString &promptId,
-                                           const QString &agentId);
-    void handleSessionProgramState(Enum::ProgramStateEnum state, const QString &app);
-    void applySessionProjectStatus(Session *session,
-                                   const QString &status,
-                                   qlonglong agentProcessId,
-                                   const QString &agent,
-                                   const QString &event,
-                                   const QString &sessionId,
-                                   const QString &promptId,
-                                   const QString &agentId);
+    void handleSessionProjectStatusChanged(const QString &status, qlonglong processId, const QString &agent);
+    void handleSessionProgramStatusChanged();
     void handleSessionDestroyed(Session *session);
     void acknowledgeSessionAttention(SessionController *controller);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
     void clearProjectAttention(TabbedViewContainer *container);
-    void setSessionProjectStatus(Session *session,
-                                 TabbedViewContainer *container,
-                                 const QString &status,
-                                 qlonglong agentProcessId = 0,
-                                 const QString &agent = {},
-                                 const QString &event = {},
-                                 const QString &sessionId = {},
-                                 const QString &promptId = {},
-                                 const QString &agentId = {});
-    void handleSessionAgentKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent);
-    void watchClaudeEscape(Session *session);
-    void interruptEscapedClaudeTurn(Session *session);
-    void forgetClaudeEscapeAfter(Session *session, int timeoutMs);
-    void forgetClaudeEscape(Session *session);
-    void interruptSessionTurn(Session *session, QDeadlineTimer interruptedTurnHookDeadline);
-    void clearExitedSessionProjectStatuses();
+    std::optional<ProjectWorkspaceContainer::ProjectStatus> sessionStatus(Session *session) const;
+    void sessionStatusChanged(Session *session, std::optional<ProjectWorkspaceContainer::ProjectStatus> previousStatus, bool demandsAttention);
+    void checkCodexUsageLimit(Session *session);
+    void setSessionProjectNotification(Session *session, const QString &notification);
+    void updateRateLimitResetTimer();
+    void endResetRateLimits();
+    void clearExitedSessionStatuses();
     void updateProjectStatusProcessTimer();
     void updateProjectInputRequirement();
     void updateAgentSleepInhibition();
@@ -614,33 +593,31 @@ private:
 
     QHash<TerminalDisplay *, Session *> _sessionMap;
     QSet<Session *> _sessionsNeedingAttention;
-    enum class PendingTerminalDecisionOrigin {
-        None,
-        PermissionRequest,
-        Notification,
-    };
-    struct SessionProjectStatus {
+    // A status that a script reported for its terminal with kmux-project-status.
+    struct ReportedSessionStatus {
         ProjectWorkspaceContainer::ProjectStatus status = ProjectWorkspaceContainer::ProjectStatus::None;
-        qlonglong agentProcessId = 0;
-        int pendingTerminalDecisions = 0;
-        PendingTerminalDecisionOrigin pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
-        ProjectWorkspaceContainer::ProjectStatus statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
-        QString agent;
-        bool claudeBackgroundWork = false;
-        bool agentProcessWasForeground = false;
-        bool turnInterrupted = false;
-        QDeadlineTimer interruptedTurnHookDeadline;
-        QString agentSessionId;
-        QString agentPromptId;
-        QStringList retiredAgentPromptIds;
+        // The status ends when this process exits, if it is set.
+        qlonglong processId = 0;
     };
-    QHash<Session *, SessionProjectStatus> _sessionProjectStatuses;
-    struct PendingClaudeEscape {
-        quint64 serial = 0;
-        QMetaObject::Connection titleConnection;
+    QHash<Session *, ReportedSessionStatus> _reportedSessionStatuses;
+    // The status that programs in a terminal report with OSC 7501.
+    struct ProgramSessionStatus {
+        ProjectWorkspaceContainer::ProjectStatus status = ProjectWorkspaceContainer::ProjectStatus::None;
+        std::optional<ProgramState> rootState;
+        // The reporting program ran in the foreground, so a return to the
+        // shell means that it exited.
+        bool reportedFromForeground = false;
+        // Agents report a stop at a usage limit as an ordinary result: Claude
+        // Code's hooks tell the limit apart, and Codex reports it on request.
+        bool rateLimited = false;
+        // When the usage limit resets, if the agent reports it.
+        QDateTime rateLimitResetsAt;
+        // Identifies the latest usage limit request, so older answers are ignored.
+        quint64 usageLimitRequest = 0;
     };
-    QHash<Session *, PendingClaudeEscape> _pendingClaudeEscapes;
-    quint64 _claudeEscapeSerial = 0;
+    QHash<Session *, ProgramSessionStatus> _programSessionStatuses;
+    quint64 _usageLimitRequestSerial = 0;
+    QTimer _rateLimitResetTimer;
     struct DeferredProjectRestore {
         QJsonArray tabs;
         int activeTab = 0;
