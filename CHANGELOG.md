@@ -1,9 +1,18 @@
 # Changelog
 
-## 0.1.0-alpha.1 (unreleased)
+## 0.1.0-alpha.2 (unreleased)
 
 The first public alpha of Kmux, a KDE Konsole fork with
 [cmux](https://github.com/manaflow-ai/cmux)-inspired project workspaces.
+
+### Changes since alpha.1 development builds
+
+- Agent and program statuses come from OSC 7501, replacing status inference
+  from hooks, key presses, and terminal titles.
+- Codex usage limits show when they reset. Claude Code keeps only the hooks
+  needed to identify its usage limits; Codex no longer needs Kmux hooks or a
+  launcher.
+- Ctrl+click opens a link once when the terminal program tracks the mouse.
 
 ### Highlights
 

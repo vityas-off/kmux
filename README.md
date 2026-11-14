@@ -26,7 +26,7 @@ tabs and split views, and switching projects never stops a running session.
 
 ## Status
 
-Kmux is alpha software, currently 0.1.0-alpha.1. Expect bugs, including ones
+Kmux is alpha software, currently 0.1.0-alpha.2. Expect bugs, including ones
 that lose the saved workspace. Most notably:
 
 - restoring a workspace starts new shells; it does not bring back the programs
