@@ -17,6 +17,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLockFile>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
@@ -40,7 +41,17 @@ constexpr auto LegacyHookTrustEnd = "# konsole-codex-hook-trust end";
 constexpr auto CodexAgentName = "codex";
 constexpr auto ClaudeAgentName = "claude";
 constexpr auto OpenCodeAgentName = "opencode";
-constexpr auto OpenCodePluginMarker = "// kmux-opencode-plugin v1";
+constexpr auto OpenCodePluginMarkerPrefix = "// kmux-opencode-plugin v";
+constexpr auto OpenCodePluginMarkerPlaceholder = "@KMUX_PLUGIN_MARKER@";
+constexpr auto OpenCodePluginHelperPlaceholder = "@KMUX_HELPER_PATH@";
+constexpr auto OpenCodePluginTemplateResource = ":/kmux/agent-hooks/kmux-opencode.v%1.js";
+constexpr auto OpenCodePluginDirectoryName = "plugins";
+constexpr auto OpenCodePluginFileName = "kmux-opencode.js";
+constexpr auto OpenCodeLegacyPluginDirectoryName = "plugin";
+constexpr auto OpenCodeVersionFlag = "--version";
+constexpr int OpenCodePluginApiV1 = 1;
+constexpr int OpenCodePluginApiV2 = 2;
+constexpr int OpenCodeVersionProbeTimeoutMs = 5000;
 
 struct HookEvent {
     QString eventName;
@@ -1292,17 +1303,17 @@ int statusClaudeHooks(const QString &claudeHomeOverride)
 
 QString opencodePluginDirectory(const QString &configDir)
 {
-    return QDir(configDir).filePath(QStringLiteral("plugins"));
+    return QDir(configDir).filePath(QLatin1String(OpenCodePluginDirectoryName));
 }
 
 QString opencodePluginPath(const QString &configDir)
 {
-    return QDir(opencodePluginDirectory(configDir)).filePath(QStringLiteral("kmux-opencode.js"));
+    return QDir(opencodePluginDirectory(configDir)).filePath(QLatin1String(OpenCodePluginFileName));
 }
 
 QString legacyOpencodePluginPath(const QString &configDir)
 {
-    return QDir(configDir).filePath(QStringLiteral("plugin/kmux-opencode.js"));
+    return QDir(QDir(configDir).filePath(QLatin1String(OpenCodeLegacyPluginDirectoryName))).filePath(QLatin1String(OpenCodePluginFileName));
 }
 
 // Embeds a filesystem path in the generated JavaScript as a double-quoted
@@ -1341,80 +1352,109 @@ QString jsStringLiteral(const QString &value)
     return escaped;
 }
 
-// Reports the generic event names that Kmux's turn model already understands:
-// UserPromptSubmit begins a turn, tool events keep it running, a permission
-// request pauses it, and session idle or error ends it. opencode runs plugins
-// in its own process, so the child helper inherits the terminal environment
-// and reaches Kmux through that tab's session.
-QString opencodePluginContent()
+int opencodePluginApiForMajor(int major)
 {
-    const QString helper = projectStatusHelperPath();
+    return major == 2 ? OpenCodePluginApiV2 : OpenCodePluginApiV1;
+}
 
-    return QStringLiteral(
-               "%1\n"
-               "const HELPER = process.env.KMUX_PROJECT_STATUS_EXECUTABLE || %2;\n"
-               "\n"
-               "function report(event, status, sessionId) {\n"
-               "  const args = [HELPER, \"--hook-output\", \"--agent\", \"opencode\", \"--event\", event];\n"
-               "  const agentPid = process.env.KMUX_OPENCODE_PID;\n"
-               "  if (agentPid) {\n"
-               "    args.push(\"--agent-pid\", String(agentPid));\n"
-               "  }\n"
-               "  args.push(status);\n"
-               "  try {\n"
-               "    const child = Bun.spawn(args, { stdin: \"pipe\", stdout: \"ignore\", stderr: \"ignore\", env: process.env });\n"
-               "    child.stdin.write(JSON.stringify({ session_id: sessionId || \"\" }));\n"
-               "    child.stdin.end();\n"
-               "    child.exited.catch(() => {});\n"
-               "  } catch {}\n"
-               "}\n"
-               "\n"
-               "export default async () => ({\n"
-               "  event: async ({ event }) => {\n"
-               "    const sessionId = event.properties ? event.properties.sessionID : undefined;\n"
-               "    switch (event.type) {\n"
-               "      case \"session.idle\":\n"
-               "        report(\"Stop\", \"idle\", sessionId);\n"
-               "        break;\n"
-               "      case \"session.error\":\n"
-               "        report(\"StopFailure\", \"idle\", sessionId);\n"
-               "        break;\n"
-               "      case \"permission.asked\":\n"
-               "      case \"permission.updated\":\n"
-               "        report(\"PermissionRequest\", \"needsInput\", sessionId);\n"
-               "        break;\n"
-               "      case \"permission.replied\":\n"
-               "        report(\"PermissionReplied\", \"running\", sessionId);\n"
-               "        break;\n"
-               "      case \"question.asked\":\n"
-               "        report(\"QuestionAsked\", \"needsInput\", sessionId);\n"
-               "        break;\n"
-               "      case \"question.replied\":\n"
-               "      case \"question.rejected\":\n"
-               "        report(\"QuestionReplied\", \"running\", sessionId);\n"
-               "        break;\n"
-               "    }\n"
-               "  },\n"
-               "  \"chat.message\": async (input) => {\n"
-               "    report(\"UserPromptSubmit\", \"running\", input.sessionID);\n"
-               "  },\n"
-               "  \"tool.execute.before\": async (input) => {\n"
-               "    report(\"PreToolUse\", \"running\", input.sessionID);\n"
-               "  },\n"
-               "  \"tool.execute.after\": async (input) => {\n"
-               "    report(\"PostToolUse\", \"running\", input.sessionID);\n"
-               "  },\n"
-               "});\n")
-        .arg(QString::fromLatin1(OpenCodePluginMarker), jsStringLiteral(helper));
+QString opencodePluginMarker(int apiVersion)
+{
+    return QStringLiteral("%1%2").arg(QLatin1String(OpenCodePluginMarkerPrefix)).arg(apiVersion);
+}
+
+// Matches the marker line and captures the API generation number.
+QRegularExpression opencodePluginMarkerPattern()
+{
+    return QRegularExpression(QStringLiteral("^") + QRegularExpression::escape(QLatin1String(OpenCodePluginMarkerPrefix)) + QStringLiteral("(\\d+)$"),
+                              QRegularExpression::MultilineOption);
+}
+
+// Returns the plugin API generation recorded in an installed Kmux plugin, or 0
+// when the file is missing or was not written by Kmux.
+int opencodePluginApiVersion(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return 0;
+    }
+    const QString contents = QString::fromUtf8(file.readAll());
+    const QRegularExpressionMatch match = opencodePluginMarkerPattern().match(contents);
+    return match.hasMatch() ? match.captured(1).toInt() : 0;
 }
 
 bool opencodePluginInstalled(const QString &path)
 {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        return false;
+    return opencodePluginApiVersion(path) != 0;
+}
+
+// Finds the real opencode CLI on PATH. Kmux installs its own opencode launcher
+// next to this helper, so that directory is skipped; running the launcher here
+// would re-enter the hook installer.
+QString findOpenCodeExecutable()
+{
+    const QString shimPath = QDir(QCoreApplication::applicationDirPath()).canonicalPath();
+    const QStringList directories = QString::fromLocal8Bit(qgetenv("PATH")).split(QDir::listSeparator(), Qt::SkipEmptyParts);
+    for (const QString &directory : directories) {
+        const QDir candidateDirectory(directory);
+        if (!shimPath.isEmpty() && candidateDirectory.canonicalPath() == shimPath) {
+            continue;
+        }
+        const QFileInfo candidate(candidateDirectory.filePath(QStringLiteral("opencode")));
+        if (candidate.isFile() && candidate.isExecutable()) {
+            return candidate.filePath();
+        }
     }
-    return file.readAll().contains(OpenCodePluginMarker);
+    return {};
+}
+
+// Returns the major version of the opencode CLI, or 0 when it is missing or its
+// version cannot be read. The raw version text is returned for diagnostics.
+int opencodeMajorVersion(QString *versionText)
+{
+    versionText->clear();
+    const QString executable = findOpenCodeExecutable();
+    if (executable.isEmpty()) {
+        return 0;
+    }
+
+    QProcess probe;
+    probe.start(executable, {QLatin1String(OpenCodeVersionFlag)});
+    if (!probe.waitForStarted(OpenCodeVersionProbeTimeoutMs)) {
+        return 0;
+    }
+    if (!probe.waitForFinished(OpenCodeVersionProbeTimeoutMs)) {
+        probe.kill();
+        probe.waitForFinished(OpenCodeVersionProbeTimeoutMs);
+        return 0;
+    }
+    if (probe.exitStatus() != QProcess::NormalExit || probe.exitCode() != 0) {
+        return 0;
+    }
+
+    *versionText = QString::fromUtf8(probe.readAllStandardOutput()).trimmed();
+    const QRegularExpressionMatch match = QRegularExpression(QStringLiteral("^v?(\\d+)\\.\\d+")).match(*versionText);
+    return match.hasMatch() ? match.captured(1).toInt() : 0;
+}
+
+// Loads the opencode plugin template for an API generation from the embedded
+// resources and fills in the marker and the project status helper path. The
+// templates report the generic event names that Kmux's turn model already
+// understands; see src/agent-hooks/. opencode runs plugins in its own process,
+// so the child helper inherits the terminal environment and reaches Kmux
+// through that tab's session.
+QString opencodePluginContent(int apiVersion, QString *error)
+{
+    QFile templateFile(QString::fromLatin1(OpenCodePluginTemplateResource).arg(apiVersion));
+    if (!templateFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        *error = QStringLiteral("Could not read the embedded opencode plugin template: %1").arg(templateFile.errorString());
+        return {};
+    }
+    const QString pluginTemplate = QString::fromUtf8(templateFile.readAll());
+
+    QString content = pluginTemplate;
+    content.replace(QLatin1String(OpenCodePluginMarkerPlaceholder), opencodePluginMarker(apiVersion));
+    content.replace(QLatin1String(OpenCodePluginHelperPlaceholder), jsStringLiteral(projectStatusHelperPath()));
+    return content;
 }
 
 int installOpenCodeHooks(const QString &opencodeHomeOverride, bool quiet)
@@ -1434,8 +1474,22 @@ int installOpenCodeHooks(const QString &opencodeHomeOverride, bool quiet)
         return 1;
     }
 
+    QString versionText;
+    const int major = opencodeMajorVersion(&versionText);
+    const int apiVersion = opencodePluginApiForMajor(major);
+    if (major == 0) {
+        err << "Could not determine the opencode version; installing the v1 plugin.\n";
+    } else if (major != 1 && major != 2) {
+        err << "Unsupported opencode version " << versionText << "; installing the v1 plugin.\n";
+    }
+
     const QString pluginPath = opencodePluginPath(configDir);
-    if (!writeTextFileAtomically(pluginPath, opencodePluginContent(), &error)) {
+    const QString pluginContent = opencodePluginContent(apiVersion, &error);
+    if (pluginContent.isEmpty()) {
+        err << error << '\n';
+        return 1;
+    }
+    if (!writeTextFileAtomically(pluginPath, pluginContent, &error)) {
         err << error << '\n';
         return 1;
     }
@@ -1447,7 +1501,7 @@ int installOpenCodeHooks(const QString &opencodeHomeOverride, bool quiet)
     }
 
     if (!quiet) {
-        out << "Installed the Kmux opencode plugin at " << pluginPath << '\n';
+        out << "Installed the Kmux opencode plugin (API v" << apiVersion << ") at " << pluginPath << '\n';
     }
     return 0;
 }
@@ -1488,13 +1542,23 @@ int statusOpenCodeHooks(const QString &opencodeHomeOverride)
     const QString configDir = opencodeHome(opencodeHomeOverride);
     const QString pluginPath = opencodePluginPath(configDir);
     const QString helper = projectStatusHelperPath();
-    const bool pluginInstalled = opencodePluginInstalled(pluginPath);
+    const int installedApiVersion = opencodePluginApiVersion(pluginPath);
+    const bool pluginInstalled = installedApiVersion != 0;
     const bool helperExecutable = QFileInfo(helper).isExecutable();
 
+    QString versionText;
+    const int major = opencodeMajorVersion(&versionText);
+    const int expectedApiVersion = opencodePluginApiForMajor(major);
+    const bool apiMatches = pluginInstalled && installedApiVersion == expectedApiVersion;
+
     out << "opencode home: " << configDir << '\n';
-    out << "plugin: " << pluginPath << (pluginInstalled ? QStringLiteral(" installed") : QStringLiteral(" missing")) << '\n';
+    out << "opencode: " << (major == 0 ? QStringLiteral("not found or version unknown") : versionText) << '\n';
+    out << "plugin: " << pluginPath << (pluginInstalled ? QStringLiteral(" installed (API v%1)").arg(installedApiVersion) : QStringLiteral(" missing")) << '\n';
+    if (pluginInstalled && !apiMatches) {
+        out << "plugin API v" << installedApiVersion << " does not match opencode " << versionText << " (needs API v" << expectedApiVersion << "); run install\n";
+    }
     out << "status helper: " << helper << (helperExecutable ? QStringLiteral(" executable") : QStringLiteral(" not found")) << '\n';
-    return pluginInstalled && helperExecutable ? 0 : 1;
+    return apiMatches && helperExecutable ? 0 : 1;
 }
 }
 

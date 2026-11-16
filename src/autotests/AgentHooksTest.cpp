@@ -41,6 +41,9 @@ private Q_SLOTS:
     void testOpenCodeLauncherHookInstallation_data();
     void testOpenCodeLauncherHookInstallation();
     void testOpenCodeLifecycleConfiguration();
+    void testOpenCodePluginApiSelection_data();
+    void testOpenCodePluginApiSelection();
+    void testOpenCodeStatusReportsApiMismatch();
     void testCodexPermissionRequestUsesConfiguredReviewer();
     void testClaudeLifecycleConfiguration();
     void testClaudeUsageLimitWrapUp_data();
@@ -592,15 +595,149 @@ void AgentHooksTest::testOpenCodeLauncherHookInstallation()
     QCOMPARE(QFileInfo::exists(pluginPath), expectPluginInstalled);
 }
 
-void AgentHooksTest::testOpenCodeLifecycleConfiguration()
+// Writes a stand-in opencode CLI that prints versionOutput for any arguments.
+static QString writeOpenCodeStub(const QString &binDir, const QByteArray &versionOutput)
 {
+    const QString path = QDir(binDir).filePath(QStringLiteral("opencode"));
+    QFile stub(path);
+    if (!stub.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        return {};
+    }
+    const QByteArray script = QByteArrayLiteral("#!/bin/sh\necho '") + versionOutput + QByteArrayLiteral("'\n");
+    if (stub.write(script) != script.size()) {
+        return {};
+    }
+    stub.close();
+    if (!QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner)) {
+        return {};
+    }
+    return path;
+}
+
+static QProcessEnvironment opencodeStubEnvironment(const QString &binDir, const QString &configHome)
+{
+    // PATH holds only the stub directory, so the version probe cannot find a
+    // real opencode installed on the host.
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("PATH"), binDir);
+    environment.insert(QStringLiteral("OPENCODE_CONFIG_DIR"), configHome);
+    environment.remove(QStringLiteral("KMUX_OPENCODE_HOOKS_DISABLED"));
+    return environment;
+}
+
+void AgentHooksTest::testOpenCodePluginApiSelection_data()
+{
+    QTest::addColumn<QByteArray>("versionOutput");
+    QTest::addColumn<int>("expectedApiVersion");
+    QTest::addColumn<bool>("expectWarning");
+
+    QTest::newRow("v1") << QByteArray("1.18.32") << 1 << false;
+    QTest::newRow("v2") << QByteArray("2.0.0") << 2 << false;
+    QTest::newRow("unsupported-major") << QByteArray("3.0.0") << 1 << true;
+    QTest::newRow("unparseable") << QByteArray("opencode build") << 1 << true;
+}
+
+void AgentHooksTest::testOpenCodePluginApiSelection()
+{
+    QFETCH(QByteArray, versionOutput);
+    QFETCH(int, expectedApiVersion);
+    QFETCH(bool, expectWarning);
+
     QTemporaryDir temporaryDir;
     QVERIFY(temporaryDir.isValid());
+    const QString binDir = temporaryDir.filePath(QStringLiteral("bin"));
+    QVERIFY(QDir().mkpath(binDir));
+    QVERIFY(!writeOpenCodeStub(binDir, versionOutput).isEmpty());
+
     const QString configHome = temporaryDir.filePath(QStringLiteral("opencode-home"));
     const QString pluginPath = QDir(QDir(configHome).filePath(QStringLiteral("plugins"))).filePath(QStringLiteral("kmux-opencode.js"));
 
     QProcess process;
-    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    process.setProcessEnvironment(opencodeStubEnvironment(binDir, configHome));
+    process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE),
+                  {QStringLiteral("--opencode-home"), configHome, QStringLiteral("install"), QStringLiteral("opencode"), QStringLiteral("--quiet")});
+    QVERIFY(process.waitForStarted());
+    QVERIFY(process.waitForFinished());
+    QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+    QCOMPARE(process.exitCode(), 0);
+    const QString stderrText = QString::fromUtf8(process.readAllStandardError());
+    QCOMPARE(stderrText.contains(QStringLiteral("installing the v1 plugin")), expectWarning);
+
+    QFile plugin(pluginPath);
+    QVERIFY(plugin.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString pluginContent = QString::fromUtf8(plugin.readAll());
+    QVERIFY(pluginContent.startsWith(QStringLiteral("// kmux-opencode-plugin v%1\n").arg(expectedApiVersion)));
+    QVERIFY(!pluginContent.contains(QStringLiteral("@KMUX_")));
+    QVERIFY(pluginContent.contains(QStringLiteral("HELPER_EXECUTABLE: \"KMUX_PROJECT_STATUS_EXECUTABLE\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("import { spawn } from \"node:child_process\"")));
+    QVERIFY(!pluginContent.contains(QStringLiteral("Bun.spawn")));
+    if (expectedApiVersion == 2) {
+        QVERIFY(pluginContent.contains(QStringLiteral("Plugin.define")));
+        QVERIFY(pluginContent.contains(QStringLiteral("PROMPT: \"prompt\"")));
+        QVERIFY(pluginContent.contains(QStringLiteral("TOOL_EXECUTE_BEFORE: \"execute.before\"")));
+        QVERIFY(pluginContent.contains(QStringLiteral("ctx.session.hook(OpenCodeHookName.PROMPT")));
+        QVERIFY(!pluginContent.contains(QStringLiteral("chat.message")));
+    } else {
+        QVERIFY(pluginContent.contains(QStringLiteral("CHAT_MESSAGE: \"chat.message\"")));
+        QVERIFY(pluginContent.contains(QStringLiteral("[OpenCodeHook.CHAT_MESSAGE]: async")));
+        QVERIFY(!pluginContent.contains(QStringLiteral("Plugin.define")));
+    }
+}
+
+void AgentHooksTest::testOpenCodeStatusReportsApiMismatch()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString binDir = temporaryDir.filePath(QStringLiteral("bin"));
+    QVERIFY(QDir().mkpath(binDir));
+    const QString configHome = temporaryDir.filePath(QStringLiteral("opencode-home"));
+    const QProcessEnvironment environment = opencodeStubEnvironment(binDir, configHome);
+
+    auto runHooks = [&](const QStringList &arguments, QString *standardOutput) {
+        QProcess process;
+        process.setProcessEnvironment(environment);
+        process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE), arguments);
+        if (!process.waitForStarted() || !process.waitForFinished()) {
+            return -1;
+        }
+        if (standardOutput) {
+            *standardOutput = QString::fromUtf8(process.readAllStandardOutput());
+        }
+        return process.exitCode();
+    };
+    const QStringList installArguments = {QStringLiteral("--opencode-home"), configHome, QStringLiteral("install"), QStringLiteral("opencode"), QStringLiteral("--quiet")};
+    const QStringList statusArguments = {QStringLiteral("--opencode-home"), configHome, QStringLiteral("status"), QStringLiteral("opencode")};
+
+    // Install the V2 plugin while opencode 2.x is on PATH.
+    QVERIFY(!writeOpenCodeStub(binDir, "2.0.0").isEmpty());
+    QCOMPARE(runHooks(installArguments, nullptr), 0);
+    QString output;
+    QCOMPARE(runHooks(statusArguments, &output), 0);
+    QVERIFY(output.contains(QStringLiteral("installed (API v2)")));
+
+    // The same plugin is stale once opencode 1.x is the active CLI.
+    QVERIFY(!writeOpenCodeStub(binDir, "1.18.32").isEmpty());
+    QCOMPARE(runHooks(statusArguments, &output), 1);
+    QVERIFY(output.contains(QStringLiteral("run install")));
+
+    // Reinstalling writes the V1 plugin, which matches again.
+    QCOMPARE(runHooks(installArguments, nullptr), 0);
+    QCOMPARE(runHooks(statusArguments, &output), 0);
+    QVERIFY(output.contains(QStringLiteral("installed (API v1)")));
+}
+
+void AgentHooksTest::testOpenCodeLifecycleConfiguration()
+{
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString binDir = temporaryDir.filePath(QStringLiteral("bin"));
+    QVERIFY(QDir().mkpath(binDir));
+    QVERIFY(!writeOpenCodeStub(binDir, "1.18.32").isEmpty());
+    const QString configHome = temporaryDir.filePath(QStringLiteral("opencode-home"));
+    const QString pluginPath = QDir(QDir(configHome).filePath(QStringLiteral("plugins"))).filePath(QStringLiteral("kmux-opencode.js"));
+
+    QProcess process;
+    QProcessEnvironment environment = opencodeStubEnvironment(binDir, configHome);
     environment.insert(QStringLiteral("XDG_DATA_HOME"), temporaryDir.filePath(QStringLiteral("data")));
     process.setProcessEnvironment(environment);
     process.start(QStringLiteral(KMUX_AGENT_HOOKS_EXECUTABLE),
@@ -613,20 +750,26 @@ void AgentHooksTest::testOpenCodeLifecycleConfiguration()
     QFile plugin(pluginPath);
     QVERIFY(plugin.open(QIODevice::ReadOnly | QIODevice::Text));
     const QString pluginContent = QString::fromUtf8(plugin.readAll());
-    QVERIFY(pluginContent.contains(QStringLiteral("// kmux-opencode-plugin v1")));
-    QVERIFY(pluginContent.contains(QStringLiteral("KMUX_PROJECT_STATUS_EXECUTABLE")));
-    QVERIFY(pluginContent.contains(QStringLiteral("KMUX_OPENCODE_PID")));
-    QVERIFY(pluginContent.contains(QStringLiteral("--agent")));
-    QVERIFY(pluginContent.contains(QStringLiteral("opencode")));
-    QVERIFY(pluginContent.contains(QStringLiteral("session.idle")));
-    QVERIFY(pluginContent.contains(QStringLiteral("permission.updated")));
-    QVERIFY(pluginContent.contains(QStringLiteral("permission.asked")));
-    QVERIFY(pluginContent.contains(QStringLiteral("question.asked")));
-    QVERIFY(pluginContent.contains(QStringLiteral("\"QuestionAsked\", \"needsInput\"")));
-    QVERIFY(pluginContent.contains(QStringLiteral("chat.message")));
-    QVERIFY(pluginContent.contains(QStringLiteral("tool.execute.before")));
-    QVERIFY(pluginContent.contains(QStringLiteral("\"Stop\", \"idle\"")));
-    QVERIFY(pluginContent.contains(QStringLiteral("\"PermissionRequest\", \"needsInput\"")));
+    QVERIFY(pluginContent.startsWith(QStringLiteral("// kmux-opencode-plugin v1\n")));
+    // Event and status names live in constants; the switch maps them to Kmux events.
+    QVERIFY(pluginContent.contains(QStringLiteral("AGENT_PID: \"KMUX_OPENCODE_PID\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("AGENT: \"--agent\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("const KmuxAgentName = \"opencode\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("SESSION_IDLE: \"session.idle\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("PERMISSION_UPDATED: \"permission.updated\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("PERMISSION_ASKED: \"permission.asked\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("QUESTION_ASKED: \"question.asked\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("QUESTION_ASKED: \"QuestionAsked\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("CHAT_MESSAGE: \"chat.message\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("TOOL_EXECUTE_BEFORE: \"tool.execute.before\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("STOP: \"Stop\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("NEEDS_INPUT: \"needsInput\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("report(KmuxHookEvent.STOP, KmuxStatus.IDLE, sessionId)")));
+    QVERIFY(pluginContent.contains(QStringLiteral("report(KmuxHookEvent.PERMISSION_REQUEST, KmuxStatus.NEEDS_INPUT, sessionId)")));
+    QVERIFY(pluginContent.contains(QStringLiteral("case OpenCodeEvent.PERMISSION_UPDATED:")));
+    // No raw event-name literals may remain at call sites.
+    QVERIFY(!pluginContent.contains(QStringLiteral("report(\"")));
+    QVERIFY(!pluginContent.contains(QStringLiteral("case \"session.idle\"")));
     plugin.close();
 
     QFile installed(pluginPath);

@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/kmux/agent-hooks">
+        <file>kmux-opencode.v1.js</file>
+        <file>kmux-opencode.v2.js</file>
+    </qresource>
+</RCC>

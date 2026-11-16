@@ -454,7 +454,8 @@ if(HAVE_DBUS)
             DESTINATION "${KDE_INSTALL_LIBEXECDIR}/kmux/agent-shims"
             RENAME opencode)
 
-    add_executable(kmux-agent-hooks konsole-agent-hooks.cpp)
+    qt_add_resources(KMUX_AGENT_HOOKS_RESOURCES agent-hooks/agent-hooks.qrc)
+    add_executable(kmux-agent-hooks konsole-agent-hooks.cpp ${KMUX_AGENT_HOOKS_RESOURCES})
     ecm_mark_nongui_executable(kmux-agent-hooks)
     target_link_libraries(kmux-agent-hooks Qt::Core)
     install(TARGETS kmux-agent-hooks ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
