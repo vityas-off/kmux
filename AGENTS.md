@@ -80,6 +80,11 @@ ctest --test-dir build --output-on-failure
 If the local build directory uses a different name, adapt the path rather than
 creating unrelated build metadata in the source tree.
 
+`.claude/skills/verify/SKILL.md` describes which check fits which change.
+Its helpers run Kmux from the build tree in a nested KWin session
+(`nested-kmux.py`) and capture what a coding agent reports over OSC 7501
+(`osc7501-capture.py`).
+
 The local Kmux installation uses the user-owned prefix `/home/w/kde/usr` on an
 immutable distribution. Reinstall a completed build without `sudo`:
 
