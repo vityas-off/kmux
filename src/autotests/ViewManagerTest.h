@@ -40,7 +40,7 @@ private Q_SLOTS:
     void testRunningAgentsControlSleepInhibition();
     void testProjectWorkspaceStatusClearsWhenAgentExits();
     void testProgramStatusDrivesProjectStatus();
-    void testProgramStatusTasksKeepProgramRunning();
+    void testProgramStatusOfBackgroundTasks();
     void testAgentHooksOnlyReportClaudeRateLimit();
     void testProgramStatusClearsWhenProgramReturnsToShell();
     void testCodexUsageLimitShowsUntilReset();

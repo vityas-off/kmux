@@ -2608,7 +2608,7 @@ void ViewManagerTest::testProgramStatusDrivesProjectStatus()
     QVERIFY(!viewManager->_projectStatusProcessTimer.isActive());
 }
 
-void ViewManagerTest::testProgramStatusTasksKeepProgramRunning()
+void ViewManagerTest::testProgramStatusOfBackgroundTasks()
 {
     auto mw = MainWindow();
     auto *viewManager = mw.viewManager();
@@ -2624,9 +2624,11 @@ void ViewManagerTest::testProgramStatusTasksKeepProgramRunning()
     receiveProgramStatus(session, "state=done:app=claude-code");
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
 
-    // Background agents keep the program running after its turn ends.
-    receiveProgramStatus(session, "state=working:id=agent-1");
-    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+    // Background tasks, such as a dev server, do not keep the program running
+    // after its turn ends.
+    receiveProgramStatus(session, "state=working:id=b1:title=UnVuIHRoZSBkZXYgc2VydmVy");
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    receiveProgramStatus(session, "state=clear:id=b1");
 
     // A paused task waits for nothing, but a task with a question does.
     receiveProgramStatus(session, "state=blocked:id=agent-1");
@@ -2829,7 +2831,7 @@ void ViewManagerTest::testUnseenResultSurvivesBackgroundWork()
     receiveProgramStatus(session, "state=working:app=claude-code");
     receiveProgramStatus(session, "state=working:id=agent-1");
     receiveProgramStatus(session, "state=done:app=claude-code");
-    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
     QVERIFY(workspaces->projectHasActivity(project));
 
     // The background agent finishes, and the result is still unseen.

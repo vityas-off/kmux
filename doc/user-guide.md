@@ -82,7 +82,7 @@ that run on another machine over SSH.
 
 | Status | Project rail | Meaning |
 | --- | --- | --- |
-| Running | `run` | The program works, or background agents or tasks that it started still work. |
+| Running | `run` | The program works. Background agents and tasks that it started, such as a dev server, do not count once its turn ends. |
 | Needs input | `!` | The program asks for permission, an answer, or a sign-in. |
 | Idle | `idle` | The program waits for its next instruction: its work ended, failed, or was interrupted. |
 | Rate limit reached | amber clock | The agent stopped at a usage limit. |

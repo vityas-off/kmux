@@ -158,12 +158,11 @@ ProjectWorkspaceContainer::ProjectStatus projectStatusFromProgramStatus(const Pr
         return ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
     }
 
-    // Tasks beneath the program, such as background agents, keep it running
-    // after the program itself finished its own work.
-    const bool working = std::any_of(records.cbegin(), records.cend(), [](const ProgramStatusRecord &record) {
-        return record.state == ProgramState::Working;
-    });
-    if (working) {
+    // Only the program's own work counts as running. Claude Code reports every
+    // background task beneath it as working, including dev servers and other
+    // shells that run for the whole session while the agent waits for input.
+    const auto root = programStatus.record({});
+    if (root.has_value() && root->state == ProgramState::Working) {
         return ProjectWorkspaceContainer::ProjectStatus::Running;
     }
 
