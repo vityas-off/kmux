@@ -176,6 +176,9 @@ public:
 
     bool hasProjectNeedingInput() const;
 
+    /** Number of sessions currently waiting for the user's attention. */
+    int sessionsNeedingAttentionCount() const;
+
     /** Returns a list of sessions in this ViewManager */
     QList<Session *> sessions()
     {
@@ -242,6 +245,10 @@ Q_SIGNALS:
      */
     void setMenuBarVisibleRequest(bool);
     void updateWindowIcon();
+    /** Emitted when the number of sessions needing attention changes. */
+    void sessionAttentionChanged();
+    /** Emitted when an agent reports a different model. */
+    void agentModelChanged();
 
     void blurSettingChanged(bool);
 
@@ -556,6 +563,7 @@ private:
     QSet<TabbedViewContainer *> containersForSession(Session *session) const;
     void handleSessionStateChanged();
     void handleSessionTerminalNotification(const QString &title, const QString &body);
+    void handleAgentModelChanged();
     void handleSessionProjectStatusChanged(const QString &status,
                                            qlonglong agentProcessId,
                                            const QString &agent,
@@ -575,6 +583,8 @@ private:
     void handleSessionDestroyed(Session *session);
     void acknowledgeSessionAttention(SessionController *controller);
     void markSessionAttention(Session *session, TabbedViewContainer *container);
+    void addSessionAttention(Session *session);
+    void removeSessionAttention(Session *session);
     void clearProjectAttention(TabbedViewContainer *container);
     void setSessionProjectStatus(Session *session,
                                  TabbedViewContainer *container,

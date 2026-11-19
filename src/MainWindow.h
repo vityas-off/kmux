@@ -173,6 +173,7 @@ private Q_SLOTS:
 
     void updateWindowIcon();
     void updateWindowCaption();
+    void updateAgentAttention();
     void updateProgress();
     void openUrls(const QList<QUrl> &urls);
 

@@ -36,7 +36,7 @@ void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
 
     QVERIFY(model.setProjectTitle(firstProject, QStringLiteral("  Renamed  ")));
     QVERIFY(model.setProjectNotification(firstProject, QStringLiteral("  Build   finished  ")));
-    QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("active tab"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::Running));
+    QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("active tab"), QStringLiteral("model-x"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::Running));
     QVERIFY(model.setProjectLoaded(firstProject, false));
     QCOMPARE(changedSpy.count(), 4);
 
@@ -44,6 +44,7 @@ void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
     QCOMPARE(project.title, QStringLiteral("Renamed"));
     QCOMPARE(project.notification, QStringLiteral("Build finished"));
     QCOMPARE(project.subtitle, QStringLiteral("active tab"));
+    QCOMPARE(project.agentModel, QStringLiteral("model-x"));
     QCOMPARE(project.tabCount, 4);
     QCOMPARE(project.activeProcessCount, 2);
     QVERIFY(project.hasActivity);
@@ -52,10 +53,10 @@ void ProjectWorkspaceModelTest::testProjectStateAndOrdering()
     QVERIFY(model.hasRunningProject());
     QVERIFY(!model.hasProjectNeedingInput());
 
-    QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("waiting"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::NeedsInput));
+    QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("waiting"), QStringLiteral("model-x"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::NeedsInput));
     QVERIFY(model.hasProjectNeedingInput());
 
-    QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("limited"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::RateLimited));
+    QVERIFY(model.setProjectSummary(firstProject, QStringLiteral("limited"), QStringLiteral("model-x"), 4, 2, true, ProjectWorkspaceModel::ProjectStatus::RateLimited));
     QVERIFY(!model.hasRunningProject());
     QVERIFY(!model.hasProjectNeedingInput());
 

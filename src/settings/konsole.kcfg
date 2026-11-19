@@ -58,6 +58,11 @@
       <tooltip>Keep the system awake while at least one terminal agent reports that it is running</tooltip>
       <default>true</default>
     </entry>
+    <entry name="BlinkTaskBarOnAgentAttention" type="Bool">
+      <label>Blink the task bar entry when an agent needs attention</label>
+      <tooltip>Request attention from the window manager while an agent waits for input or finishes a turn</tooltip>
+      <default>true</default>
+    </entry>
   </group>
   <group name="ThumbnailsSettings">
      <entry name="EnableThumbnails" type="Bool">

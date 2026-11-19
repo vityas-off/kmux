@@ -592,6 +592,100 @@ void ViewManagerTest::testProjectWorkspaceActivityClearsWhenTerminalRefocused()
     QVERIFY(!workspaces->projectHasActivity(project));
 }
 
+void ViewManagerTest::testAgentSessionModelAppearsInCaption()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    QVERIFY(viewManager != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *controller = project->activeViewSplitter()->activeTerminalDisplay()->sessionController();
+    QVERIFY(controller != nullptr);
+    Session *session = controller->session();
+    QVERIFY(session != nullptr);
+
+    session->setTitle(Session::DisplayedTitleRole, QStringLiteral("shell title"));
+    session->setAgentSessionTitle(QStringLiteral("Session title"));
+
+    QSignalSpy modelSpy(viewManager, &ViewManager::agentModelChanged);
+    session->setAgentSessionModel(QStringLiteral("claude-sonnet-4-5"));
+    QVERIFY(modelSpy.count() >= 1);
+    QVERIFY(mw.windowTitle().contains(QStringLiteral("claude-sonnet-4-5")));
+
+    session->setAgentSessionModel(QString());
+    QVERIFY(!mw.windowTitle().contains(QStringLiteral("claude-sonnet-4-5")));
+}
+
+void ViewManagerTest::testAgentSessionTitleOverridesTabTitle()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    QVERIFY(viewManager != nullptr);
+
+    mw.newTab();
+    auto *project = viewManager->activeContainer();
+    QVERIFY(project != nullptr);
+    auto *controller = project->activeViewSplitter()->activeTerminalDisplay()->sessionController();
+    QVERIFY(controller != nullptr);
+    Session *session = controller->session();
+    QVERIFY(session != nullptr);
+
+    session->setTitle(Session::DisplayedTitleRole, QStringLiteral("shell title"));
+    QCOMPARE(controller->title(), QStringLiteral("shell title"));
+
+    session->setAgentSessionTitle(QStringLiteral("opencode: refactor parser"));
+    QCOMPARE(controller->title(), QStringLiteral("opencode: refactor parser"));
+
+    session->setAgentSessionTitle(QString());
+    QCOMPARE(controller->title(), QStringLiteral("shell title"));
+}
+
+void ViewManagerTest::testAgentFinishRequestsAttention()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    QVERIFY(viewManager != nullptr);
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    auto *controller = firstProject->activeViewSplitter()->activeTerminalDisplay()->sessionController();
+    QVERIFY(controller != nullptr);
+    Session *session = controller->session();
+    QVERIFY(session != nullptr);
+
+    viewManager->createProject();
+    QVERIFY(viewManager->activeContainer() != firstProject);
+
+    const qlonglong processId = QCoreApplication::applicationPid();
+    session->setProjectStatusForAgentEvent(QStringLiteral("running"),
+                                           processId,
+                                           QStringLiteral("opencode"),
+                                           QStringLiteral("PreToolUse"),
+                                           QStringLiteral("session-1"),
+                                           {},
+                                           {});
+    QCOMPARE(viewManager->sessionsNeedingAttentionCount(), 0);
+
+    QSignalSpy attentionSpy(viewManager, &ViewManager::sessionAttentionChanged);
+    session->setProjectStatusForAgentEvent(QStringLiteral("idle"),
+                                           processId,
+                                           QStringLiteral("opencode"),
+                                           QStringLiteral("Stop"),
+                                           QStringLiteral("session-1"),
+                                           {},
+                                           {});
+    QCOMPARE(viewManager->sessionsNeedingAttentionCount(), 1);
+    QVERIFY(attentionSpy.count() >= 1);
+
+    Q_EMIT controller->viewFocused(controller);
+    QCOMPARE(viewManager->sessionsNeedingAttentionCount(), 0);
+}
+
 void ViewManagerTest::testProjectWorkspaceStatusTracksSessionHooks()
 {
     auto mw = MainWindow();

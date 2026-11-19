@@ -157,6 +157,7 @@ bool ProjectWorkspaceModel::setProjectLoaded(const ProjectId &id, bool loaded)
 
 bool ProjectWorkspaceModel::setProjectSummary(const ProjectId &id,
                                               const QString &subtitle,
+                                              const QString &agentModel,
                                               int tabCount,
                                               int activeProcessCount,
                                               bool hasActivity,
@@ -170,6 +171,7 @@ bool ProjectWorkspaceModel::setProjectSummary(const ProjectId &id,
 
     auto &project = _projects[index];
     project.subtitle = subtitle;
+    project.agentModel = agentModel;
     project.tabCount = qMax(0, tabCount);
     project.activeProcessCount = qMax(0, activeProcessCount);
     project.hasActivity = hasActivity;

@@ -317,6 +317,11 @@ bool ViewManager::hasProjectNeedingInput() const
     return _hasProjectNeedingInput;
 }
 
+int ViewManager::sessionsNeedingAttentionCount() const
+{
+    return _sessionsNeedingAttention.size();
+}
+
 QWidget *ViewManager::activeView() const
 {
     return activeContainer() != nullptr ? activeContainer()->currentWidget() : nullptr;
@@ -1287,6 +1292,7 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(view, &QObject::destroyed, this, &ViewManager::workspaceStateChanged);
     connect(session, &Konsole::Session::sessionCodecChanged, this, &ViewManager::workspaceStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::sessionAttributeChanged, this, &ViewManager::workspaceStateChanged, Qt::UniqueConnection);
+    connect(session, &Konsole::Session::agentSessionModelChanged, this, &Konsole::ViewManager::handleAgentModelChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::started, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::notificationsChanged, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::terminalNotificationReceived, this, &Konsole::ViewManager::handleSessionTerminalNotification, Qt::UniqueConnection);
@@ -2596,7 +2602,7 @@ void ViewManager::restoreSessions(const KConfigGroup &group, bool useSessionIds)
                 }
             }
             _deferredProjects.insert(container, deferred);
-            _workspaceContainer->setProjectSummary(container, displayWorkingDirectory(deferred.lastDirectory), qMax(1, int(tabs.size())), 0, false);
+            _workspaceContainer->setProjectSummary(container, displayWorkingDirectory(deferred.lastDirectory), QString(), qMax(1, int(tabs.size())), 0, false);
             _workspaceContainer->setProjectLoaded(container, false);
             restoredContainers.append(container);
         }
@@ -3183,6 +3189,20 @@ void ViewManager::handleSessionTerminalNotification(const QString &title, const 
     }
 }
 
+void ViewManager::handleAgentModelChanged()
+{
+    auto *session = qobject_cast<Session *>(sender());
+    if (session == nullptr) {
+        return;
+    }
+
+    const auto containers = containersForSession(session);
+    for (TabbedViewContainer *container : containers) {
+        refreshProjectSummary(container);
+    }
+    Q_EMIT agentModelChanged();
+}
+
 void ViewManager::handleSessionProjectStatusChanged(const QString &status,
                                                     qlonglong agentProcessId,
                                                     const QString &agent,
@@ -3238,7 +3258,8 @@ void ViewManager::applySessionProjectStatus(Session *session,
 
 void ViewManager::handleSessionDestroyed(Session *session)
 {
-    // The session is already destroyed; use the pointer only as a key.
+    // The session is already destroyed; use the pointer only as a key. Do not
+    // emit signals from here, as this can run while the window is torn down.
     _sessionsNeedingAttention.remove(session);
     _sessionProjectStatuses.remove(session);
     _pendingClaudeEscapes.remove(session);
@@ -3254,7 +3275,7 @@ void ViewManager::acknowledgeSessionAttention(SessionController *controller)
 
     Session *session = controller->session();
     const auto containers = containersForSession(session);
-    _sessionsNeedingAttention.remove(session);
+    removeSessionAttention(session);
     session->resetNotifications();
     for (TabbedViewContainer *container : containers) {
         refreshProjectSummary(container);
@@ -3263,11 +3284,38 @@ void ViewManager::acknowledgeSessionAttention(SessionController *controller)
 
 void ViewManager::markSessionAttention(Session *session, TabbedViewContainer *container)
 {
-    if (session == nullptr || container == nullptr || container == activeContainer()) {
+    // Skip only the terminal the user is currently looking at. A minimized or
+    // inactive window has no focused terminal, so its agents still request
+    // attention from the task bar.
+    if (session == nullptr || container == nullptr || session->hasFocus()) {
         return;
     }
 
+    addSessionAttention(session);
+}
+
+void ViewManager::addSessionAttention(Session *session)
+{
+    if (session == nullptr) {
+        return;
+    }
+
+    const int previousCount = _sessionsNeedingAttention.size();
     _sessionsNeedingAttention.insert(session);
+    if (_sessionsNeedingAttention.size() != previousCount) {
+        Q_EMIT sessionAttentionChanged();
+    }
+}
+
+void ViewManager::removeSessionAttention(Session *session)
+{
+    if (session == nullptr) {
+        return;
+    }
+
+    if (_sessionsNeedingAttention.remove(session)) {
+        Q_EMIT sessionAttentionChanged();
+    }
 }
 
 void ViewManager::clearProjectAttention(TabbedViewContainer *container)
@@ -3275,7 +3323,7 @@ void ViewManager::clearProjectAttention(TabbedViewContainer *container)
     const auto controllers = sessionControllersForContainer(container);
     for (SessionController *controller : controllers) {
         if (controller != nullptr) {
-            _sessionsNeedingAttention.remove(controller->session());
+            removeSessionAttention(controller->session());
         }
     }
 }
@@ -3373,7 +3421,7 @@ void ViewManager::setSessionProjectStatus(Session *session,
         if (resumedStatus.status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
             markSessionAttention(session, container);
         } else {
-            _sessionsNeedingAttention.remove(session);
+            removeSessionAttention(session);
         }
         updateAgentSleepInhibition();
         updateProjectStatusProcessTimer();
@@ -3407,7 +3455,9 @@ void ViewManager::setSessionProjectStatus(Session *session,
     auto projectStatus = projectStatusFromString(status);
     if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
         _sessionProjectStatuses.remove(session);
-        _sessionsNeedingAttention.remove(session);
+        removeSessionAttention(session);
+        session->setAgentSessionTitle(QString());
+        session->setAgentSessionModel(QString());
         updateAgentSleepInhibition();
         updateProjectStatusProcessTimer();
         return;
@@ -3491,12 +3541,18 @@ void ViewManager::setSessionProjectStatus(Session *session,
     nextStatus.agentPromptId = agentPromptId;
     nextStatus.retiredAgentPromptIds = retiredAgentPromptIds;
     _sessionProjectStatuses.insert(session, nextStatus);
-    if (effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput || effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::RateLimited) {
+    const bool agentFinished =
+        effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle && previousStatus.status == ProjectWorkspaceContainer::ProjectStatus::Running
+        && !normalizedAgent.isEmpty();
+    const bool requestsAttention = effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
+        || effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::RateLimited || agentFinished
+        || (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle);
+    if (requestsAttention) {
         markSessionAttention(session, container);
-    } else if (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle) {
-        markSessionAttention(session, container);
-    } else {
-        _sessionsNeedingAttention.remove(session);
+    } else if (effectiveStatus != ProjectWorkspaceContainer::ProjectStatus::Idle) {
+        // A finished agent keeps requesting attention until its tab is opened;
+        // repeated idle reports must not clear it, but resuming work does.
+        removeSessionAttention(session);
     }
     updateAgentSleepInhibition();
     updateProjectStatusProcessTimer();
@@ -3534,7 +3590,7 @@ void ViewManager::handleSessionAgentKey(Session *session, TabbedViewContainer *c
         if (status->pendingTerminalDecisions == 0) {
             if (status->pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::Notification) {
                 status->status = status->statusBeforePendingTerminalDecision;
-                _sessionsNeedingAttention.remove(session);
+                removeSessionAttention(session);
             }
             status->pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
             status->statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
@@ -3614,7 +3670,7 @@ void ViewManager::interruptSessionTurn(Session *session, QDeadlineTimer interrup
     status->statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
     status->turnInterrupted = true;
     status->interruptedTurnHookDeadline = interruptedTurnHookDeadline;
-    _sessionsNeedingAttention.remove(session);
+    removeSessionAttention(session);
     updateAgentSleepInhibition();
     const auto containers = containersForSession(session);
     for (TabbedViewContainer *container : containers) {
@@ -3641,7 +3697,11 @@ void ViewManager::clearExitedSessionProjectStatuses()
             continue;
         }
 
-        _sessionsNeedingAttention.remove(session);
+        removeSessionAttention(session);
+        if (session != nullptr) {
+            session->setAgentSessionTitle(QString());
+            session->setAgentSessionModel(QString());
+        }
         for (auto terminal = _sessionMap.cbegin(); terminal != _sessionMap.cend(); ++terminal) {
             if (terminal.value() == session) {
                 if (auto *container = containerForTerminal(terminal.key())) {
@@ -3772,6 +3832,7 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
 
     QString activeTitle;
     QString activeDirectory;
+    QString activeModel;
     QIcon activeIcon = QIcon::fromTheme(QStringLiteral("folder"));
 
     if (auto *splitter = container->activeViewSplitter()) {
@@ -3779,6 +3840,9 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
             if (auto *controller = terminal->sessionController()) {
                 activeTitle = controller->title();
                 activeDirectory = controller->currentDir();
+                if (Session *session = controller->session()) {
+                    activeModel = session->agentSessionModel();
+                }
                 if (!controller->icon().isNull()) {
                     activeIcon = controller->icon();
                 }
@@ -3856,7 +3920,7 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
         }
     }
 
-    _workspaceContainer->setProjectSummary(container, subtitle, container->count(), activeProcessCount, hasActivity, projectStatus, activeIcon);
+    _workspaceContainer->setProjectSummary(container, subtitle, activeModel, container->count(), activeProcessCount, hasActivity, projectStatus, activeIcon);
 }
 
 #include "moc_ViewManager.cpp"

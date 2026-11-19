@@ -2052,12 +2052,17 @@ void SessionController::sessionAttributeChanged()
         updateSessionIcon();
     }
 
-    QString title = session()->title(Session::DisplayedTitleRole);
+    // An agent session title takes precedence over the terminal-provided
+    // title, so tabs stay identifiable even while the agent redraws its UI.
+    QString title = session()->agentSessionTitle();
+    if (title.isEmpty()) {
+        title = session()->title(Session::DisplayedTitleRole);
+    }
 
-    // special handling for the "%w" marker which is replaced with the
+    // Handling for the "%w" marker which is replaced with the
     // window title set by the shell
     title.replace(QLatin1String("%w"), session()->userTitle());
-    // special handling for the "%#" marker which is replaced with the
+    // Handling for the "%#" marker which is replaced with the
     // number of the shell
     title.replace(QLatin1String("%#"), QString::number(session()->sessionId()));
 

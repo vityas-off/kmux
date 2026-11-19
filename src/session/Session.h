@@ -901,7 +901,27 @@ public Q_SLOTS:
                                                     const QString &promptId,
                                                     const QString &agentId);
 
+    /**
+     * Sets the agent session title. An empty title restores the terminal-provided title.
+     */
+    Q_SCRIPTABLE void setAgentSessionTitle(const QString &title);
+
+    /** Returns the agent session title, or an empty string when unset. */
+    QString agentSessionTitle() const;
+
+    /**
+     * Sets the model currently used by the agent, shown as metadata.
+     * An empty value clears it.
+     */
+    Q_SCRIPTABLE void setAgentSessionModel(const QString &model);
+
+    /** Returns the agent model, or an empty string when unset. */
+    QString agentSessionModel() const;
+
 Q_SIGNALS:
+
+    /** Emitted when the agent session model changes. */
+    void agentSessionModelChanged();
 
     /** Emitted when the terminal process starts. */
     void started();
@@ -1134,6 +1154,8 @@ private:
 
     QString _nameTitle = QString();
     QString _displayTitle = QString();
+    QString _agentSessionTitle = QString();
+    QString _agentSessionModel = QString();
     QString _userTitle = QString();
 
     QString _localTabTitleFormat = QString();

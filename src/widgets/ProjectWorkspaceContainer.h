@@ -62,6 +62,7 @@ public:
     void setProjectLoaded(TabbedViewContainer *container, bool loaded);
     void setProjectSummary(TabbedViewContainer *container,
                            const QString &subtitle,
+                           const QString &agentModel,
                            int tabCount,
                            int activeProcessCount,
                            bool hasActivity,

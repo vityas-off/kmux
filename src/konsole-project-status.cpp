@@ -468,6 +468,12 @@ int main(int argc, char **argv)
                                             QStringLiteral("pid"));
     const QCommandLineOption agentOption(QStringLiteral("agent"), QStringLiteral("Agent name used by the hook trace."), QStringLiteral("name"));
     const QCommandLineOption eventOption(QStringLiteral("event"), QStringLiteral("Agent event name used by the hook trace."), QStringLiteral("name"));
+    const QCommandLineOption sessionTitleOption(QStringLiteral("session-title"),
+                                                QStringLiteral("Set the agent session title shown in the tab instead of the terminal title."),
+                                                QStringLiteral("title"));
+    const QCommandLineOption sessionModelOption(QStringLiteral("session-model"),
+                                                QStringLiteral("Set the model currently used by the agent."),
+                                                QStringLiteral("model"));
     const QCommandLineOption codexPermissionRequestOption(QStringLiteral("codex-permission-request"),
                                                           QStringLiteral("Resolve PermissionRequest status from the effective Codex approval reviewer."));
     const QCommandLineOption claudeStopOption(QStringLiteral("claude-stop"),
@@ -480,6 +486,8 @@ int main(int argc, char **argv)
     parser.addOption(agentPidOption);
     parser.addOption(agentOption);
     parser.addOption(eventOption);
+    parser.addOption(sessionTitleOption);
+    parser.addOption(sessionModelOption);
     parser.addOption(codexPermissionRequestOption);
     parser.addOption(claudeStopOption);
     parser.addOption(claudeNotificationOption);
@@ -488,8 +496,11 @@ int main(int argc, char **argv)
     parser.process(app);
 
     const bool hookMode = parser.isSet(hookModeOption);
+    const bool hasSessionTitle = parser.isSet(sessionTitleOption);
+    const bool hasSessionModel = parser.isSet(sessionModelOption);
+    const bool hasSessionMetadata = hasSessionTitle || hasSessionModel;
     const QStringList args = parser.positionalArguments();
-    if (args.isEmpty()) {
+    if (args.isEmpty() && !hasSessionMetadata) {
         printError(hookMode, QStringLiteral("Missing status."));
         if (hookMode) {
             return finishForHook(hookMode, 2);
@@ -499,6 +510,35 @@ int main(int argc, char **argv)
 
     const QString service = qEnvironmentVariable("KMUX_DBUS_SERVICE");
     const QString objectPath = qEnvironmentVariable("KMUX_DBUS_SESSION");
+
+    // Metadata updates carry no status, so handle them before the status logic.
+    if (hasSessionMetadata && args.isEmpty()) {
+        if (service.isEmpty() || objectPath.isEmpty()) {
+            const QString error = QStringLiteral("KMUX_DBUS_SERVICE and KMUX_DBUS_SESSION must be set.");
+            printError(hookMode, error);
+            return finishForHook(hookMode, 2);
+        }
+        QDBusInterface session(service, objectPath, QStringLiteral("io.github.vityas_off.kmux.Session"), QDBusConnection::sessionBus());
+        if (!session.isValid()) {
+            printError(hookMode, session.lastError().message());
+            return finishForHook(hookMode, 3);
+        }
+        if (hasSessionTitle) {
+            const QDBusReply<void> reply = session.call(QStringLiteral("setAgentSessionTitle"), parser.value(sessionTitleOption));
+            if (!reply.isValid()) {
+                printError(hookMode, reply.error().message());
+                return finishForHook(hookMode, 3);
+            }
+        }
+        if (hasSessionModel) {
+            const QDBusReply<void> reply = session.call(QStringLiteral("setAgentSessionModel"), parser.value(sessionModelOption));
+            if (!reply.isValid()) {
+                printError(hookMode, reply.error().message());
+                return finishForHook(hookMode, 3);
+            }
+        }
+        return finishForHook(hookMode, 0);
+    }
     bool validAgentPid = false;
     const qlonglong agentPid = parser.value(agentPidOption).toLongLong(&validAgentPid);
     const QString agent = parser.value(agentOption);

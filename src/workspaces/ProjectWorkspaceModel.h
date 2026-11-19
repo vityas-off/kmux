@@ -37,6 +37,7 @@ public:
         ProjectId id;
         QString title;
         QString subtitle;
+        QString agentModel;
         QIcon icon;
         // A persistent project icon (theme name, bundled resource, or imported file).
         QString iconName;
@@ -66,6 +67,7 @@ public:
     bool setProjectLoaded(const ProjectId &id, bool loaded);
     bool setProjectSummary(const ProjectId &id,
                            const QString &subtitle,
+                           const QString &agentModel,
                            int tabCount,
                            int activeProcessCount,
                            bool hasActivity,

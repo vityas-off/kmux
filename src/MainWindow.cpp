@@ -8,6 +8,8 @@
 #include "MainWindow.h"
 #include "config-konsole.h"
 
+#include <algorithm>
+
 // Qt
 #include <QColor>
 #include <QDateTime>
@@ -144,6 +146,8 @@ MainWindow::MainWindow()
     connect(_viewManager, &Konsole::ViewManager::blurSettingChanged, this, &Konsole::MainWindow::setBlur);
 
     connect(_viewManager, &Konsole::ViewManager::updateWindowIcon, this, &Konsole::MainWindow::updateWindowIcon);
+    connect(_viewManager, &Konsole::ViewManager::sessionAttentionChanged, this, &Konsole::MainWindow::updateAgentAttention);
+    connect(_viewManager, &Konsole::ViewManager::agentModelChanged, this, &Konsole::MainWindow::updateWindowCaption);
     connect(_viewManager, &Konsole::ViewManager::newViewWithProfileRequest, this, &Konsole::MainWindow::newFromProfile);
     connect(_viewManager, &Konsole::ViewManager::newViewInContainerRequest, this, &Konsole::MainWindow::newInContainer);
     connect(_viewManager, &Konsole::ViewManager::newViewRequest, this, &Konsole::MainWindow::newTab);
@@ -445,16 +449,54 @@ void MainWindow::updateWindowCaption()
         }
     }
 
+    const QString model = _pluggedController->session() != nullptr ? _pluggedController->session()->agentSessionModel() : QString();
+    if (!model.isEmpty()) {
+        caption = i18nc("@info:window title with agent model", "%1: %2", caption, model);
+    }
+
+    const int attentionCount = _viewManager != nullptr ? _viewManager->sessionsNeedingAttentionCount() : 0;
+    if (attentionCount > 0) {
+        caption = i18nc("@info:window title prefix showing how many sessions need attention", "(%1) %2", attentionCount, caption);
+    }
+
     setCaption(caption);
 }
 
 void MainWindow::updateWindowIcon()
 {
     const bool hasProjectNeedingInput = _viewManager != nullptr && _viewManager->hasProjectNeedingInput();
-    qGuiApp->setBadgeNumber(hasProjectNeedingInput ? 1 : 0);
+    const int attentionCount = _viewManager != nullptr ? _viewManager->sessionsNeedingAttentionCount() : 0;
+    qGuiApp->setBadgeNumber(std::max(attentionCount, hasProjectNeedingInput ? 1 : 0));
 
     if ((!_pluggedController.isNull()) && !_pluggedController->icon().isNull()) {
         setWindowIcon(_pluggedController->icon());
+    }
+}
+
+void MainWindow::updateAgentAttention()
+{
+    updateWindowIcon();
+    updateWindowCaption();
+
+    if (!KonsoleSettings::blinkTaskBarOnAgentAttention()) {
+        return;
+    }
+
+    QWindow *window = windowHandle();
+    if (window == nullptr) {
+        return;
+    }
+
+    const int attentionCount = _viewManager != nullptr ? _viewManager->sessionsNeedingAttentionCount() : 0;
+    if (attentionCount > 0) {
+        // Best effort: QWindow::alert(0) asks the window manager for attention
+        // without activating the window. On Wayland this depends on the
+        // compositor's focus-stealing-prevention policy.
+        if (!isActiveWindow()) {
+            window->alert(0);
+        }
+    } else {
+        window->alert(-1);
     }
 }
 

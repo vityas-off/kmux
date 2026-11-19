@@ -59,6 +59,7 @@ enum ProjectRoles {
     LoadedRole,
     ProjectStatusRole,
     ProjectIconNameRole,
+    AgentModelRole,
 };
 
 QString badgeText(int count)
@@ -320,8 +321,24 @@ public:
         }
 
         painter->setFont(subtitleFont);
-        painter->setPen(subtleColor);
         const QFontMetrics subtitleMetrics(subtitleFont);
+
+        // Reserve the right side of the subtitle line for the agent model so it
+        // stays visible when the session title is long. The model uses a dimmer,
+        // palette-derived color than the subtitle and follows the active theme.
+        const QString agentModel = index.data(AgentModelRole).toString();
+        if (!agentModel.isEmpty()) {
+            const QColor modelColor = blendedColor(itemOption.palette.color(QPalette::Window), subtleColor, 0.62);
+            const int modelWidth = qMin(subtitleMetrics.horizontalAdvance(agentModel), subtitleRect.width() / 2);
+            if (modelWidth > 0) {
+                const QRect modelRect(subtitleRect.right() - modelWidth, subtitleRect.top(), modelWidth, subtitleRect.height());
+                subtitleRect.setRight(modelRect.left() - 6);
+                painter->setPen(modelColor);
+                painter->drawText(modelRect, Qt::AlignRight | Qt::AlignVCenter, subtitleMetrics.elidedText(agentModel, Qt::ElideRight, modelWidth));
+            }
+        }
+
+        painter->setPen(subtleColor);
         const QString subtitle = subtitleMetrics.elidedText(index.data(SubtitleRole).toString(), Qt::ElideRight, qMax(0, subtitleRect.width()));
         painter->drawText(subtitleRect, Qt::AlignLeft | Qt::AlignVCenter, subtitle);
 
@@ -694,6 +711,7 @@ void ProjectWorkspaceContainer::setProjectLoaded(TabbedViewContainer *container,
 
 void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container,
                                                   const QString &subtitle,
+                                                  const QString &agentModel,
                                                   int tabCount,
                                                   int activeProcessCount,
                                                   bool hasActivity,
@@ -705,7 +723,7 @@ void ProjectWorkspaceContainer::setProjectSummary(TabbedViewContainer *container
         return;
     }
 
-    _model->setProjectSummary(projectId(container), subtitle, tabCount, activeProcessCount, hasActivity, status, icon);
+    _model->setProjectSummary(projectId(container), subtitle, agentModel, tabCount, activeProcessCount, hasActivity, status, icon);
 }
 
 int ProjectWorkspaceContainer::projectCount() const
@@ -890,6 +908,7 @@ void ProjectWorkspaceContainer::updateListItem(int index)
     const ProjectWorkspaceModel::ProjectData project = _model->projectAt(index);
     item->setText(project.title);
     item->setData(SubtitleRole, project.subtitle);
+    item->setData(AgentModelRole, project.agentModel);
     item->setData(TabCountRole, project.tabCount);
     item->setData(ActiveProcessCountRole, project.activeProcessCount);
     item->setData(LoadedRole, project.loaded);

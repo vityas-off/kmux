@@ -762,6 +762,12 @@ void AgentHooksTest::testOpenCodeLifecycleConfiguration()
     QVERIFY(pluginContent.contains(QStringLiteral("QUESTION_ASKED: \"QuestionAsked\"")));
     QVERIFY(pluginContent.contains(QStringLiteral("CHAT_MESSAGE: \"chat.message\"")));
     QVERIFY(pluginContent.contains(QStringLiteral("TOOL_EXECUTE_BEFORE: \"tool.execute.before\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("SESSION_UPDATED: \"session.updated\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("SESSION_TITLE: \"--session-title\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("reportTitle(title)")));
+    QVERIFY(pluginContent.contains(QStringLiteral("MESSAGE_UPDATED: \"message.updated\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("SESSION_MODEL: \"--session-model\"")));
+    QVERIFY(pluginContent.contains(QStringLiteral("reportModel(")));
     QVERIFY(pluginContent.contains(QStringLiteral("STOP: \"Stop\"")));
     QVERIFY(pluginContent.contains(QStringLiteral("NEEDS_INPUT: \"needsInput\"")));
     QVERIFY(pluginContent.contains(QStringLiteral("report(KmuxHookEvent.STOP, KmuxStatus.IDLE, sessionId)")));

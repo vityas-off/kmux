@@ -9,6 +9,8 @@ const KmuxFlag = Object.freeze({
   AGENT: "--agent",
   EVENT: "--event",
   AGENT_PID: "--agent-pid",
+  SESSION_TITLE: "--session-title",
+  SESSION_MODEL: "--session-model",
 });
 
 const KmuxEnv = Object.freeze({
@@ -39,6 +41,8 @@ const KmuxPayloadKey = Object.freeze({
 });
 
 const OpenCodeEvent = Object.freeze({
+  SESSION_UPDATED: "session.updated",
+  MESSAGE_UPDATED: "message.updated",
   SESSION_IDLE: "session.idle",
   SESSION_ERROR: "session.error",
   PERMISSION_ASKED: "permission.asked",
@@ -57,38 +61,119 @@ const OpenCodeHookName = Object.freeze({
 
 const OpenCodeField = Object.freeze({
   PROPERTIES: "properties",
+  INFO: "info",
+  TITLE: "title",
+  ROLE: "role",
+  MODEL: "model",
+  MODEL_ID: "modelID",
+  ID: "id",
+  NAME: "name",
+  PROVIDER_ID: "providerID",
   SESSION_ID: "sessionID",
 });
 
-const HELPER = process.env[KmuxEnv.HELPER_EXECUTABLE] || @KMUX_HELPER_PATH@;
+const OpenCodeRole = Object.freeze({
+  USER: "user",
+});
 
-function report(event, status, sessionId) {
+const HELPER = process.env[KmuxEnv.HELPER_EXECUTABLE] ?? @KMUX_HELPER_PATH@;
+
+const runHelper = (args, sessionId = "") => {
+  try {
+    const child = spawn(HELPER, args, { stdio: ["pipe", "ignore", "ignore"], env: process.env });
+    // Spawn failures and early helper exits surface as events, not exceptions.
+    child.on("error", () => {});
+    child.stdin.on("error", () => {});
+    child.stdin.end(JSON.stringify({ [KmuxPayloadKey.SESSION_ID]: sessionId }));
+  } catch {}
+};
+
+const report = (event, status, sessionId) => {
   const args = [KmuxFlag.HOOK_OUTPUT, KmuxFlag.AGENT, KmuxAgentName, KmuxFlag.EVENT, event];
   const agentPid = process.env[KmuxEnv.AGENT_PID];
   if (agentPid) {
     args.push(KmuxFlag.AGENT_PID, String(agentPid));
   }
   args.push(status);
-  try {
-    const child = spawn(HELPER, args, { stdio: ["pipe", "ignore", "ignore"], env: process.env });
-    // Asynchronous failures (helper missing, or helper exits before reading stdin)
-    // are reported as events, not thrown, so they must be handled here.
-    child.on("error", () => {});
-    child.stdin.on("error", () => {});
-    child.stdin.end(JSON.stringify({ [KmuxPayloadKey.SESSION_ID]: sessionId || "" }));
-  } catch {}
-}
+  runHelper(args, sessionId);
+};
+
+const reportTitle = (title) => {
+  runHelper([KmuxFlag.HOOK_OUTPUT, KmuxFlag.AGENT, KmuxAgentName, KmuxFlag.SESSION_TITLE, title]);
+};
+
+let reportedModel = "";
+
+const reportModel = (model) => {
+  if (!model || model === reportedModel) {
+    return;
+  }
+  reportedModel = model;
+  runHelper([KmuxFlag.HOOK_OUTPUT, KmuxFlag.AGENT, KmuxAgentName, KmuxFlag.SESSION_MODEL, model]);
+};
 
 export default Plugin.define({
   id: "kmux.opencode",
   async setup(ctx) {
+    // opencode events carry only provider and model IDs; resolve the display
+    // name from the model catalog once and cache it for this plugin instance.
+    let modelCatalogPromise;
+
+    const loadModelCatalog = () => {
+      modelCatalogPromise ??= (async () => {
+        const names = new Map();
+        try {
+          const listed = (await ctx.model?.list?.()) ?? [];
+          const models = Array.isArray(listed) ? listed : (listed?.data ?? []);
+          for (const { providerID, id, name } of models) {
+            if (name && providerID && id) {
+              names.set(`${providerID}/${id}`, name);
+            }
+          }
+        } catch {}
+        return names;
+      })();
+      return modelCatalogPromise;
+    };
+
+    const resolveModelName = async (model) => {
+      const providerID = model[OpenCodeField.PROVIDER_ID];
+      const modelID = model[OpenCodeField.MODEL_ID] ?? model[OpenCodeField.ID];
+      if (model[OpenCodeField.NAME]) {
+        return model[OpenCodeField.NAME];
+      }
+      if (!modelID) {
+        return undefined;
+      }
+      const names = await loadModelCatalog();
+      return (providerID && names.get(`${providerID}/${modelID}`)) || modelID;
+    };
+
     const controller = new AbortController();
 
     void (async () => {
       for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
         const properties = event[OpenCodeField.PROPERTIES];
-        const sessionId = properties ? properties[OpenCodeField.SESSION_ID] : undefined;
+        const sessionId = properties?.[OpenCodeField.SESSION_ID];
         switch (event.type) {
+          case OpenCodeEvent.MESSAGE_UPDATED: {
+            const info = properties?.[OpenCodeField.INFO];
+            if (info?.[OpenCodeField.ROLE] !== OpenCodeRole.USER) {
+              break;
+            }
+            const model = info[OpenCodeField.MODEL] ?? (info[OpenCodeField.MODEL_ID] ? { [OpenCodeField.MODEL_ID]: info[OpenCodeField.MODEL_ID] } : undefined);
+            if (model) {
+              resolveModelName(model).then((name) => reportModel(name)).catch(() => {});
+            }
+            break;
+          }
+          case OpenCodeEvent.SESSION_UPDATED: {
+            const title = properties?.[OpenCodeField.INFO]?.[OpenCodeField.TITLE];
+            if (title) {
+              reportTitle(title);
+            }
+            break;
+          }
           case OpenCodeEvent.SESSION_IDLE:
             report(KmuxHookEvent.STOP, KmuxStatus.IDLE, sessionId);
             break;
