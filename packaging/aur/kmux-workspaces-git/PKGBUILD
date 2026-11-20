@@ -3,7 +3,7 @@
 # Maintainer: vityas-off <15840124+vityas-off@users.noreply.github.com>
 
 pkgname=kmux-workspaces-git
-pkgver=0.1.0alpha.1.r10591.g1cd2691
+pkgver=0.1.0alpha.2.r10709.g1211765
 pkgrel=1
 pkgdesc='Project-workspace terminal based on KDE Konsole, inspired by cmux (development version)'
 arch=(x86_64)

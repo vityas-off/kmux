@@ -7,7 +7,12 @@ metadata validator evidence; the last clean-tree evidence is from 2026-07-18)
 
 Checklist reconciled with `master` tip `d2657c299` on 2026-09-23.
 
-Target release: `v0.1.0-alpha.1`
+Target release: `v0.1.0-alpha.2`
+
+Version update on 2026-11-14: the OSC 7501 integration advances the development
+version to `0.1.0-alpha.2`. No Kmux release has been published yet. The dated
+build and packaging evidence below records earlier development builds; repeat
+the release checks against the current target before tagging.
 
 Recommended initial distribution: GitHub prerelease and AUR package
 
@@ -101,7 +106,7 @@ GitHub/AUR alpha.
 
 ### First public release
 
-Publish `v0.1.0-alpha.1` as a GitHub prerelease rather than publishing an
+Publish `v0.1.0-alpha.2` as a GitHub prerelease rather than publishing an
 ordinary `v0.1.0` release.
 
 The release should provide:
@@ -175,7 +180,7 @@ integration requires significant cross-distribution testing.
 ## Alpha release gate
 
 All items in this section should be completed before publishing
-`v0.1.0-alpha.1`.
+`v0.1.0-alpha.2`.
 
 ### 1. Build and test verification
 
@@ -325,12 +330,12 @@ Identity locations include:
 
 ### 4. Release version and tag
 
-- [x] Confirm `0.1.0-alpha.1` as the first public version.
+- [x] Confirm `0.1.0-alpha.2` as the first public version.
 - [x] Ensure all version-reporting installed executables report a consistent
       Kmux product version.
 - [x] Replace the hard-coded `1.0` version in `kmux-project-status` with the
       product version where appropriate.
-- [ ] Create a Kmux-specific `v0.1.0-alpha.1` tag.
+- [ ] Create a Kmux-specific `v0.1.0-alpha.2` tag.
 - [x] Define the Kmux product version independently of inherited Konsole tags.
 - [ ] Create a GitHub prerelease from the tag.
 - [x] Add concise release notes or a changelog entry (`CHANGELOG.md`).
@@ -363,7 +368,7 @@ kmux-agent-hooks 0.1.0-alpha.1
 CI fails if the newest AppStream `<release>` differs from the version reported
 by `kmux --version`, so both must be updated together.
 
-`CHANGELOG.md` holds the `0.1.0-alpha.1` release notes and serves as the body
+`CHANGELOG.md` holds the `0.1.0-alpha.2` release notes and serves as the body
 of the GitHub prerelease. At tag time replace "unreleased" with the tag date,
 and update its Installation section if the AUR package is published by then.
 
@@ -413,7 +418,7 @@ still has to be enabled for the repository.
 - [ ] Set the `<release>` date to the actual tag date.
 - [x] Add a bug tracker URL.
 - [x] Add at least one screenshot.
-- [x] Reference screenshots by an immutable URL (the `v0.1.0-alpha.1` tag).
+- [x] Reference screenshots by an immutable URL (the `v0.1.0-alpha.2` tag).
 - [x] Retake the screenshot from the current UI before tagging.
 - [ ] Resize or prepare the existing screenshot if needed for store guidelines.
 - [x] Pass `appstreamcli validate --pedantic` with the release metadata.
@@ -428,7 +433,7 @@ The existing screenshot is:
 - `screenshots/kmux-project-workspaces.png`.
 
 AppStream references it as
-`https://raw.githubusercontent.com/vityas-off/kmux/v0.1.0-alpha.1/screenshots/kmux-project-workspaces.png`,
+`https://raw.githubusercontent.com/vityas-off/kmux/v0.1.0-alpha.2/screenshots/kmux-project-workspaces.png`,
 which resolves only after the tag exists. The image was retaken on 2026-09-23
 (2722×1728) from the current UI. It shows project icons, agent statuses in the
 project rail and on tabs, and Claude Code running in the Kmux project; the
@@ -972,8 +977,8 @@ an additional immutable desktop once Flatpak becomes an advertised channel.
 The draft `PKGBUILD` follows Arch's `konsole` package: the same runtime
 dependencies, `extra-cmake-modules` and `ninja` as build dependencies, and
 `-DBUILD_TESTING=OFF -DWITH_LIBSSH=ON -DWITH_KAPSULE=OFF`. `pkgver` is the tag
-with dashes removed (`0.1.0alpha.1`), which `vercmp` orders before `0.1.0`,
-`0.1.0alpha.2`, and `0.1.0beta.1`. `sha256sums` stays `SKIP` until the tag
+with dashes removed (`0.1.0alpha.2`), which `vercmp` orders before `0.1.0`,
+`0.1.0alpha.3`, and `0.1.0beta.1`. `sha256sums` stays `SKIP` until the tag
 archive exists.
 
 `packaging/aur/prepare-local-build.sh` builds the package before the tag
@@ -1201,7 +1206,7 @@ Packaging and metadata:
    manual alpha smoke tests in the clean Plasma VM.
 9. Dogfood the release candidate for several days after the last persistence,
    IPC, or agent-hook change.
-10. Tag and publish `v0.1.0-alpha.1` as a GitHub prerelease with release notes
+10. Tag and publish `v0.1.0-alpha.2` as a GitHub prerelease with release notes
     and checksums.
 11. Build and publish the AUR `kmux-workspaces` package from that immutable tag and verified
     source checksum.

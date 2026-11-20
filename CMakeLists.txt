@@ -8,7 +8,7 @@ set(KMUX_VERSION_PATCH "0")
 set(KMUX_VERSION "${KMUX_VERSION_MAJOR}.${KMUX_VERSION_MINOR}.${KMUX_VERSION_PATCH}")
 # Semantic-versioning pre-release label; leave empty for a final release.
 # KMUX_VERSION stays numeric because it versions libraries and plugins.
-set(KMUX_VERSION_PRERELEASE "alpha.1")
+set(KMUX_VERSION_PRERELEASE "alpha.2")
 if(KMUX_VERSION_PRERELEASE)
     set(KMUX_DISPLAY_VERSION "${KMUX_VERSION}-${KMUX_VERSION_PRERELEASE}")
 else()

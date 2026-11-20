@@ -15,8 +15,9 @@ tabs and split views, and switching projects never stops a running session.
   keyboard navigation;
 - independent tabs and split views in every project; tabs can be moved between
   projects;
-- activity indicators, notifications, and Claude Code and Codex statuses
-  (running, idle, needs input) on projects and tabs;
+- activity indicators, notifications, and the statuses of Claude Code, Codex,
+  and other programs (running, needs input, idle, usage limit) on projects and
+  tabs;
 - restoration of projects, tabs, splits, and working directories after a
   restart;
 - everything else from Konsole: profiles, color schemes, shortcuts, search,
@@ -25,18 +26,13 @@ tabs and split views, and switching projects never stops a running session.
 
 ## Status
 
-Kmux is alpha software, currently 0.1.0-alpha.1. Expect bugs, including ones
+Kmux is alpha software, currently 0.1.0-alpha.2. Expect bugs, including ones
 that lose the saved workspace. Most notably:
 
 - restoring a workspace starts new shells; it does not bring back the programs
   that were running in them;
 - Kmux uses a single main window;
-- the format of the saved workspace may change between alpha releases;
-- Kmux temporarily starts Codex without its shared background server
-  (`--no-daemon`), because Codex 0.157 reports every session's status to the
-  terminal that started that server
-  ([openai/codex#44902](https://github.com/openai/codex/issues/44902)). These
-  sessions do not appear in `codex agents`.
+- the format of the saved workspace may change between alpha releases.
 
 The [user guide](doc/user-guide.md#known-limitations) lists all known
 limitations.
@@ -91,10 +87,10 @@ Kmux leaves `Ctrl+Alt+T` to Konsole; the
 [user guide](doc/user-guide.md#global-shortcut) explains how to assign a global
 shortcut to Kmux.
 
-Inside Kmux, `claude` and `codex` report their status without any setup: Kmux
-installs their hooks the first time you run them. The
-[user guide](doc/user-guide.md) explains the agent integration, what
-workspace restoration brings back, and how to reset a broken workspace.
+Codex and Claude Code report their status to Kmux themselves, without any
+setup. The [user guide](doc/user-guide.md) explains the agent integration and
+what to do after upgrading from an earlier build, what workspace restoration
+brings back, and how to reset a broken workspace.
 
 ## Alternatives
 

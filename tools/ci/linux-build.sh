@@ -65,7 +65,6 @@ for path in \
     bin/kmux \
     bin/kmux-agent-hooks \
     bin/kmux-claude \
-    bin/kmux-codex \
     bin/kmux-opencode \
     bin/kmux-project-status \
     bin/kmuxprofile \
@@ -94,7 +93,6 @@ for name in \
     kmux_sshmanagerplugin.so \
     kmux.mo \
     claude \
-    codex \
     opencode
 do
     if [ -z "$(find "$root" -name "$name" -print -quit)" ]; then

@@ -3,7 +3,7 @@
 # Maintainer: vityas-off <15840124+vityas-off@users.noreply.github.com>
 
 pkgname=kmux-workspaces
-_tag=0.1.0-alpha.1
+_tag=0.1.0-alpha.2
 pkgver=${_tag//-/}
 pkgrel=1
 pkgdesc='Project-workspace terminal based on KDE Konsole, inspired by cmux'

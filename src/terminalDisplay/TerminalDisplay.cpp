@@ -1357,6 +1357,8 @@ void TerminalDisplay::mousePressEvent(QMouseEvent *ev)
     }
 
     if (ev->button() == Qt::LeftButton) {
+        _linkClickPending = false;
+
         // request the software keyboard, if any
         if (qApp->autoSipEnabled()) {
             auto behavior = QStyle::RequestSoftwareInputPanel(style()->styleHint(QStyle::SH_RequestSoftwareInputPanel));
@@ -1403,7 +1405,12 @@ void TerminalDisplay::mousePressEvent(QMouseEvent *ev)
                 _iPntSel = _pntSel = pos;
                 _actSel = 1; // left mouse button pressed but nothing selected yet.
             } else if (usesMouseTracking() && !_readOnly) {
-                sendMouseSignal(mouseButton(0, ev->modifiers()), ev->pos(), 0, true);
+                // Do not let the application open a link that the terminal will also open on release.
+                _linkClickPending = hotSpotClick && hotSpotClick->isUrl() && !_screenWindow->screen()->hasSelection()
+                    && (_openLinksByDirectClick || (ev->modifiers() & Qt::ControlModifier));
+                if (!_linkClickPending) {
+                    sendMouseSignal(mouseButton(0, ev->modifiers()), ev->pos(), 0, true);
+                }
             }
         }
         if (_semanticInputClick && (ev->modifiers() & Qt::ControlModifier) == 0 && _screenWindow->screen()->replMode() == REPL_INPUT) {
@@ -1453,6 +1460,10 @@ void TerminalDisplay::mouseMoveEvent(QMouseEvent *ev)
     processFilters();
 
     _filterChain->mouseMoveEvent(this, ev, charLine, charColumn);
+
+    if (_linkClickPending) {
+        return;
+    }
 
     // if the program running in the terminal is interested in Mouse Tracking
     // events then emit a mouse movement signal, unless the shift key is
@@ -1716,8 +1727,10 @@ void TerminalDisplay::mouseReleaseEvent(QMouseEvent *ev)
     }
 
     auto [charLine, charColumn] = getCharacterPosition(ev->pos(), !usesMouseTracking());
+    const bool linkClickPending = ev->button() == Qt::LeftButton && _linkClickPending;
 
     if (ev->button() == Qt::LeftButton) {
+        _linkClickPending = false;
         if (_dragInfo.state == diPending) {
             // We had a drag event pending but never confirmed.  Kill selection
             clearSelection();
@@ -1732,7 +1745,7 @@ void TerminalDisplay::mouseReleaseEvent(QMouseEvent *ev)
             //       outside the range. The procedure used in `mouseMoveEvent'
             //       applies here, too.
 
-            if (usesMouseTracking() && !(ev->modifiers() & Qt::ShiftModifier) && !_readOnly) {
+            if (usesMouseTracking() && !(ev->modifiers() & Qt::ShiftModifier) && !_readOnly && !linkClickPending) {
                 sendMouseSignal(mouseButton(0, ev->modifiers()), ev->pos(), 2, true);
             }
         }
@@ -1743,7 +1756,7 @@ void TerminalDisplay::mouseReleaseEvent(QMouseEvent *ev)
         sendMouseSignal(mouseButton((ev->button() == Qt::MiddleButton ? 1 : 2), ev->modifiers()), ev->pos(), 2, true);
     }
 
-    if (!_screenWindow->screen()->hasSelection()) {
+    if (!_screenWindow->screen()->hasSelection() && (!usesMouseTracking() || (ev->modifiers() & Qt::ShiftModifier) || _readOnly || linkClickPending)) {
         _filterChain->mouseReleaseEvent(this, ev, charLine, charColumn);
     }
 }

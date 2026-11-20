@@ -267,7 +267,7 @@ protected:
 
 private:
     void processGraphicsToken(int tokenSize);
-    void processProgramStatusReport(QStringView report);
+    void processProgramStatusMessage(QStringView payload, uint terminator);
 
     void sendGraphicsReply(const QString &params, const QString &error);
     void reportTerminalType();

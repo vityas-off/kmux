@@ -1180,6 +1180,12 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
         return;
     }
 
+    // Program status queries take a protocol-specific reply, so they must not
+    // reach the generic "?" attribute requests below.
+    if (attribute == ProgramStatus) {
+        processProgramStatusMessage(value, terminator);
+        return;
+    }
     if (attribute == CursorColor) {
         int j = i;
         while (j < tokenSize && tokenBuffer[j] != ';') {
@@ -1194,6 +1200,10 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
     if (attribute == SemanticPrompts) {
         if (value[0] == QLatin1Char('A') || value[0] == QLatin1Char('N') || value[0] == QLatin1Char('P')) {
             _currentScreen->setReplMode(REPL_PROMPT);
+        }
+        // A new shell prompt means that the programs that reported work have ended.
+        if (value[0] == QLatin1Char('A')) {
+            dropTransientProgramStatus();
         }
         if (value[0] == QLatin1Char('L') && _currentScreen->getCursorX() > 0) {
             _currentScreen->nextLine();
@@ -1857,11 +1867,6 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
         return;
     }
 
-    if (attribute == ProgramStatus) {
-        processProgramStatusReport(value);
-        return;
-    }
-
     if (attribute == ConEmu) {
         const auto list = QStringView(value).split(QLatin1Char(';'));
         if (list.size() >= 2) {
@@ -1902,48 +1907,25 @@ void Vt102Emulation::processSessionAttributeRequest(const int tokenSize, const u
     _sessionAttributesUpdateTimer->start(20);
 }
 
-void Vt102Emulation::processProgramStatusReport(QStringView report)
+void Vt102Emulation::processProgramStatusMessage(QStringView payload, uint terminator)
 {
-    QStringView state;
-    QStringView app;
-    bool hasRecordId = false;
-    for (const QStringView pair : report.split(QLatin1Char(':'))) {
-        const qsizetype separator = pair.indexOf(QLatin1Char('='));
-        if (separator <= 0) {
-            continue;
-        }
-        const QStringView key = pair.first(separator).trimmed();
-        const QStringView pairValue = pair.sliced(separator + 1).trimmed();
-        if (key == QLatin1String("state")) {
-            state = pairValue;
-        } else if (key == QLatin1String("app")) {
-            app = pairValue;
-        } else if (key == QLatin1String("id")) {
-            hasRecordId = true;
-        }
-    }
-
-    // A record with an id describes a task of the program rather than the
-    // program itself.
-    if (hasRecordId) {
+    const auto message = parseProgramStatusMessage(payload);
+    if (!message.has_value()) {
         return;
     }
-    Enum::ProgramStateEnum programState;
-    if (state == QLatin1String("idle")) {
-        programState = Enum::ProgramIdle;
-    } else if (state == QLatin1String("working")) {
-        programState = Enum::ProgramWorking;
-    } else if (state == QLatin1String("done")) {
-        programState = Enum::ProgramDone;
-    } else if (state == QLatin1String("blocked")) {
-        programState = Enum::ProgramBlocked;
-    } else if (state == QLatin1String("error")) {
-        programState = Enum::ProgramError;
-    } else {
-        // "clear" removes records instead of reporting a state.
+    if (message->type == ProgramStatusMessage::Type::Query) {
+        // Answer with the terminator of the query, as other OSC replies do.
+        QByteArray reply = programStatusQueryReply();
+        if (terminator == '\a') {
+            reply.chop(2);
+            reply.append('\a');
+        }
+        sendString(reply);
         return;
     }
-    Q_EMIT programStateReported(programState, app.toString());
+    if (_programStatus.apply(*message)) {
+        Q_EMIT programStatusChanged();
+    }
 }
 
 void Vt102Emulation::deletePlayer(QMediaPlayer::MediaStatus mediaStatus)
@@ -2034,7 +2016,7 @@ void Vt102Emulation::processToken(int token, int p, int q)
     case token_esc('H'      ) : _currentScreen->changeTabStop        (true      ); break; //VT100
     case token_esc('M'      ) : _currentScreen->reverseIndex         (          ); break; //VT100
     case token_esc('Z'      ) :      reportTerminalType   (          ); break;
-    case token_esc('c'      ) :      reset                (          ); break;
+    case token_esc('c'      ) :      reset                (          ); clearProgramStatus(); break;
 
     case token_esc('n'      ) :      useCharset           (         2); break;
     case token_esc('o'      ) :      useCharset           (         3); break;

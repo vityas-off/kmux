@@ -1,12 +1,7 @@
 @KMUX_PLUGIN_MARKER@
 import { spawn } from "node:child_process";
 
-const KmuxAgentName = "opencode";
-
 const KmuxFlag = Object.freeze({
-  HOOK_OUTPUT: "--hook-output",
-  AGENT: "--agent",
-  EVENT: "--event",
   AGENT_PID: "--agent-pid",
   SESSION_TITLE: "--session-title",
   SESSION_MODEL: "--session-model",
@@ -17,26 +12,10 @@ const KmuxEnv = Object.freeze({
   AGENT_PID: "KMUX_OPENCODE_PID",
 });
 
-const KmuxHookEvent = Object.freeze({
-  STOP: "Stop",
-  STOP_FAILURE: "StopFailure",
-  PERMISSION_REQUEST: "PermissionRequest",
-  PERMISSION_REPLIED: "PermissionReplied",
-  QUESTION_ASKED: "QuestionAsked",
-  QUESTION_REPLIED: "QuestionReplied",
-  USER_PROMPT_SUBMIT: "UserPromptSubmit",
-  PRE_TOOL_USE: "PreToolUse",
-  POST_TOOL_USE: "PostToolUse",
-});
-
 const KmuxStatus = Object.freeze({
   IDLE: "idle",
   RUNNING: "running",
   NEEDS_INPUT: "needsInput",
-});
-
-const KmuxPayloadKey = Object.freeze({
-  SESSION_ID: "session_id",
 });
 
 const OpenCodeEvent = Object.freeze({
@@ -68,37 +47,42 @@ const OpenCodeField = Object.freeze({
   ID: "id",
   NAME: "name",
   PROVIDER_ID: "providerID",
-  SESSION_ID: "sessionID",
 });
 
 const OpenCodeRole = Object.freeze({
   USER: "user",
 });
 
-const HELPER = process.env[KmuxEnv.HELPER_EXECUTABLE] ?? @KMUX_HELPER_PATH@;
+const HELPER = process.env[KmuxEnv.HELPER_EXECUTABLE] || @KMUX_HELPER_PATH@;
 
-const runHelper = (args, sessionId = "") => {
+const runHelper = (args) => {
   try {
-    const child = spawn(HELPER, args, { stdio: ["pipe", "ignore", "ignore"], env: process.env });
-    // Spawn failures and early helper exits surface as events, not exceptions.
+    const child = spawn(HELPER, args, { stdio: ["ignore", "ignore", "ignore"], env: process.env });
     child.on("error", () => {});
-    child.stdin.on("error", () => {});
-    child.stdin.end(JSON.stringify({ [KmuxPayloadKey.SESSION_ID]: sessionId }));
   } catch {}
 };
 
-const report = (event, status, sessionId) => {
-  const args = [KmuxFlag.HOOK_OUTPUT, KmuxFlag.AGENT, KmuxAgentName, KmuxFlag.EVENT, event];
+// opencode does not speak OSC 7501, so the plugin reports plain statuses for
+// this terminal. The helper tags them with this process id and Kmux clears
+// the status when the process exits.
+const report = (status) => {
+  const args = [];
   const agentPid = process.env[KmuxEnv.AGENT_PID];
   if (agentPid) {
     args.push(KmuxFlag.AGENT_PID, String(agentPid));
   }
   args.push(status);
-  runHelper(args, sessionId);
+  runHelper(args);
 };
 
+let reportedTitle = "";
+
 const reportTitle = (title) => {
-  runHelper([KmuxFlag.HOOK_OUTPUT, KmuxFlag.AGENT, KmuxAgentName, KmuxFlag.SESSION_TITLE, title]);
+  if (!title || title === reportedTitle) {
+    return;
+  }
+  reportedTitle = title;
+  runHelper([KmuxFlag.SESSION_TITLE, title]);
 };
 
 let reportedModel = "";
@@ -108,11 +92,11 @@ const reportModel = (model) => {
     return;
   }
   reportedModel = model;
-  runHelper([KmuxFlag.HOOK_OUTPUT, KmuxFlag.AGENT, KmuxAgentName, KmuxFlag.SESSION_MODEL, model]);
+  runHelper([KmuxFlag.SESSION_MODEL, model]);
 };
 
-// Events carry only provider and model IDs, so resolve the display name from the
-// provider catalog once and cache it for the lifetime of the plugin.
+// Events carry only provider and model IDs, so resolve the display name from
+// the provider catalog once and cache it.
 let modelCatalogPromise;
 
 const loadModelCatalog = (client) => {
@@ -121,9 +105,9 @@ const loadModelCatalog = (client) => {
     try {
       const providers = (await client?.config?.providers?.())?.data?.providers ?? [];
       for (const { id: providerID, models = {} } of providers) {
-        for (const [modelID, model] of Object.entries(models)) {
+        for (const [id, model] of Object.entries(models)) {
           if (model?.name) {
-            names.set(`${providerID}/${modelID}`, model.name);
+            names.set(`${providerID}/${id}`, model.name);
           }
         }
       }
@@ -149,10 +133,10 @@ const resolveModelName = async (client, model) => {
 export default async ({ client } = {}) => ({
   event: async ({ event }) => {
     const properties = event[OpenCodeField.PROPERTIES];
-    const sessionId = properties?.[OpenCodeField.SESSION_ID];
     switch (event.type) {
       case OpenCodeEvent.MESSAGE_UPDATED: {
         const info = properties?.[OpenCodeField.INFO];
+        // Only user messages carry the model selected for the turn.
         if (info?.[OpenCodeField.ROLE] !== OpenCodeRole.USER) {
           break;
         }
@@ -162,42 +146,32 @@ export default async ({ client } = {}) => ({
         }
         break;
       }
-      case OpenCodeEvent.SESSION_UPDATED: {
-        const title = properties?.[OpenCodeField.INFO]?.[OpenCodeField.TITLE];
-        if (title) {
-          reportTitle(title);
-        }
+      case OpenCodeEvent.SESSION_UPDATED:
+        reportTitle(properties?.[OpenCodeField.INFO]?.[OpenCodeField.TITLE]);
         break;
-      }
       case OpenCodeEvent.SESSION_IDLE:
-        report(KmuxHookEvent.STOP, KmuxStatus.IDLE, sessionId);
-        break;
       case OpenCodeEvent.SESSION_ERROR:
-        report(KmuxHookEvent.STOP_FAILURE, KmuxStatus.IDLE, sessionId);
+        report(KmuxStatus.IDLE);
         break;
       case OpenCodeEvent.PERMISSION_ASKED:
       case OpenCodeEvent.PERMISSION_UPDATED:
-        report(KmuxHookEvent.PERMISSION_REQUEST, KmuxStatus.NEEDS_INPUT, sessionId);
+      case OpenCodeEvent.QUESTION_ASKED:
+        report(KmuxStatus.NEEDS_INPUT);
         break;
       case OpenCodeEvent.PERMISSION_REPLIED:
-        report(KmuxHookEvent.PERMISSION_REPLIED, KmuxStatus.RUNNING, sessionId);
-        break;
-      case OpenCodeEvent.QUESTION_ASKED:
-        report(KmuxHookEvent.QUESTION_ASKED, KmuxStatus.NEEDS_INPUT, sessionId);
-        break;
       case OpenCodeEvent.QUESTION_REPLIED:
       case OpenCodeEvent.QUESTION_REJECTED:
-        report(KmuxHookEvent.QUESTION_REPLIED, KmuxStatus.RUNNING, sessionId);
+        report(KmuxStatus.RUNNING);
         break;
     }
   },
-  [OpenCodeHook.CHAT_MESSAGE]: async ({ [OpenCodeField.SESSION_ID]: sessionId }) => {
-    report(KmuxHookEvent.USER_PROMPT_SUBMIT, KmuxStatus.RUNNING, sessionId);
+  [OpenCodeHook.CHAT_MESSAGE]: async () => {
+    report(KmuxStatus.RUNNING);
   },
-  [OpenCodeHook.TOOL_EXECUTE_BEFORE]: async ({ [OpenCodeField.SESSION_ID]: sessionId }) => {
-    report(KmuxHookEvent.PRE_TOOL_USE, KmuxStatus.RUNNING, sessionId);
+  [OpenCodeHook.TOOL_EXECUTE_BEFORE]: async () => {
+    report(KmuxStatus.RUNNING);
   },
-  [OpenCodeHook.TOOL_EXECUTE_AFTER]: async ({ [OpenCodeField.SESSION_ID]: sessionId }) => {
-    report(KmuxHookEvent.POST_TOOL_USE, KmuxStatus.RUNNING, sessionId);
+  [OpenCodeHook.TOOL_EXECUTE_AFTER]: async () => {
+    report(KmuxStatus.RUNNING);
   },
 });

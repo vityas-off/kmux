@@ -7,10 +7,12 @@
 // Own
 #include "ViewManager.h"
 
+#include "Emulation.h"
 #include "KonsoleSettings.h"
 #include "config-konsole.h"
 #include "konsoledebug.h"
 #include "workspaces/AgentSleepInhibitor.h"
+#include "workspaces/CodexUsageLimit.h"
 
 // Qt
 #include <QColor>
@@ -82,37 +84,15 @@ Q_DECLARE_METATYPE(QList<double>);
 namespace
 {
 constexpr int ProjectStatusProcessCheckIntervalMs = 2000;
-constexpr qsizetype RetiredClaudePromptIdLimit = 8;
-// Agents stop a Kmux hook helper after 5 seconds (see konsole-agent-hooks.cpp),
-// so every hook that was in flight when Escape was pressed arrives within it.
-constexpr int InterruptedTurnHookGracePeriodMs = 5000;
-// Claude reports no event when Escape interrupts a turn, and Escape may only
-// close a dialog, such as /usage. While a turn runs, Claude turns a spinner at
-// the start of the terminal title about once a second; an interrupt replaces it
-// with the idle glyph within a few dozen milliseconds.
-constexpr int ClaudeEscapeTitleTimeoutMs = 1500;
+// The app names that Claude Code and Codex report in OSC 7501 program status.
+constexpr auto ClaudeProgramStatusApp = "claude-code";
+constexpr auto CodexProgramStatusApp = "codex";
+constexpr auto ClaudeAgentName = "claude";
 
-enum class ClaudeTitleActivity {
-    Unknown,
-    Working,
-    Idle,
-};
-
-ClaudeTitleActivity claudeTitleActivity(const QString &title)
+QString usageLimitResetText(const QDateTime &resetsAt)
 {
-    if (title.isEmpty()) {
-        return ClaudeTitleActivity::Unknown;
-    }
-
-    // Claude 2.1.228 replaced the braille spinner with half-filled circles.
-    const char16_t glyph = title.at(0).unicode();
-    if (glyph == u'\u2733') {
-        return ClaudeTitleActivity::Idle;
-    }
-    if ((glyph >= u'\u25D0' && glyph <= u'\u25D3') || (glyph >= u'\u2800' && glyph <= u'\u28FF')) {
-        return ClaudeTitleActivity::Working;
-    }
-    return ClaudeTitleActivity::Unknown;
+    const QLocale locale;
+    return resetsAt.date() == QDate::currentDate() ? locale.toString(resetsAt.time(), QLocale::ShortFormat) : locale.toString(resetsAt, QLocale::ShortFormat);
 }
 
 bool projectStatusProcessIsAlive(qlonglong processId)
@@ -156,13 +136,37 @@ ProjectWorkspaceContainer::ProjectStatus projectStatusFromString(const QString &
     return ProjectWorkspaceContainer::ProjectStatus::None;
 }
 
-bool isClaudeSubagentResolutionEvent(const QString &event)
+bool isWaitingForUser(ProjectWorkspaceContainer::ProjectStatus status)
 {
-    return event.compare(QLatin1String("PreToolUse"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("PostToolUse"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("PostToolUseFailure"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("PermissionDenied"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("ElicitationResult"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("StopFailure"), Qt::CaseInsensitive) == 0;
+    return status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput || status == ProjectWorkspaceContainer::ProjectStatus::RateLimited;
+}
+
+bool isActive(ProjectWorkspaceContainer::ProjectStatus status)
+{
+    return status == ProjectWorkspaceContainer::ProjectStatus::Running || status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
+}
+
+ProjectWorkspaceContainer::ProjectStatus projectStatusFromProgramStatus(const ProgramStatusRecords &programStatus)
+{
+    const auto records = programStatus.records();
+    // A blocked program waits for the user even when it does not say why, but
+    // a task beneath it that gives no reason is paused, not asking anything.
+    const bool waitsForUser = std::any_of(records.cbegin(), records.cend(), [](const ProgramStatusRecord &record) {
+        return record.state == ProgramState::Blocked && (record.id.isEmpty() || record.kind != ProgramStatusKind::None);
+    });
+    if (waitsForUser) {
+        return ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
+    }
+
+    // Only the program's own work counts as running. Claude Code reports every
+    // background task beneath it as working, including dev servers and other
+    // shells that run for the whole session while the agent waits for input.
+    const auto root = programStatus.record({});
+    if (root.has_value() && root->state == ProgramState::Working) {
+        return ProjectWorkspaceContainer::ProjectStatus::Running;
+    }
+
+    return records.isEmpty() ? ProjectWorkspaceContainer::ProjectStatus::None : ProjectWorkspaceContainer::ProjectStatus::Idle;
 }
 
 // A rate limit needs no answer and can last for hours, so it must not hide an agent that is still
@@ -282,7 +286,9 @@ ViewManager::ViewManager(QObject *parent, KActionCollection *collection)
     connect(_workspaceContainer->projectModel(), &ProjectWorkspaceModel::projectsReordered, this, &ViewManager::workspaceStateChanged);
 
     _projectStatusProcessTimer.setInterval(ProjectStatusProcessCheckIntervalMs);
-    connect(&_projectStatusProcessTimer, &QTimer::timeout, this, &ViewManager::clearExitedSessionProjectStatuses);
+    connect(&_projectStatusProcessTimer, &QTimer::timeout, this, &ViewManager::clearExitedSessionStatuses);
+    _rateLimitResetTimer.setSingleShot(true);
+    connect(&_rateLimitResetTimer, &QTimer::timeout, this, &ViewManager::endResetRateLimits);
     AgentSleepInhibitor::instance()->setAgentRunning(this, false);
 
     // setup actions which are related to the views
@@ -1296,11 +1302,8 @@ SessionController *ViewManager::createController(Session *session, TerminalDispl
     connect(session, &Konsole::Session::started, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::notificationsChanged, this, &Konsole::ViewManager::handleSessionStateChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::terminalNotificationReceived, this, &Konsole::ViewManager::handleSessionTerminalNotification, Qt::UniqueConnection);
-    connect(session, &Konsole::Session::programStateReported, this, &Konsole::ViewManager::handleSessionProgramState, Qt::UniqueConnection);
+    connect(session, &Konsole::Session::programStatusChanged, this, &Konsole::ViewManager::handleSessionProgramStatusChanged, Qt::UniqueConnection);
     connect(session, &Konsole::Session::projectStatusChanged, this, &Konsole::ViewManager::handleSessionProjectStatusChanged, Qt::UniqueConnection);
-    connect(view, &Konsole::TerminalDisplay::keyPressedSignal, this, [this, session, view](QKeyEvent *keyEvent) {
-        handleSessionAgentKey(session, containerForTerminal(view), keyEvent);
-    });
     // destroyed() is emitted after ~Session() has run, so the QObject it passes
     // can no longer be cast to Session. Pass the captured pointer instead.
     connect(session, &QObject::destroyed, this, [this, session]() {
@@ -3203,54 +3206,204 @@ void ViewManager::handleAgentModelChanged()
     Q_EMIT agentModelChanged();
 }
 
-void ViewManager::handleSessionProjectStatusChanged(const QString &status,
-                                                    qlonglong agentProcessId,
-                                                    const QString &agent,
-                                                    const QString &event,
-                                                    const QString &sessionId,
-                                                    const QString &promptId,
-                                                    const QString &agentId)
-{
-    applySessionProjectStatus(qobject_cast<Session *>(sender()), status, agentProcessId, agent, event, sessionId, promptId, agentId);
-}
-
-void ViewManager::handleSessionProgramState(Enum::ProgramStateEnum state, const QString &app)
+void ViewManager::handleSessionProjectStatusChanged(const QString &status, qlonglong processId, const QString &agent)
 {
     auto *session = qobject_cast<Session *>(sender());
-    const auto status = _sessionProjectStatuses.constFind(session);
-    if (state != Enum::ProgramIdle || app != QLatin1String("codex") || status == _sessionProjectStatuses.constEnd() || status->agent != QLatin1String("codex")
-        || (status->status != ProjectWorkspaceContainer::ProjectStatus::Running && status->status != ProjectWorkspaceContainer::ProjectStatus::NeedsInput)) {
+    if (session == nullptr) {
         return;
     }
 
-    // Codex runs no hook when a turn fails, for example when the model is at
-    // capacity, but it reports that it waits for the next instruction. It
-    // reports itself blocked, not idle, while it asks for a decision.
-    applySessionProjectStatus(session, QStringLiteral("idle"), 0, QStringLiteral("codex"), QStringLiteral("ProgramIdle"), {}, {}, {});
+    const auto previousStatus = sessionStatus(session);
+    const auto reportedStatus = projectStatusFromString(status);
+    if (agent.trimmed().isEmpty()) {
+        // A plugin that reports plain statuses ends its turn by moving from
+        // working to idle. That unseen result needs attention, like an
+        // OSC 7501 "done".
+        const bool turnFinished =
+            reportedStatus == ProjectWorkspaceContainer::ProjectStatus::Idle && previousStatus == ProjectWorkspaceContainer::ProjectStatus::Running;
+        if (reportedStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
+            _reportedSessionStatuses.remove(session);
+            session->setAgentSessionTitle(QString());
+            session->setAgentSessionModel(QString());
+        } else {
+            _reportedSessionStatuses.insert(session, ReportedSessionStatus{reportedStatus, processId});
+        }
+        sessionStatusChanged(session, previousStatus, turnFinished);
+        return;
+    }
+
+    // Agents report their own state with OSC 7501. Their hooks report only
+    // what that protocol cannot express: Claude Code reports a stop at a usage
+    // limit as an ordinary error or result.
+    const auto programStatus = _programSessionStatuses.find(session);
+    if (reportedStatus != ProjectWorkspaceContainer::ProjectStatus::RateLimited
+        || agent.trimmed().compare(QLatin1String(ClaudeAgentName), Qt::CaseInsensitive) != 0 || programStatus == _programSessionStatuses.end()
+        || session->emulation()->programStatus().app({}) != QLatin1String(ClaudeProgramStatusApp)) {
+        return;
+    }
+    programStatus->rateLimited = true;
+    sessionStatusChanged(session, previousStatus, false);
 }
 
-void ViewManager::applySessionProjectStatus(Session *session,
-                                            const QString &status,
-                                            qlonglong agentProcessId,
-                                            const QString &agent,
-                                            const QString &event,
-                                            const QString &sessionId,
-                                            const QString &promptId,
-                                            const QString &agentId)
+void ViewManager::handleSessionProgramStatusChanged()
 {
-    const auto containers = containersForSession(session);
-    TabbedViewContainer *attentionContainer = nullptr;
-    for (TabbedViewContainer *container : containers) {
-        if (container != activeContainer()) {
-            attentionContainer = container;
-            break;
-        }
-    }
-    if (attentionContainer == nullptr && !containers.isEmpty()) {
-        attentionContainer = *containers.cbegin();
+    auto *session = qobject_cast<Session *>(sender());
+    if (session == nullptr) {
+        return;
     }
 
-    setSessionProjectStatus(session, attentionContainer, status, agentProcessId, agent, event, sessionId, promptId, agentId);
+    const auto previousStatus = sessionStatus(session);
+    const ProgramStatusRecords &records = session->emulation()->programStatus();
+    const auto status = projectStatusFromProgramStatus(records);
+    qCDebug(KonsoleDebug) << "Program status of session" << session->sessionId() << "app" << records.app({}) << "records" << records.records().size()
+                          << "status" << status;
+    if (status == ProjectWorkspaceContainer::ProjectStatus::None) {
+        _programSessionStatuses.remove(session);
+        sessionStatusChanged(session, previousStatus, false);
+        return;
+    }
+
+    const auto root = records.record({});
+    const auto rootState = root.has_value() ? std::optional<ProgramState>(root->state) : std::nullopt;
+    auto &programStatus = _programSessionStatuses[session];
+    // Done and error mean a result that the user has not seen yet.
+    const bool hasNewResult = rootState != programStatus.rootState && (rootState == ProgramState::Done || rootState == ProgramState::Error);
+    // New work after a stop at a usage limit means that the limit is over,
+    // and that an answer about the earlier failed turn no longer applies.
+    if (isActive(status) && !isActive(programStatus.status)) {
+        programStatus.rateLimited = false;
+        programStatus.rateLimitResetsAt = {};
+        programStatus.usageLimitRequest = 0;
+    }
+    programStatus.status = status;
+    programStatus.rootState = rootState;
+    if (session->isRunning() && session->isForegroundProcessActive()) {
+        programStatus.reportedFromForeground = true;
+    }
+    sessionStatusChanged(session, previousStatus, hasNewResult);
+    if (hasNewResult && rootState == ProgramState::Error && records.app({}) == QLatin1String(CodexProgramStatusApp)) {
+        checkCodexUsageLimit(session);
+    }
+}
+
+void ViewManager::checkCodexUsageLimit(Session *session)
+{
+    // Codex reports a stop at a usage limit only as a failed turn. Ask the
+    // account of the Codex that runs in this terminal for its usage limits.
+    const int processId = session->foregroundProcessId();
+    if (processId <= 0 || session->foregroundProcessName() != QLatin1String(CodexProgramStatusApp)) {
+        return;
+    }
+    auto *probe = CodexUsageLimitProbe::forProcess(processId, this);
+    if (probe == nullptr) {
+        return;
+    }
+
+    const quint64 request = ++_usageLimitRequestSerial;
+    _programSessionStatuses[session].usageLimitRequest = request;
+    probe->start([this, guardedSession = QPointer<Session>(session), request](std::optional<CodexUsageLimit> usageLimit) {
+        Session *session = guardedSession.data();
+        qCDebug(KonsoleDebug) << "Codex usage limit request" << request
+                              << (!usageLimit.has_value()   ? "failed"
+                                      : usageLimit->reached ? "reached"
+                                                            : "not reached");
+        const auto programStatus = session != nullptr ? _programSessionStatuses.find(session) : _programSessionStatuses.end();
+        if (programStatus == _programSessionStatuses.end() || programStatus->usageLimitRequest != request || isActive(programStatus->status)
+            || !usageLimit.has_value() || !usageLimit->reached) {
+            return;
+        }
+
+        const auto previousStatus = sessionStatus(session);
+        programStatus->rateLimited = true;
+        programStatus->rateLimitResetsAt = usageLimit->resetsAt;
+        setSessionProjectNotification(
+            session,
+            usageLimit->resetsAt.isValid()
+                ? i18nc("@info:project notification", "Codex usage limit reached; resets at %1", usageLimitResetText(usageLimit->resetsAt))
+                : i18nc("@info:project notification", "Codex usage limit reached"));
+        sessionStatusChanged(session, previousStatus, false);
+    });
+}
+
+void ViewManager::setSessionProjectNotification(Session *session, const QString &notification)
+{
+    if (_workspaceContainer.isNull()) {
+        return;
+    }
+    const auto containers = containersForSession(session);
+    for (TabbedViewContainer *container : containers) {
+        _workspaceContainer->setProjectNotification(container, notification);
+    }
+}
+
+void ViewManager::updateRateLimitResetTimer()
+{
+    QDateTime earliestReset;
+    for (const ProgramSessionStatus &status : std::as_const(_programSessionStatuses)) {
+        if (status.rateLimited && status.rateLimitResetsAt.isValid() && (!earliestReset.isValid() || status.rateLimitResetsAt < earliestReset)) {
+            earliestReset = status.rateLimitResetsAt;
+        }
+    }
+    if (!earliestReset.isValid()) {
+        _rateLimitResetTimer.stop();
+        return;
+    }
+    const qint64 delay = std::clamp<qint64>(QDateTime::currentDateTime().msecsTo(earliestReset), 0, std::numeric_limits<int>::max());
+    _rateLimitResetTimer.start(static_cast<int>(delay));
+}
+
+void ViewManager::endResetRateLimits()
+{
+    // The agent can work again, which the user is waiting for.
+    const QDateTime now = QDateTime::currentDateTime();
+    const auto sessions = _programSessionStatuses.keys();
+    for (Session *session : sessions) {
+        const auto programStatus = _programSessionStatuses.find(session);
+        if (programStatus == _programSessionStatuses.end() || !programStatus->rateLimited || !programStatus->rateLimitResetsAt.isValid()
+            || programStatus->rateLimitResetsAt > now) {
+            continue;
+        }
+        const auto previousStatus = sessionStatus(session);
+        programStatus->rateLimited = false;
+        programStatus->rateLimitResetsAt = {};
+        setSessionProjectNotification(session, i18nc("@info:project notification", "Codex usage limit has reset"));
+        sessionStatusChanged(session, previousStatus, true);
+    }
+    updateRateLimitResetTimer();
+}
+
+std::optional<ProjectWorkspaceContainer::ProjectStatus> ViewManager::sessionStatus(Session *session) const
+{
+    const auto programStatus = _programSessionStatuses.constFind(session);
+    if (programStatus != _programSessionStatuses.cend()) {
+        return programStatus->rateLimited && !isActive(programStatus->status) ? ProjectWorkspaceContainer::ProjectStatus::RateLimited : programStatus->status;
+    }
+
+    const auto reportedStatus = _reportedSessionStatuses.constFind(session);
+    if (reportedStatus != _reportedSessionStatuses.cend()) {
+        return reportedStatus->status;
+    }
+    return std::nullopt;
+}
+
+void ViewManager::sessionStatusChanged(Session *session, std::optional<ProjectWorkspaceContainer::ProjectStatus> previousStatus, bool demandsAttention)
+{
+    const auto status = sessionStatus(session);
+    const auto containers = containersForSession(session);
+    const bool statusChanged = status != previousStatus;
+    if (demandsAttention || (statusChanged && status.has_value() && isWaitingForUser(*status))) {
+        for (TabbedViewContainer *container : containers) {
+            markSessionAttention(session, container);
+        }
+    } else if (statusChanged && previousStatus.has_value() && isWaitingForUser(*previousStatus)) {
+        // The wait ended without the user, for example after an automatic
+        // approval. Other changes keep the mark of a result not seen yet.
+        removeSessionAttention(session);
+    }
+
+    updateAgentSleepInhibition();
+    updateProjectStatusProcessTimer();
+    updateRateLimitResetTimer();
     for (TabbedViewContainer *container : containers) {
         refreshProjectSummary(container);
     }
@@ -3261,10 +3414,11 @@ void ViewManager::handleSessionDestroyed(Session *session)
     // The session is already destroyed; use the pointer only as a key. Do not
     // emit signals from here, as this can run while the window is torn down.
     _sessionsNeedingAttention.remove(session);
-    _sessionProjectStatuses.remove(session);
-    _pendingClaudeEscapes.remove(session);
+    _reportedSessionStatuses.remove(session);
+    _programSessionStatuses.remove(session);
     updateAgentSleepInhibition();
     updateProjectStatusProcessTimer();
+    updateRateLimitResetTimer();
 }
 
 void ViewManager::acknowledgeSessionAttention(SessionController *controller)
@@ -3328,404 +3482,48 @@ void ViewManager::clearProjectAttention(TabbedViewContainer *container)
     }
 }
 
-void ViewManager::setSessionProjectStatus(Session *session,
-                                          TabbedViewContainer *container,
-                                          const QString &status,
-                                          qlonglong agentProcessId,
-                                          const QString &agent,
-                                          const QString &event,
-                                          const QString &sessionId,
-                                          const QString &promptId,
-                                          const QString &agentId)
+void ViewManager::clearExitedSessionStatuses()
 {
-    if (session == nullptr) {
-        return;
-    }
-
-    const auto previousStatus = _sessionProjectStatuses.value(session);
-    const QString normalizedAgent = agent.trimmed().toLower();
-    const bool isSessionStart = event.compare(QLatin1String("SessionStart"), Qt::CaseInsensitive) == 0;
-    const bool isUserPromptSubmit = event.compare(QLatin1String("UserPromptSubmit"), Qt::CaseInsensitive) == 0;
-    const bool isPreCompact = event.compare(QLatin1String("PreCompact"), Qt::CaseInsensitive) == 0;
-    const bool agentChanged = normalizedAgent != previousStatus.agent && (!normalizedAgent.isEmpty() || !previousStatus.agent.isEmpty());
-    const bool isClaudeEvent = normalizedAgent == QLatin1String("claude");
-    const bool isOpencodeEvent = normalizedAgent == QLatin1String("opencode");
-    const bool isClaudeSubagentEvent = isClaudeEvent && !agentId.trimmed().isEmpty();
-    const bool isSupportedAgent =
-        normalizedAgent == QLatin1String("codex") || normalizedAgent == QLatin1String("claude") || normalizedAgent == QLatin1String("opencode");
-
-    // Hook helpers may finish out of order. Bind Claude's session and prompt
-    // identities at their start events, then discard mutations from older work.
-    const QString normalizedSessionId = sessionId.trimmed();
-    const QString normalizedPromptId = promptId.trimmed();
-    const QString previousSessionId = agentChanged ? QString() : previousStatus.agentSessionId;
-    const QString previousPromptId = agentChanged ? QString() : previousStatus.agentPromptId;
-    const QStringList previousRetiredPromptIds = agentChanged ? QStringList() : previousStatus.retiredAgentPromptIds;
-    const bool isOtherClaudeSession =
-        isClaudeEvent && !isSessionStart && !previousSessionId.isEmpty() && !normalizedSessionId.isEmpty() && normalizedSessionId != previousSessionId;
-    const bool isOtherClaudePrompt = isClaudeEvent && !isSessionStart && !isUserPromptSubmit && !isPreCompact && !previousPromptId.isEmpty()
-        && !normalizedPromptId.isEmpty() && normalizedPromptId != previousPromptId;
-    // Claude starts turns for background task notifications without
-    // UserPromptSubmit, so a main-agent hook with an unseen prompt begins one.
-    const bool beginsNotifiedTurn =
-        isOtherClaudePrompt && !isOtherClaudeSession && !isClaudeSubagentEvent && !previousRetiredPromptIds.contains(normalizedPromptId);
-    const bool beginsTurn = isSessionStart || isUserPromptSubmit || isPreCompact || beginsNotifiedTurn;
-    const bool isInterrupt = event.compare(QLatin1String("Interrupt"), Qt::CaseInsensitive) == 0;
-    const bool isPermissionRequest = event.compare(QLatin1String("PermissionRequest"), Qt::CaseInsensitive) == 0;
-
-    // Claude shows its idle glyph for a permission prompt as it does after an
-    // interrupt, so a main-agent permission request after Escape shows that
-    // Escape did not interrupt the turn.
-    const bool continuesEscapedClaudeTurn = isClaudeEvent && !isClaudeSubagentEvent && isPermissionRequest && _pendingClaudeEscapes.contains(session);
-
-    // Escape also closes agent dialogs, such as Claude's /usage, without
-    // interrupting the turn. A main-agent hook that arrives after the in-flight
-    // ones shows that the turn is still going. Notifications do not count:
-    // idle reminders and background subagents outlive an interrupted turn.
-    const bool isAgentNotification =
-        event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("IdlePrompt"), Qt::CaseInsensitive) == 0;
-    const bool continuesInterruptedTurn = previousStatus.turnInterrupted && !isClaudeSubagentEvent && !isAgentNotification
-        && (previousStatus.interruptedTurnHookDeadline.hasExpired() || continuesEscapedClaudeTurn);
-
-    // An interrupted turn does not emit Stop, and hooks from its in-flight work
-    // can still arrive. Ignore them until an event explicitly begins new work.
-    if (previousStatus.turnInterrupted && !agentChanged && normalizedAgent == previousStatus.agent && isSupportedAgent && !beginsTurn
-        && !continuesInterruptedTurn && projectStatusFromString(status) != ProjectWorkspaceContainer::ProjectStatus::None) {
-        qCDebug(KonsoleDebug) << "Ignoring agent hook from an interrupted turn:" << normalizedAgent << event;
-        return;
-    }
-
-    if (isOtherClaudeSession) {
-        qCDebug(KonsoleDebug) << "Ignoring Claude hook from another session:" << event << normalizedSessionId << "bound:" << previousSessionId;
-        return;
-    }
-    if (isOtherClaudePrompt && !beginsNotifiedTurn) {
-        qCDebug(KonsoleDebug) << "Ignoring Claude hook from an earlier prompt:" << event << normalizedPromptId << "bound:" << previousPromptId;
-        return;
-    }
-
-    if (isClaudeSubagentEvent) {
-        const bool matchesCurrentTurn =
-            !previousSessionId.isEmpty() && normalizedSessionId == previousSessionId && !previousPromptId.isEmpty() && normalizedPromptId == previousPromptId;
-        if (!isClaudeSubagentResolutionEvent(event) || previousStatus.pendingTerminalDecisionOrigin != PendingTerminalDecisionOrigin::Notification
-            || !matchesCurrentTurn) {
-            return;
-        }
-
-        auto resumedStatus = previousStatus;
-        resumedStatus.status = previousStatus.statusBeforePendingTerminalDecision;
-        resumedStatus.pendingTerminalDecisions = 0;
-        resumedStatus.pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
-        resumedStatus.statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
-        _sessionProjectStatuses.insert(session, resumedStatus);
-        if (resumedStatus.status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
-            markSessionAttention(session, container);
-        } else {
-            removeSessionAttention(session);
-        }
-        updateAgentSleepInhibition();
-        updateProjectStatusProcessTimer();
-        return;
-    }
-
-    // Once the turn goes on or new work begins, the title no longer tells
-    // what that Escape did.
-    if (beginsTurn || continuesEscapedClaudeTurn) {
-        forgetClaudeEscape(session);
-    }
-
-    QString agentSessionId;
-    QString agentPromptId;
-    QStringList retiredAgentPromptIds;
-    if (isClaudeEvent) {
-        agentSessionId = isSessionStart || previousSessionId.isEmpty() ? normalizedSessionId : previousSessionId;
-        agentPromptId = isSessionStart ? QString() : (isUserPromptSubmit || isPreCompact || beginsNotifiedTurn ? normalizedPromptId : previousPromptId);
-        if (!isSessionStart) {
-            retiredAgentPromptIds = previousRetiredPromptIds;
-            if (!previousPromptId.isEmpty() && agentPromptId != previousPromptId && !retiredAgentPromptIds.contains(previousPromptId)) {
-                retiredAgentPromptIds.append(previousPromptId);
-            }
-            retiredAgentPromptIds.removeAll(agentPromptId);
-            while (retiredAgentPromptIds.size() > RetiredClaudePromptIdLimit) {
-                retiredAgentPromptIds.removeFirst();
-            }
-        }
-    }
-
-    auto projectStatus = projectStatusFromString(status);
-    if (projectStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
-        _sessionProjectStatuses.remove(session);
-        removeSessionAttention(session);
-        session->setAgentSessionTitle(QString());
-        session->setAgentSessionModel(QString());
-        updateAgentSleepInhibition();
-        updateProjectStatusProcessTimer();
-        return;
-    }
-
-    const bool agentProcessChanged =
-        agentChanged || isSessionStart || (agentProcessId > 0 && previousStatus.agentProcessId > 0 && agentProcessId != previousStatus.agentProcessId);
-    if (agentProcessId <= 0 && !agentChanged && !isSessionStart) {
-        agentProcessId = previousStatus.agentProcessId;
-    }
-
-    const bool isCodexEvent = agent.compare(QLatin1String("codex"), Qt::CaseInsensitive) == 0;
-    const bool isIdlePrompt = event.compare(QLatin1String("IdlePrompt"), Qt::CaseInsensitive) == 0;
-    const bool isNotification = event.compare(QLatin1String("Notification"), Qt::CaseInsensitive) == 0;
-    const bool startsTurn = beginsTurn;
-    const bool stopsTurn = event.compare(QLatin1String("Stop"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("StopFailure"), Qt::CaseInsensitive) == 0 || event.compare(QLatin1String("RateLimit"), Qt::CaseInsensitive) == 0
-        || event.compare(QLatin1String("ProgramIdle"), Qt::CaseInsensitive) == 0;
-    const bool endsAgentSession = event.compare(QLatin1String("SessionEnd"), Qt::CaseInsensitive) == 0;
-    const bool resetsPendingDecisions = startsTurn || stopsTurn || isInterrupt;
-
-    bool claudeBackgroundWork = agentProcessChanged || startsTurn || endsAgentSession ? false : previousStatus.claudeBackgroundWork;
-    if (isClaudeEvent && stopsTurn) {
-        claudeBackgroundWork = projectStatus == ProjectWorkspaceContainer::ProjectStatus::Running;
-    }
-    if (isClaudeEvent && isIdlePrompt && claudeBackgroundWork) {
-        projectStatus = ProjectWorkspaceContainer::ProjectStatus::Running;
-    }
-    if (isClaudeEvent && isIdlePrompt && !agentProcessChanged && !startsTurn
-        && previousStatus.status == ProjectWorkspaceContainer::ProjectStatus::RateLimited) {
-        // The idle reminder does not mean that the limit has been lifted.
-        projectStatus = ProjectWorkspaceContainer::ProjectStatus::RateLimited;
-    }
-
-    const bool agentProcessWasForeground = (agentProcessChanged ? false : previousStatus.agentProcessWasForeground)
-        || (isSupportedAgent && session->isRunning() && session->isForegroundProcessActive());
-
-    int pendingTerminalDecisions = agentProcessChanged || resetsPendingDecisions ? 0 : previousStatus.pendingTerminalDecisions;
-    auto pendingTerminalDecisionOrigin =
-        agentProcessChanged || resetsPendingDecisions ? PendingTerminalDecisionOrigin::None : previousStatus.pendingTerminalDecisionOrigin;
-    auto statusBeforePendingTerminalDecision =
-        agentProcessChanged || resetsPendingDecisions ? ProjectWorkspaceContainer::ProjectStatus::None : previousStatus.statusBeforePendingTerminalDecision;
-    if (isCodexEvent && isPermissionRequest && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
-        ++pendingTerminalDecisions;
-    } else if (isCodexEvent && isPermissionRequest) {
-        pendingTerminalDecisions = 0;
-    } else if ((isClaudeEvent || isOpencodeEvent) && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput && isPermissionRequest) {
-        if (pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::None) {
-            statusBeforePendingTerminalDecision = previousStatus.status;
-        }
-        pendingTerminalDecisions = 1;
-        pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::PermissionRequest;
-    } else if (isClaudeEvent && projectStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput && isNotification) {
-        // Claude can emit both events for one prompt. Keep PermissionRequest
-        // authoritative when the notification does not identify its subagent.
-        if (pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::None) {
-            pendingTerminalDecisions = 1;
-            pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::Notification;
-            statusBeforePendingTerminalDecision = previousStatus.status;
-        }
-    } else if (!isCodexEvent && (!isIdlePrompt || pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::Notification)) {
-        pendingTerminalDecisions = 0;
-        pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
-        statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
-    }
-
-    const auto effectiveStatus = pendingTerminalDecisions > 0 ? ProjectWorkspaceContainer::ProjectStatus::NeedsInput : projectStatus;
-    SessionProjectStatus nextStatus;
-    nextStatus.status = effectiveStatus;
-    nextStatus.agentProcessId = agentProcessId;
-    nextStatus.pendingTerminalDecisions = pendingTerminalDecisions;
-    nextStatus.pendingTerminalDecisionOrigin = pendingTerminalDecisionOrigin;
-    nextStatus.statusBeforePendingTerminalDecision = statusBeforePendingTerminalDecision;
-    nextStatus.agent = normalizedAgent;
-    nextStatus.claudeBackgroundWork = claudeBackgroundWork;
-    nextStatus.agentProcessWasForeground = agentProcessWasForeground;
-    nextStatus.turnInterrupted = isInterrupt || (previousStatus.turnInterrupted && !agentProcessChanged && !beginsTurn && !continuesInterruptedTurn);
-    // The agent reported the interrupt itself, so no later hook continues that turn.
-    nextStatus.interruptedTurnHookDeadline = isInterrupt ? QDeadlineTimer(QDeadlineTimer::Forever) : previousStatus.interruptedTurnHookDeadline;
-    nextStatus.agentSessionId = agentSessionId;
-    nextStatus.agentPromptId = agentPromptId;
-    nextStatus.retiredAgentPromptIds = retiredAgentPromptIds;
-    _sessionProjectStatuses.insert(session, nextStatus);
-    const bool agentFinished =
-        effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle && previousStatus.status == ProjectWorkspaceContainer::ProjectStatus::Running
-        && !normalizedAgent.isEmpty();
-    const bool requestsAttention = effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::NeedsInput
-        || effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::RateLimited || agentFinished
-        || (isClaudeEvent && isIdlePrompt && effectiveStatus == ProjectWorkspaceContainer::ProjectStatus::Idle);
-    if (requestsAttention) {
-        markSessionAttention(session, container);
-    } else if (effectiveStatus != ProjectWorkspaceContainer::ProjectStatus::Idle) {
-        // A finished agent keeps requesting attention until its tab is opened;
-        // repeated idle reports must not clear it, but resuming work does.
-        removeSessionAttention(session);
-    }
-    updateAgentSleepInhibition();
-    updateProjectStatusProcessTimer();
-}
-
-void ViewManager::handleSessionAgentKey(Session *session, TabbedViewContainer *container, QKeyEvent *keyEvent)
-{
-    if (session == nullptr || keyEvent == nullptr || keyEvent->type() != QEvent::KeyPress || keyEvent->isAutoRepeat()) {
-        return;
-    }
-
-    const auto commandModifiers = keyEvent->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
-    const bool interruptsTurn = commandModifiers == Qt::NoModifier && keyEvent->key() == Qt::Key_Escape;
-    const bool confirmsDecision = commandModifiers == Qt::NoModifier && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter);
-    auto status = _sessionProjectStatuses.find(session);
-    if (status == _sessionProjectStatuses.end()) {
-        return;
-    }
-
-    // Codex runs its Interrupt hook when a turn is interrupted; Claude reports nothing.
-    // opencode reports nothing either, and its plugin always reaches Kmux with an
-    // event, so the title heuristic is unnecessary there.
-    if (interruptsTurn && (status->agent == QLatin1String("claude") || status->agent == QLatin1String("opencode"))
-        && (status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput || status->status == ProjectWorkspaceContainer::ProjectStatus::Running)) {
-        if (status->agent == QLatin1String("claude") && claudeTitleActivity(session->userTitle()) == ClaudeTitleActivity::Working) {
-            // Claude does not animate its title under tmux, screen, or zellij.
-            // Without the spinner, assume that Escape interrupted the turn.
-            watchClaudeEscape(session);
-        } else {
-            interruptSessionTurn(session, QDeadlineTimer(InterruptedTurnHookGracePeriodMs));
-        }
-        return;
-    } else if (confirmsDecision && status->pendingTerminalDecisions > 0 && status->status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput) {
-        --status->pendingTerminalDecisions;
-        if (status->pendingTerminalDecisions == 0) {
-            if (status->pendingTerminalDecisionOrigin == PendingTerminalDecisionOrigin::Notification) {
-                status->status = status->statusBeforePendingTerminalDecision;
-                removeSessionAttention(session);
-            }
-            status->pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
-            status->statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
-        }
-    } else {
-        return;
-    }
-    updateAgentSleepInhibition();
-    refreshProjectSummary(container);
-}
-
-void ViewManager::watchClaudeEscape(Session *session)
-{
-    if (_pendingClaudeEscapes.contains(session)) {
-        return;
-    }
-
-    _pendingClaudeEscapes[session].titleConnection = connect(session, &Session::sessionAttributeChanged, this, [this, session]() {
-        if (claudeTitleActivity(session->userTitle()) == ClaudeTitleActivity::Idle) {
-            interruptEscapedClaudeTurn(session);
-        }
-    });
-    // A spinner that keeps turning means that Escape only closed a dialog.
-    forgetClaudeEscapeAfter(session, ClaudeEscapeTitleTimeoutMs);
-}
-
-void ViewManager::interruptEscapedClaudeTurn(Session *session)
-{
-    const auto pending = _pendingClaudeEscapes.constFind(session);
-    if (pending == _pendingClaudeEscapes.constEnd()) {
-        return;
-    }
-
-    disconnect(pending->titleConnection);
-    // Claude showed the interrupt itself, so no later hook continues that turn.
-    // Claude shows the same glyph for a permission prompt, though, and Kmux may
-    // receive its PermissionRequest hook after the title, so keep the Escape
-    // pending until the hooks that were in flight have arrived.
-    interruptSessionTurn(session, QDeadlineTimer(QDeadlineTimer::Forever));
-    forgetClaudeEscapeAfter(session, InterruptedTurnHookGracePeriodMs);
-}
-
-void ViewManager::forgetClaudeEscapeAfter(Session *session, int timeoutMs)
-{
-    const quint64 serial = ++_claudeEscapeSerial;
-    _pendingClaudeEscapes[session].serial = serial;
-    QTimer::singleShot(timeoutMs, this, [this, session, serial]() {
-        const auto pending = _pendingClaudeEscapes.constFind(session);
-        if (pending != _pendingClaudeEscapes.constEnd() && pending->serial == serial) {
-            forgetClaudeEscape(session);
-        }
-    });
-}
-
-void ViewManager::forgetClaudeEscape(Session *session)
-{
-    const auto pending = _pendingClaudeEscapes.constFind(session);
-    if (pending == _pendingClaudeEscapes.constEnd()) {
-        return;
-    }
-
-    disconnect(pending->titleConnection);
-    _pendingClaudeEscapes.erase(pending);
-}
-
-void ViewManager::interruptSessionTurn(Session *session, QDeadlineTimer interruptedTurnHookDeadline)
-{
-    auto status = _sessionProjectStatuses.find(session);
-    if (status == _sessionProjectStatuses.end()
-        || (status->status != ProjectWorkspaceContainer::ProjectStatus::NeedsInput && status->status != ProjectWorkspaceContainer::ProjectStatus::Running)) {
-        return;
-    }
-
-    status->status = ProjectWorkspaceContainer::ProjectStatus::Idle;
-    status->pendingTerminalDecisions = 0;
-    status->pendingTerminalDecisionOrigin = PendingTerminalDecisionOrigin::None;
-    status->statusBeforePendingTerminalDecision = ProjectWorkspaceContainer::ProjectStatus::None;
-    status->turnInterrupted = true;
-    status->interruptedTurnHookDeadline = interruptedTurnHookDeadline;
-    removeSessionAttention(session);
-    updateAgentSleepInhibition();
-    const auto containers = containersForSession(session);
-    for (TabbedViewContainer *container : containers) {
-        refreshProjectSummary(container);
-    }
-}
-
-void ViewManager::clearExitedSessionProjectStatuses()
-{
-    QSet<TabbedViewContainer *> containersToRefresh;
-    for (auto status = _sessionProjectStatuses.begin(); status != _sessionProjectStatuses.end();) {
-        Session *session = status.key();
-        const bool isSupportedAgent =
-            status->agent == QLatin1String("codex") || status->agent == QLatin1String("claude") || status->agent == QLatin1String("opencode");
-        bool returnedToShell = false;
-        if (isSupportedAgent && session != nullptr && session->isRunning()) {
-            const bool foregroundProcessActive = session->isForegroundProcessActive();
-            status->agentProcessWasForeground = status->agentProcessWasForeground || foregroundProcessActive;
-            returnedToShell = status->agentProcessWasForeground && !foregroundProcessActive;
-        }
-        const bool agentProcessExited = status->agentProcessId > 0 && !projectStatusProcessIsAlive(status->agentProcessId);
-        if (!returnedToShell && !agentProcessExited) {
-            ++status;
+    const auto reportedSessions = _reportedSessionStatuses.keys();
+    for (Session *session : reportedSessions) {
+        const qlonglong processId = _reportedSessionStatuses.value(session).processId;
+        if (processId <= 0 || projectStatusProcessIsAlive(processId)) {
             continue;
         }
-
-        removeSessionAttention(session);
+        const auto previousStatus = sessionStatus(session);
+        _reportedSessionStatuses.remove(session);
         if (session != nullptr) {
             session->setAgentSessionTitle(QString());
             session->setAgentSessionModel(QString());
         }
-        for (auto terminal = _sessionMap.cbegin(); terminal != _sessionMap.cend(); ++terminal) {
-            if (terminal.value() == session) {
-                if (auto *container = containerForTerminal(terminal.key())) {
-                    containersToRefresh.insert(container);
-                }
-            }
-        }
-        status = _sessionProjectStatuses.erase(status);
+        sessionStatusChanged(session, previousStatus, false);
     }
 
-    updateAgentSleepInhibition();
-    updateProjectStatusProcessTimer();
-    for (TabbedViewContainer *container : std::as_const(containersToRefresh)) {
-        refreshProjectSummary(container);
+    // A program that crashed could not withdraw what it reported. When the
+    // shell returns to the foreground, the program has exited: the protocol
+    // drops its work, and Kmux stops showing its results as well, because
+    // the project rail already marks a result that the user has not seen.
+    const auto programSessions = _programSessionStatuses.keys();
+    for (Session *session : programSessions) {
+        const auto programStatus = _programSessionStatuses.find(session);
+        if (programStatus == _programSessionStatuses.end() || !session->isRunning()) {
+            continue;
+        }
+        if (session->isForegroundProcessActive()) {
+            programStatus->reportedFromForeground = true;
+        } else if (programStatus->reportedFromForeground) {
+            programStatus->reportedFromForeground = false;
+            session->emulation()->clearProgramStatus();
+        }
     }
 }
 
 void ViewManager::updateProjectStatusProcessTimer()
 {
-    const bool hasTrackedAgent = std::any_of(_sessionProjectStatuses.cbegin(), _sessionProjectStatuses.cend(), [](const SessionProjectStatus &status) {
-        return status.agentProcessId > 0 || status.agent == QLatin1String("codex") || status.agent == QLatin1String("claude")
-            || status.agent == QLatin1String("opencode");
+    const bool hasReportedProcess = std::any_of(_reportedSessionStatuses.cbegin(), _reportedSessionStatuses.cend(), [](const ReportedSessionStatus &status) {
+        return status.processId > 0;
     });
-    if (hasTrackedAgent) {
+    if (hasReportedProcess || !_programSessionStatuses.isEmpty()) {
         if (!_projectStatusProcessTimer.isActive()) {
             _projectStatusProcessTimer.start();
         }
@@ -3747,8 +3545,15 @@ void ViewManager::updateProjectInputRequirement()
 
 void ViewManager::updateAgentSleepInhibition()
 {
-    const bool hasRunningAgent = std::any_of(_sessionProjectStatuses.cbegin(), _sessionProjectStatuses.cend(), [](const SessionProjectStatus &status) {
-        return status.status == ProjectWorkspaceContainer::ProjectStatus::Running;
+    QSet<Session *> sessions;
+    for (auto status = _reportedSessionStatuses.cbegin(); status != _reportedSessionStatuses.cend(); ++status) {
+        sessions.insert(status.key());
+    }
+    for (auto status = _programSessionStatuses.cbegin(); status != _programSessionStatuses.cend(); ++status) {
+        sessions.insert(status.key());
+    }
+    const bool hasRunningAgent = std::any_of(sessions.cbegin(), sessions.cend(), [this](Session *session) {
+        return sessionStatus(session) == ProjectWorkspaceContainer::ProjectStatus::Running;
     });
     AgentSleepInhibitor::instance()->setAgentRunning(this, hasRunningAgent);
 }
@@ -3890,9 +3695,9 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
             }
 
             seenTabSessions.insert(session);
-            const auto reportedStatus = _sessionProjectStatuses.constFind(session);
-            const auto candidateStatus = reportedStatus != _sessionProjectStatuses.cend()
-                ? terminalTabStatusFromProjectStatus(reportedStatus->status)
+            const auto reportedStatus = sessionStatus(session);
+            const auto candidateStatus = reportedStatus.has_value()
+                ? terminalTabStatusFromProjectStatus(*reportedStatus)
                 : (hasForegroundProcess(session) ? TerminalTabStatus::ForegroundProcess : TerminalTabStatus::None);
             tabStatus = higherPriorityTerminalTabStatus(tabStatus, candidateStatus);
         }
@@ -3912,9 +3717,9 @@ void ViewManager::refreshProjectSummary(TabbedViewContainer *container)
 
         seenSessions.insert(session);
         hasActivity = hasActivity || session->activeNotifications() != Session::NoNotification || _sessionsNeedingAttention.contains(session);
-        const auto reportedStatus = _sessionProjectStatuses.constFind(session);
-        if (reportedStatus != _sessionProjectStatuses.cend()) {
-            projectStatus = higherPriorityProjectStatus(projectStatus, reportedStatus->status);
+        const auto reportedStatus = sessionStatus(session);
+        if (reportedStatus.has_value()) {
+            projectStatus = higherPriorityProjectStatus(projectStatus, *reportedStatus);
         } else if (hasForegroundProcess(session)) {
             ++activeProcessCount;
         }

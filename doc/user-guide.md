@@ -72,81 +72,79 @@ kept.
 
 ## Agent Status Integration
 
-Kmux can show when Codex or Claude Code is running, idle, or waiting for input.
-Inside Kmux terminals, the regular `codex` and `claude` commands are
-transparently routed through Kmux helpers. The helpers install or repair the
-matching hooks on first launch, associate status with the agent process, and
-then launch the original command from the rest of `PATH`.
+Programs in Kmux terminals can report their own state, and Kmux shows it on the
+terminal tab and in the project rail: whether a program works, waits for you,
+or stopped at a usage limit. Codex 0.164 or later and current versions of
+Claude Code report their state with the
+[OSC 7501 program status sequence](https://www.superlogical.com/rex/docs/build/program-status),
+and so can any other program. This needs no setup, and it also works for agents
+that run on another machine over SSH.
 
-Codex 0.157 and later run sessions on a shared background server, which runs
-the hooks of every session with the environment of the terminal that started
-it, so every session's status would appear on that terminal's tab. Until Codex
-tells hooks which terminal triggered them
-([openai/codex#44902](https://github.com/openai/codex/issues/44902)), the
-`codex` helper adds `--no-daemon`, and each session runs its own server as
-before 0.157. These sessions do not appear in `codex agents`, and a turn stops
-when its terminal closes. The helper leaves the command unchanged for
-`codex agents`, with `--remote`, or when `KMUX_CODEX_HOOKS_DISABLED=1` is set;
-Codex status may then appear on the wrong tab.
+| Status | Project rail | Meaning |
+| --- | --- | --- |
+| Running | `run` | The program works. Background agents and tasks that it started, such as a dev server, do not count once its turn ends. |
+| Needs input | `!` | The program asks for permission, an answer, or a sign-in. |
+| Idle | `idle` | The program waits for its next instruction: its work ended, failed, or was interrupted. |
+| Rate limit reached | amber clock | The agent stopped at a usage limit. |
 
-Codex runs no hook when a turn fails, for example when the model is at
-capacity. It also reports its state with the OSC 7501 program status sequence,
-and Kmux shows the turn as idle once Codex reports that it waits for the next
-instruction.
+The terminal tab shows the same status as an icon, and the tooltips of the tab
+and the project spell it out. When several programs in a tab or project report a
+status, the most urgent one is shown: needs input, then running, then the
+usage limit, then idle.
 
-Codex reports an interrupted turn with its `Interrupt` hook, and Kmux shows it
-as idle. Claude Code reports no such event, and Escape may only close a dialog,
-such as `/usage`. While a turn runs, Claude animates a spinner at the start of
-the terminal title, so after Escape Kmux shows Claude as idle only when the
-spinner gives way to Claude's idle mark, ✳. Claude shows the same mark while it
-asks for permission, so a permission request that follows shows the request
-instead. Under tmux, screen, or zellij,
-Claude does not animate the title: Escape then shows Claude as idle right away,
-and if the turn goes on, the running status returns with Claude's next tool
-call made more than five seconds after the key press.
+A project that is not active is marked when one of its programs needs input,
+stops at a usage limit, or ends its work with a result that you have not seen
+yet. `Ctrl+Alt+A` switches to the next marked project.
 
-After a turn ends, Claude Code remains shown as running while its background
-subagents or workflows work. Background shells, such as a development server,
-and monitors do not keep it running, because they may run for as long as the
-session.
+Claude Code reports its state only after Kmux answers its support query, and it
+then leaves the spinner out of the terminal title. When a program exits without
+withdrawing its status, for example after a crash, Kmux removes the status once
+the shell returns to the foreground or prints a new prompt. Agent statuses also
+have some [known limitations](#known-limitations).
 
-When Claude Code reports that a turn stopped because of a rate limit, Kmux
-shows an amber clock in the terminal tab and project rail. The exclamation
-mark remains reserved for requests for input or permission. When another
-agent in the same tab or project is still running, the running indicator
-takes precedence, and the clock returns once that work stops. An idle reminder
-does not clear the rate-limit status; it clears when work resumes or the
-agent session ends. Kmux does not yet distinguish Claude's "Wrapping up"
-phase or show the limit reset time.
+### Usage Limits
 
-Hooks can also be installed or inspected explicitly:
+Agents report a stop at a usage limit like any other end of work, so Kmux
+learns about the limit in other ways. The clock remains until the agent starts
+new work or exits, or, for Codex, until the limit resets.
+
+Claude Code tells Kmux about it through two of its hooks, `Stop` and
+`StopFailure`. Inside Kmux terminals, the `claude` command runs through a Kmux
+helper. The helper installs or repairs these hooks in
+`~/.claude/settings.json`, then starts Claude Code from the rest of `PATH`. Set
+`KMUX_CLAUDE_HOOKS_DISABLED=1` to start Claude Code without updating the hooks.
+The hooks can also be managed explicitly:
 
 ```sh
-kmux-agent-hooks install codex
 kmux-agent-hooks install claude
+kmux-agent-hooks status claude
+kmux-agent-hooks uninstall claude
 ```
 
-The commands update the respective agent configuration under `~/.codex` or
-`~/.claude`. Use `status` or `uninstall` in place of `install` to inspect or
-remove the integration. Set `KMUX_CODEX_HOOKS_DISABLED=1` or
-`KMUX_CLAUDE_HOOKS_DISABLED=1` to launch the agent without installing or
-updating its hooks. The legacy
-`KONSOLE_CODEX_HOOKS_DISABLED=1` name remains supported for compatibility.
+For Codex, after a failed turn Kmux asks the Codex in that terminal for the
+usage limits of its signed-in account. Codex keeps working on credits after its
+included usage runs out, and Kmux then shows no clock. When Codex has stopped,
+the project tooltip shows when the limit resets. At that time the clock gives
+way to the idle status and the project is marked, because Codex can work again.
 
-Agent hooks communicate with the Kmux session through the
-`KMUX_DBUS_*` environment exported inside Kmux terminals. These helpers are
-built when DBus support is enabled.
+### Other Programs and Scripts
 
-By default, Kmux also prevents automatic system sleep while at least one
-integrated agent reports that it is running. Sleep is allowed again when all
-agents become idle, wait for input, or stop at a rate limit. This behavior can
-be disabled in the General settings and requires DBus support.
-
-Other tools and scripts can set the status of the terminal they run in with
-`kmux-project-status`, for example `kmux-project-status running` at the start
-of a long job and `kmux-project-status needsInput` when it waits for you.
+Any program can report its state with OSC 7501, for example
+`printf '\033]7501;state=working:app=build\033\\'` at the start of a long
+job and `state=done` at its end. Tools and scripts that cannot write escape
+sequences to the terminal can set its status with `kmux-project-status`, for
+example `kmux-project-status running` at the start of a long job and
+`kmux-project-status needsInput` when it waits for you.
 `kmux-project-status rateLimited` reports a stop due to a rate limit, and
-`kmux-project-status none` clears the status.
+`kmux-project-status none` clears the status. A status that a program reports
+with OSC 7501 takes precedence.
+
+### System Sleep
+
+By default, Kmux prevents automatic system sleep while at least one program
+reports that it is running. Sleep is allowed again when all programs become
+idle, wait for input, or stop at a usage limit. This behavior can be disabled
+in the General settings.
 
 ### Shift+Enter
 
@@ -157,6 +155,26 @@ Konsole](https://www.reddit.com/r/ClaudeAI/comments/1nuvtwv/configuring_shiftent
 for background and manual configuration details. Users who need Konsole's
 upstream behavior can select or customize another key binding in the active
 profile's Keyboard settings.
+
+### Upgrading From an Earlier Version
+
+Kmux versions before the OSC 7501 integration installed Codex hooks and a
+`codex` helper, which started Codex without its shared background server. Kmux
+no longer uses either. After upgrading:
+
+- remove the Codex hooks with `kmux-agent-hooks uninstall codex`. Until then
+  they do no harm: Kmux ignores them;
+- if you installed Kmux with `cmake --install`, delete the old helper files,
+  because an installation does not remove files that the new version no longer
+  installs: `bin/kmux-codex` and `kmux/agent-shims/codex` in the libexec
+  directory, both under the installation prefix (for example
+  `/usr/local/lib/libexec/kmux/agent-shims/codex`). Otherwise `codex` inside
+  Kmux still starts through the old helper, which reports a failure to install
+  hooks and starts Codex without its shared background server. Packages, such
+  as the AUR packages, remove these files themselves;
+- restart Claude Code and Codex sessions that were started before the upgrade,
+  because Claude Code asks whether the terminal supports OSC 7501 only when it
+  starts.
 
 ## Global Shortcut
 
@@ -181,8 +199,14 @@ or show a status, notification, or new tab in the wrong project.
 - The format of the saved workspace may change between alpha releases without
   migration. If an upgrade restores projects incorrectly,
   [reset the workspace state](#resetting-workspace-state).
-- Agent status integration and sleep inhibition require a build with DBus
-  support.
+- Agents that run inside a terminal multiplexer such as tmux, screen, or
+  Zellij show no status: the multiplexer does not pass OSC 7501 through to
+  Kmux. Agent versions that do not report OSC 7501, such as Codex before 0.164,
+  show no status either.
+- Codex usage limits are read only from a Codex that runs on the same Linux
+  machine as Kmux, not over SSH.
+- Claude Code usage limits, `kmux-project-status`, and sleep inhibition require
+  a build with DBus support.
 - The embeddable terminal part, `kmuxpart`, provides plain terminals without
   the project rail. Applications such as Dolphin and Kate continue to embed
   Konsole's own part.
@@ -202,4 +226,6 @@ before attaching it: it contains your project titles, working directories, and
 the commands, arguments, and profile environment variables of your terminals.
 
 To collect debug output, quit Kmux and start it from another terminal with
-`QT_LOGGING_RULES='io.github.vityas_off.kmux*.debug=true' kmux`.
+`QT_LOGGING_RULES='io.github.vityas_off.kmux*.debug=true' kmux`. For a problem with
+an agent status, the output includes what each terminal reports, in lines that
+start with "Program status of session".

@@ -25,7 +25,6 @@
 #endif
 
 // Konsole
-#include "Enumeration.h"
 #include "Shortcut_p.h"
 #include "config-konsole.h"
 #include "containers/ContainerInfo.h"
@@ -890,16 +889,11 @@ public Q_SLOTS:
     Q_SCRIPTABLE void setProjectStatusWithProcess(const QString &status, qlonglong processId);
 
     /**
-     * Sets the project-level status together with the agent lifecycle event
-     * and Claude hook identities that produced it.
+     * Reports a project-level status that an agent hook observed. Agents
+     * report their running state themselves with OSC 7501; hooks report only
+     * what that protocol cannot express, such as a stop at a usage limit.
      */
-    Q_SCRIPTABLE void setProjectStatusForAgentEvent(const QString &status,
-                                                    qlonglong processId,
-                                                    const QString &agent,
-                                                    const QString &event,
-                                                    const QString &sessionId,
-                                                    const QString &promptId,
-                                                    const QString &agentId);
+    Q_SCRIPTABLE void setProjectStatusForAgent(const QString &status, const QString &agent);
 
     /**
      * Sets the agent session title. An empty title restores the terminal-provided title.
@@ -972,22 +966,16 @@ Q_SIGNALS:
     void terminalNotificationReceived(const QString &title, const QString &body);
 
     /**
-     * Emitted when the terminal process reports its own state with the OSC
-     * 7501 program status sequence.
+     * Emitted when the records that programs report with the OSC 7501 program
+     * status sequence change. See Emulation::programStatus().
      */
-    void programStateReported(Enum::ProgramStateEnum state, const QString &app);
+    void programStatusChanged();
 
     /**
-     * Emitted when an external agent hook updates the project-level status
-     * associated with this session.
+     * Emitted when a script or an agent hook reports a project-level status
+     * for this session.
      */
-    void projectStatusChanged(const QString &status,
-                              qlonglong processId,
-                              const QString &agent,
-                              const QString &event,
-                              const QString &sessionId,
-                              const QString &promptId,
-                              const QString &agentId);
+    void projectStatusChanged(const QString &status, qlonglong processId, const QString &agent);
 
     /**
      * Requests that the background color of views on this session
