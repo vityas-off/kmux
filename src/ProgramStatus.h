@@ -16,6 +16,8 @@
 
 #include <optional>
 
+class QDebug;
+
 namespace Konsole
 {
 /**
@@ -57,6 +59,9 @@ struct ProgramStatusRecord {
 
     bool operator==(const ProgramStatusRecord &other) const = default;
 };
+
+/** Writes the record in the protocol's own key=value terms, for status logs. */
+KONSOLEPRIVATE_EXPORT QDebug operator<<(QDebug debug, const ProgramStatusRecord &record);
 
 struct ProgramStatusMessage {
     enum class Type {

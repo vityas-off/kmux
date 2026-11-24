@@ -23,6 +23,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QLockFile>
+#include <QLoggingCategory>
 #include <QProcessEnvironment>
 #include <QProxyStyle>
 #include <QStandardPaths>
@@ -144,6 +145,10 @@ int main(int argc, char *argv[])
     // Match plugins to the libraries in this installation, including when
     // launched from the desktop without the development prefix environment.
     QCoreApplication::addLibraryPath(QStringLiteral(KMUX_PLUGIN_DIRECTORY));
+
+    // Distributions silence info messages in qtlogging.ini. Keep the program
+    // status history in the journal; QT_LOGGING_RULES still overrides this.
+    QLoggingCategory::setFilterRules(QStringLiteral("io.github.vityas_off.kmux.programstatus.info=true"));
 
     /**
      * trigger initialisation of proper icon theme

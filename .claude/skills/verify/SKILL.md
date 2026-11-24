@@ -52,6 +52,12 @@ tmp=$(mktemp -d)
 grep -o 'Program status of session.*' "$tmp/run/kmux.log"
 ```
 
+Kmux always logs every change of OSC 7501 records, hook statuses, and
+derived statuses in the `io.github.vityas_off.kmux.programstatus` category at
+info level, so a desktop Kmux keeps them in the journal. To find why a status
+stuck in the user's Kmux, read
+`journalctl --user QT_CATEGORY=io.github.vityas_off.kmux.programstatus --since …`.
+
 Look at the screenshots (`$tmp/run/<name>.png`) with the Read tool: the rail
 shows `run`, `idle`, or `!` next to the project.
 
@@ -86,6 +92,8 @@ report with its time and decoded `title` and `msg`:
     --watch 30 -- --allowedTools 'Bash(sleep:*)'
 ```
 
+- `--then PROMPT` types a later prompt after the next `--watch` period, for
+  states that span several turns.
 - Each run is a real model turn on the user's account. Keep prompts short,
   and allow the tools that a prompt needs with `--allowedTools`.
 - The agent runs with a minimal environment and without the Kmux launchers

@@ -6,6 +6,7 @@
 
 #include "ProgramStatus.h"
 
+#include <QDebug>
 #include <QHash>
 #include <QStringDecoder>
 
@@ -85,6 +86,38 @@ std::optional<ProgramState> stateFromValue(QStringView value)
         return ProgramState::Error;
     }
     return std::nullopt;
+}
+
+QLatin1String valueFromState(ProgramState state)
+{
+    switch (state) {
+    case ProgramState::Idle:
+        return QLatin1String("idle");
+    case ProgramState::Working:
+        return QLatin1String("working");
+    case ProgramState::Done:
+        return QLatin1String("done");
+    case ProgramState::Blocked:
+        return QLatin1String("blocked");
+    case ProgramState::Error:
+        return QLatin1String("error");
+    }
+    return QLatin1String("idle");
+}
+
+QLatin1String valueFromKind(ProgramStatusKind kind)
+{
+    switch (kind) {
+    case ProgramStatusKind::None:
+        return {};
+    case ProgramStatusKind::Permission:
+        return QLatin1String("permission");
+    case ProgramStatusKind::Question:
+        return QLatin1String("question");
+    case ProgramStatusKind::Auth:
+        return QLatin1String("auth");
+    }
+    return {};
 }
 
 ProgramStatusKind kindFromValue(QStringView value)
@@ -324,4 +357,27 @@ QString ProgramStatusRecords::app(const QString &id) const
         const qsizetype separator = ancestor.lastIndexOf(QLatin1Char('/'));
         ancestor = separator < 0 ? QString() : ancestor.first(separator);
     }
+}
+
+QDebug Konsole::operator<<(QDebug debug, const ProgramStatusRecord &record)
+{
+    const QDebugStateSaver saver(debug);
+    debug.nospace() << "{id=" << record.id << " state=" << valueFromState(record.state);
+    if (record.kind != ProgramStatusKind::None) {
+        debug << " kind=" << valueFromKind(record.kind);
+    }
+    if (record.progress.has_value()) {
+        debug << " progress=" << *record.progress;
+    }
+    if (!record.app.isEmpty()) {
+        debug << " app=" << record.app;
+    }
+    if (!record.title.isEmpty()) {
+        debug << " title=" << record.title;
+    }
+    if (!record.message.isEmpty()) {
+        debug << " msg=" << record.message;
+    }
+    debug << '}';
+    return debug;
 }

@@ -84,6 +84,17 @@ ecm_qt_declare_logging_category(konsolelogging
     EXPORT KONSOLE
 )
 
+# Enabled by default and in main(), so that a desktop Kmux keeps the program
+# status history in the journal for diagnosing a wrong status after the fact.
+ecm_qt_declare_logging_category(konsolelogging
+    HEADER programstatusdebug.h
+    IDENTIFIER KonsoleProgramStatusDebug
+    CATEGORY_NAME io.github.vityas_off.kmux.programstatus
+    DEFAULT_SEVERITY Info
+    DESCRIPTION "Kmux program status"
+    EXPORT KONSOLE
+)
+
 add_subdirectory(colorscheme)
 add_subdirectory(keyboardtranslator)
 add_subdirectory(characters)

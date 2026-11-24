@@ -11,6 +11,7 @@
 #include "KonsoleSettings.h"
 #include "config-konsole.h"
 #include "konsoledebug.h"
+#include "programstatusdebug.h"
 #include "workspaces/AgentSleepInhibitor.h"
 #include "workspaces/CodexUsageLimit.h"
 
@@ -3195,6 +3196,7 @@ void ViewManager::handleSessionProjectStatusChanged(const QString &status, qlong
 
     const auto previousStatus = sessionStatus(session);
     const auto reportedStatus = projectStatusFromString(status);
+    qCInfo(KonsoleProgramStatusDebug) << "Hook status of session" << session->sessionId() << "agent" << agent << "status" << status << "process" << processId;
     if (agent.trimmed().isEmpty()) {
         if (reportedStatus == ProjectWorkspaceContainer::ProjectStatus::None) {
             _reportedSessionStatuses.remove(session);
@@ -3228,8 +3230,7 @@ void ViewManager::handleSessionProgramStatusChanged()
     const auto previousStatus = sessionStatus(session);
     const ProgramStatusRecords &records = session->emulation()->programStatus();
     const auto status = projectStatusFromProgramStatus(records);
-    qCDebug(KonsoleDebug) << "Program status of session" << session->sessionId() << "app" << records.app({}) << "records" << records.records().size()
-                          << "status" << status;
+    qCInfo(KonsoleProgramStatusDebug) << "Program status of session" << session->sessionId() << "status" << status << "records" << records.records();
     if (status == ProjectWorkspaceContainer::ProjectStatus::None) {
         _programSessionStatuses.remove(session);
         sessionStatusChanged(session, previousStatus, false);
@@ -3364,6 +3365,9 @@ void ViewManager::sessionStatusChanged(Session *session, std::optional<ProjectWo
     const auto status = sessionStatus(session);
     const auto containers = containersForSession(session);
     const bool statusChanged = status != previousStatus;
+    if (statusChanged) {
+        qCInfo(KonsoleProgramStatusDebug) << "Status of session" << session->sessionId() << "changed from" << previousStatus << "to" << status;
+    }
     if (demandsAttention || (statusChanged && status.has_value() && isWaitingForUser(*status))) {
         for (TabbedViewContainer *container : containers) {
             markSessionAttention(session, container);

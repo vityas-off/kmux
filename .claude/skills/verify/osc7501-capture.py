@@ -5,12 +5,13 @@
 
 Usage:
   osc7501-capture.py LOG PROMPT [--agent PATH] [--project DIR]
-                     [--watch SECONDS] [-- AGENT_ARGUMENTS...]
+                     [--watch SECONDS] [--then PROMPT]... [-- AGENT_ARGUMENTS...]
 
 The pty answers the OSC 7501 support query, so Claude Code reports its state
 as it would in Kmux. After startup the script types PROMPT, logs every OSC
 7501 report with its time since launch (title and msg decoded) for --watch
-seconds, appends the end of the screen, and stops the agent with SIGTERM,
+seconds, types each --then prompt followed by another --watch period, appends
+the end of the screen, and stops the agent with SIGTERM,
 which also ends its background tasks.
 
 The agent runs with a minimal environment: no Kmux, Konsole, or parent
@@ -48,7 +49,8 @@ def arguments():
     parser.add_argument('prompt')
     parser.add_argument('--agent', help='agent executable; default: the first claude on PATH outside the Kmux launchers')
     parser.add_argument('--project', help='working directory; default: a new empty temporary directory')
-    parser.add_argument('--watch', type=float, default=45, help='seconds to log after sending the prompt')
+    parser.add_argument('--watch', type=float, default=45, help='seconds to log after sending each prompt')
+    parser.add_argument('--then', action='append', default=[], metavar='PROMPT', help='a later prompt, typed after the previous --watch period; repeatable')
     parser.add_argument('agent_arguments', nargs='*')
     return parser.parse_args()
 
@@ -173,13 +175,14 @@ def main():
             capture.pump(0.5)
             capture.write(b'\r')
             capture.pump(5)
-        capture.note('typing the prompt')
-        for character in options.prompt:
-            capture.write(character.encode())
-            time.sleep(0.01)
-        capture.pump(1)
-        capture.write(b'\r')
-        capture.pump(options.watch)
+        for prompt in [options.prompt, *options.then]:
+            capture.note(f'typing the prompt: {prompt}')
+            for character in prompt:
+                capture.write(character.encode())
+                time.sleep(0.01)
+            capture.pump(1)
+            capture.write(b'\r')
+            capture.pump(options.watch)
         capture.note('end of the screen:')
         log.write(capture.visible()[-1500:].decode(errors='replace') + '\n')
         os.kill(process_id, signal.SIGTERM)
