@@ -16,8 +16,8 @@ tabs and split views, and switching projects never stops a running session.
 - independent tabs and split views in every project; tabs can be moved between
   projects;
 - activity indicators, notifications, and the statuses of Claude Code, Codex,
-  and other programs (running, needs input, idle, usage limit) on projects and
-  tabs;
+  OpenCode, Pi, and other programs (running, needs input, idle, usage limit) on
+  projects and tabs;
 - restoration of projects, tabs, splits, and working directories after a
   restart;
 - everything else from Konsole: profiles, color schemes, shortcuts, search,
@@ -87,8 +87,9 @@ Kmux leaves `Ctrl+Alt+T` to Konsole; the
 [user guide](doc/user-guide.md#global-shortcut) explains how to assign a global
 shortcut to Kmux.
 
-Codex and Claude Code report their status to Kmux themselves, without any
-setup. The [user guide](doc/user-guide.md) explains the agent integration and
+Codex, Claude Code, OpenCode 2, and Pi report their status to Kmux themselves,
+without any setup. The [user guide](doc/user-guide.md) explains the agent
+integration, including a plugin for OpenCode 1, and
 what to do after upgrading from an earlier build, what workspace restoration
 brings back, and how to reset a broken workspace.
 

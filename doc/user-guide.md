@@ -74,11 +74,12 @@ kept.
 
 Programs in Kmux terminals can report their own state, and Kmux shows it on the
 terminal tab and in the project rail: whether a program works, waits for you,
-or stopped at a usage limit. Codex 0.164 or later and current versions of
-Claude Code report their state with the
+or stopped at a usage limit. Codex 0.164 or later, current versions of Claude
+Code, OpenCode 2.2 or later, and Pi 1.1 or later report their state with the
 [OSC 7501 program status sequence](https://www.superlogical.com/rex/docs/build/program-status),
 and so can any other program. This needs no setup, and it also works for agents
-that run on another machine over SSH.
+that run on another machine over SSH. OpenCode 1 needs a plugin; see
+[OpenCode](#opencode).
 
 | Status | Project rail | Meaning |
 | --- | --- | --- |
@@ -126,6 +127,42 @@ usage limits of its signed-in account. Codex keeps working on credits after its
 included usage runs out, and Kmux then shows no clock. When Codex has stopped,
 the project tooltip shows when the limit resets. At that time the clock gives
 way to the idle status and the project is marked, because Codex can work again.
+
+### OpenCode
+
+OpenCode 2.2 or later reports whether it works or waits for you. It ends a turn
+as idle instead of reporting a result, so a finished turn does not mark its
+project ([opencode#60411](https://github.com/anomalyco/opencode/issues/60411)).
+The [opencode-rex-status](https://github.com/martinmiglio/opencode-rex-status)
+plugin adds the result. It is written for the Rex terminal and runs elsewhere
+only with its `force` option: install it as its README describes, then list it
+in `~/.config/opencode/cli.json` with that option:
+
+```json
+{
+  "plugins": [
+    { "package": "./tui-plugins/opencode-rex-status", "options": { "force": true } }
+  ]
+}
+```
+
+When one OpenCode terminal runs several sessions at once, the plugin reports
+the result only once none of them works, and only then is the project marked.
+
+OpenCode 1 does not report its state. The
+[@kodein/opencode1-osc-7501](https://github.com/KodeinKoders/opencode1-osc-7501)
+plugin reports it for each OpenCode session, including finished turns. Add it
+to `~/.config/opencode/opencode.json`, and OpenCode installs it on its next
+start:
+
+```json
+{
+  "plugin": ["@kodein/opencode1-osc-7501"]
+}
+```
+
+Both plugins come from their own authors; Kmux does not install or update
+them.
 
 ### Other Programs and Scripts
 
@@ -203,6 +240,12 @@ or show a status, notification, or new tab in the wrong project.
   Zellij show no status: the multiplexer does not pass OSC 7501 through to
   Kmux. Agent versions that do not report OSC 7501, such as Codex before 0.164,
   show no status either.
+- OpenCode 2 terminals that run in the same directory share one tab strip by
+  default, and each reports the status of every session in it, so they all
+  show the same status
+  ([opencode#63134](https://github.com/anomalyco/opencode/issues/63134)).
+  `"tabs": { "mode": "off" }` in `~/.config/opencode/cli.json` keeps their
+  statuses apart, at the cost of OpenCode's tab strip.
 - Codex usage limits are read only from a Codex that runs on the same Linux
   machine as Kmux, not over SSH.
 - Claude Code usage limits, `kmux-project-status`, and sleep inhibition require
