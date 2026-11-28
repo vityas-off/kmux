@@ -2626,7 +2626,7 @@ void ViewManagerTest::testProgramStatusOfBackgroundTasks()
 
     // Background tasks, such as a dev server, do not keep the program running
     // after its turn ends.
-    receiveProgramStatus(session, "state=working:id=b1:title=UnVuIHRoZSBkZXYgc2VydmVy");
+    receiveProgramStatus(session, "state=working:id=b1:app=claude-code:title=UnVuIHRoZSBkZXYgc2VydmVy");
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);
     receiveProgramStatus(session, "state=clear:id=b1");
 
@@ -2645,6 +2645,133 @@ void ViewManagerTest::testProgramStatusOfBackgroundTasks()
     const QByteArray prompt = QByteArrayLiteral("\033]133;A\007");
     session->emulation()->receiveData(prompt.constData(), prompt.size());
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::None);
+}
+
+void ViewManagerTest::testProgramStatusWithoutRootRecord()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    Session *session = firstProject->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session();
+    QVERIFY(session != nullptr);
+
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != nullptr);
+    QVERIFY(secondProject != firstProject);
+    const auto acknowledgeFirstProject = [workspaces, firstProject, secondProject]() {
+        workspaces->activateProject(firstProject);
+        workspaces->activateProject(secondProject);
+    };
+
+    // The OSC 7501 plugin for OpenCode 1 reports its startup and each session
+    // under an id of its own, without a root record.
+    receiveProgramStatus(session, "state=idle:id=opencode:app=opencode");
+    receiveProgramStatus(session, "state=idle:id=ses_a:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    receiveProgramStatus(session, "state=working:id=ses_a:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+
+    receiveProgramStatus(session, "state=done:id=ses_a:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(workspaces->projectHasActivity(firstProject));
+
+    // The same result reported again is not new.
+    acknowledgeFirstProject();
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+    receiveProgramStatus(session, "state=done:id=ses_a:app=opencode");
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+
+    // Another session works and fails while the first keeps its result.
+    receiveProgramStatus(session, "state=working:id=ses_b:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+    receiveProgramStatus(session, "state=error:id=ses_b:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(workspaces->projectHasActivity(firstProject));
+
+    // These records are the program's own, so a block without a reason
+    // waits for the user as well.
+    receiveProgramStatus(session, "state=blocked:id=ses_b:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::NeedsInput);
+
+    // Once the program reports a root record, the records beneath it only
+    // describe tasks that it started.
+    receiveProgramStatus(session, "state=idle:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    acknowledgeFirstProject();
+    receiveProgramStatus(session, "state=working:id=ses_b:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    receiveProgramStatus(session, "state=done:id=ses_b:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+}
+
+void ViewManagerTest::testProgramStatusOfTaskAfterProgramRecordEnds()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    Session *session = firstProject->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session();
+    QVERIFY(session != nullptr);
+    viewManager->createProject();
+    QVERIFY(viewManager->activeContainer() != firstProject);
+
+    // A task beneath the program reports its result, which does not mark the project.
+    receiveProgramStatus(session, "state=working:app=opencode");
+    receiveProgramStatus(session, "state=done:id=ses_a:app=opencode");
+    receiveProgramStatus(session, "state=idle:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+
+    // A new shell prompt drops the program's own record. The result of the
+    // task remains, and it is not new.
+    const QByteArray prompt = QByteArrayLiteral("\033]133;A\007");
+    session->emulation()->receiveData(prompt.constData(), prompt.size());
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+}
+
+void ViewManagerTest::testProgramStatusBeneathRootRecordOfAnotherApp()
+{
+    auto mw = MainWindow();
+    auto *viewManager = mw.viewManager();
+    auto *workspaces = viewManager->_workspaceContainer.data();
+    QVERIFY(workspaces != nullptr);
+
+    mw.newTab();
+    auto *firstProject = viewManager->activeContainer();
+    QVERIFY(firstProject != nullptr);
+    Session *session = firstProject->activeViewSplitter()->activeTerminalDisplay()->sessionController()->session();
+    QVERIFY(session != nullptr);
+    viewManager->createProject();
+    auto *secondProject = viewManager->activeContainer();
+    QVERIFY(secondProject != firstProject);
+
+    // A script reported the end of its job from the shell and left its record.
+    receiveProgramStatus(session, "state=done:app=build");
+    QVERIFY(workspaces->projectHasActivity(firstProject));
+    workspaces->activateProject(firstProject);
+    workspaces->activateProject(secondProject);
+
+    // A program of another app that reports only under ids is not a task of the script.
+    receiveProgramStatus(session, "state=working:id=ses_a:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Running);
+    QVERIFY(!workspaces->projectHasActivity(firstProject));
+    receiveProgramStatus(session, "state=done:id=ses_a:app=opencode");
+    QCOMPARE(workspaces->projectStatus(firstProject), ProjectWorkspaceContainer::ProjectStatus::Idle);
+    QVERIFY(workspaces->projectHasActivity(firstProject));
 }
 
 void ViewManagerTest::testAgentHooksOnlyReportClaudeRateLimit()
@@ -2896,7 +3023,7 @@ void ViewManagerTest::testLateUsageLimitAnswerIsIgnored()
 
     session->sendTextToTerminal(QStringLiteral("PATH=%1:$PATH codex").arg(m_testDir->path()), QLatin1Char('\r'));
     QTRY_COMPARE_WITH_TIMEOUT(viewManager->_usageLimitRequestSerial, quint64(1), 5000);
-    QTRY_VERIFY_WITH_TIMEOUT(viewManager->_programSessionStatuses.value(session).rootState == ProgramState::Done, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(viewManager->_programSessionStatuses.value(session).recordStates.value(QString()) == ProgramState::Done, 5000);
     // Let the late answer arrive.
     QTest::qWait(2000);
     QCOMPARE(workspaces->projectStatus(project), ProjectWorkspaceContainer::ProjectStatus::Idle);

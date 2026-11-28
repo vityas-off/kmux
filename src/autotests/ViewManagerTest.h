@@ -41,6 +41,9 @@ private Q_SLOTS:
     void testProjectWorkspaceStatusClearsWhenAgentExits();
     void testProgramStatusDrivesProjectStatus();
     void testProgramStatusOfBackgroundTasks();
+    void testProgramStatusWithoutRootRecord();
+    void testProgramStatusOfTaskAfterProgramRecordEnds();
+    void testProgramStatusBeneathRootRecordOfAnotherApp();
     void testAgentHooksOnlyReportClaudeRateLimit();
     void testProgramStatusClearsWhenProgramReturnsToShell();
     void testCodexUsageLimitShowsUntilReset();

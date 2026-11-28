@@ -147,23 +147,34 @@ bool isActive(ProjectWorkspaceContainer::ProjectStatus status)
     return status == ProjectWorkspaceContainer::ProjectStatus::Running || status == ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
 }
 
+// Whether a record reports the state of a program itself. When a program
+// reports a root record, the records beneath it with the same app describe
+// tasks that it started: Claude Code reports every background task as working,
+// including dev servers and other shells that run for the whole session while
+// the agent waits for input. A program can also report all of its work under
+// ids, without a root, even when another app left a root record behind.
+bool isProgramOwnRecord(const ProgramStatusRecords &programStatus, const ProgramStatusRecord &record)
+{
+    return record.id.isEmpty() || !programStatus.record({}).has_value() || programStatus.app(record.id) != programStatus.app({});
+}
+
 ProjectWorkspaceContainer::ProjectStatus projectStatusFromProgramStatus(const ProgramStatusRecords &programStatus)
 {
     const auto records = programStatus.records();
     // A blocked program waits for the user even when it does not say why, but
     // a task beneath it that gives no reason is paused, not asking anything.
-    const bool waitsForUser = std::any_of(records.cbegin(), records.cend(), [](const ProgramStatusRecord &record) {
-        return record.state == ProgramState::Blocked && (record.id.isEmpty() || record.kind != ProgramStatusKind::None);
+    const bool waitsForUser = std::any_of(records.cbegin(), records.cend(), [&programStatus](const ProgramStatusRecord &record) {
+        return record.state == ProgramState::Blocked && (isProgramOwnRecord(programStatus, record) || record.kind != ProgramStatusKind::None);
     });
     if (waitsForUser) {
         return ProjectWorkspaceContainer::ProjectStatus::NeedsInput;
     }
 
-    // Only the program's own work counts as running. Claude Code reports every
-    // background task beneath it as working, including dev servers and other
-    // shells that run for the whole session while the agent waits for input.
-    const auto root = programStatus.record({});
-    if (root.has_value() && root->state == ProgramState::Working) {
+    // Only the program's own work counts as running, not the tasks it started.
+    const bool works = std::any_of(records.cbegin(), records.cend(), [&programStatus](const ProgramStatusRecord &record) {
+        return record.state == ProgramState::Working && isProgramOwnRecord(programStatus, record);
+    });
+    if (works) {
         return ProjectWorkspaceContainer::ProjectStatus::Running;
     }
 
@@ -3237,11 +3248,22 @@ void ViewManager::handleSessionProgramStatusChanged()
         return;
     }
 
-    const auto root = records.record({});
-    const auto rootState = root.has_value() ? std::optional<ProgramState>(root->state) : std::nullopt;
     auto &programStatus = _programSessionStatuses[session];
-    // Done and error mean a result that the user has not seen yet.
-    const bool hasNewResult = rootState != programStatus.rootState && (rootState == ProgramState::Done || rootState == ProgramState::Error);
+    // Done and error mean a result that the user has not seen yet. A record
+    // that reports the same result again, or keeps an earlier one while
+    // another record changes, brings nothing new. Neither does the result of
+    // a task that remains after the program's own record ends.
+    bool hasNewResult = false;
+    QHash<QString, ProgramState> recordStates;
+    const auto allRecords = records.records();
+    for (const ProgramStatusRecord &record : allRecords) {
+        recordStates.insert(record.id, record.state);
+        const auto previousState = programStatus.recordStates.constFind(record.id);
+        if ((record.state == ProgramState::Done || record.state == ProgramState::Error) && isProgramOwnRecord(records, record)
+            && (previousState == programStatus.recordStates.cend() || *previousState != record.state)) {
+            hasNewResult = true;
+        }
+    }
     // New work after a stop at a usage limit means that the limit is over,
     // and that an answer about the earlier failed turn no longer applies.
     if (isActive(status) && !isActive(programStatus.status)) {
@@ -3250,12 +3272,13 @@ void ViewManager::handleSessionProgramStatusChanged()
         programStatus.usageLimitRequest = 0;
     }
     programStatus.status = status;
-    programStatus.rootState = rootState;
+    programStatus.recordStates = recordStates;
     if (session->isRunning() && session->isForegroundProcessActive()) {
         programStatus.reportedFromForeground = true;
     }
     sessionStatusChanged(session, previousStatus, hasNewResult);
-    if (hasNewResult && rootState == ProgramState::Error && records.app({}) == QLatin1String(CodexProgramStatusApp)) {
+    const auto root = records.record({});
+    if (hasNewResult && root.has_value() && root->state == ProgramState::Error && records.app({}) == QLatin1String(CodexProgramStatusApp)) {
         checkCodexUsageLimit(session);
     }
 }

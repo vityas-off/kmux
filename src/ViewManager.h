@@ -603,7 +603,8 @@ private:
     // The status that programs in a terminal report with OSC 7501.
     struct ProgramSessionStatus {
         ProjectWorkspaceContainer::ProjectStatus status = ProjectWorkspaceContainer::ProjectStatus::None;
-        std::optional<ProgramState> rootState;
+        // The state of every record by id, to tell a new result from a known one.
+        QHash<QString, ProgramState> recordStates;
         // The reporting program ran in the foreground, so a return to the
         // shell means that it exited.
         bool reportedFromForeground = false;
